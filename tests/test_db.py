@@ -68,8 +68,8 @@ def test_needs_sync_global_url_mode():
         ) == ["10.0.0.2", "10.0.0.3"]
         # per_device + 다중 기기: 미전송 기기 존재
         assert db.needs_sync(url, ["10.0.0.2", "10.0.0.3"], history_mode="per_device")
-        # per_device + 단일 기기: device_ip 불일치여도 URL 이력 있으면 스킵
-        assert not db.needs_sync(url, ["10.0.0.2"], history_mode="per_device")
+        # per_device + 단일 기기라도 다른 기기 키의 이력을 전역 완료로 취급하지 않음
+        assert db.needs_sync(url, ["10.0.0.2"], history_mode="per_device")
     finally:
         _cleanup_db(db, path)
 
@@ -256,5 +256,43 @@ def test_db_wal_mode_enabled():
         with db._connect() as conn:
             mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
             assert mode.lower() == "wal"
+    finally:
+        _cleanup_db(db, path)
+
+
+def test_deleted_history_tombstone_blocks_stale_remote_and_allows_resend():
+    db, path = _make_db()
+    try:
+        url = "https://example.com/deleted"
+        device = "dev_primary"
+        db.mark_synced(url, "site", "old", device_ip=device)
+        old_post = db.export_all_posts()[0]
+
+        db.delete_entry(url)
+        tombstones = db.export_deleted_posts()
+        assert len(tombstones) == 1
+        assert not db.is_synced_for_device(url, device)
+
+        assert db.import_posts_union([old_post]) == 0
+        assert not db.is_synced_for_device(url, device)
+
+        db.mark_synced(url, "site", "resent", device_ip=device)
+        assert db.is_synced_for_device(url, device)
+        assert db.export_deleted_posts() == []
+    finally:
+        _cleanup_db(db, path)
+
+
+def test_import_newer_tombstone_removes_local_history():
+    db, path = _make_db()
+    try:
+        url = "https://example.com/remote-delete"
+        device = "dev_other"
+        db.mark_synced(url, "site", "title", device_ip=device)
+        changed = db.import_deleted_posts(
+            [{"url": url, "device_ip": device, "deleted_at": "2099-01-01T00:00:00"}]
+        )
+        assert changed == 1
+        assert not db.is_synced_for_device(url, device)
     finally:
         _cleanup_db(db, path)

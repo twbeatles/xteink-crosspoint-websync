@@ -2,6 +2,7 @@
 import os
 import re
 import secrets
+import sys
 import threading
 from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -11,6 +12,8 @@ from urllib.parse import quote, unquote, urlparse, parse_qs
 
 class _OPDSHTTPServer(ThreadingHTTPServer):
     """핸들러에 OPDS 설정을 주입하는 HTTP 서버 (ThreadingHTTPServer — 동시 요청 처리, N6)."""
+
+    daemon_threads = False
 
     def __init__(
         self,
@@ -24,9 +27,17 @@ class _OPDSHTTPServer(ThreadingHTTPServer):
         self.require_auth = require_auth
         super().__init__(server_address, OPDSHandler)
 
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (ConnectionResetError, BrokenPipeError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
+
 
 class OPDSHandler(BaseHTTPRequestHandler):
     """OPDS XML 카탈로그 및 파일 다운로드를 처리하는 HTTP 핸들러"""
+
+    protocol_version = "HTTP/1.0"
+    timeout = 2
 
     @property
     def _ctx(self) -> _OPDSHTTPServer:
@@ -113,6 +124,7 @@ class OPDSHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        self.wfile.flush()
 
     def _serve_file(self):
         path = self.path.split("?", 1)[0]
@@ -152,6 +164,7 @@ class OPDSHandler(BaseHTTPRequestHandler):
                 if not chunk:
                     break
                 self.wfile.write(chunk)
+        self.wfile.flush()
 
 
 class OPDSServer:
@@ -189,6 +202,7 @@ class OPDSServer:
                 self.api_key,
                 self.require_auth,
             )
+            self.port = self._server.server_port
             self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
             self._thread.start()
             self._running = True
@@ -198,10 +212,15 @@ class OPDSServer:
             return False
 
     def stop(self):
-        if self._server:
-            self._server.shutdown()
-            self._server = None
+        server, thread = self._server, self._thread
+        self._server = None
+        self._thread = None
         self._running = False
+        if server:
+            server.shutdown()
+            server.server_close()
+        if thread and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
 
     @property
     def is_running(self) -> bool:

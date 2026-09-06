@@ -8,6 +8,8 @@ from websync.backup.format import (
     SITES_FILENAME,
     build_history_payload,
     build_sites_payload,
+    extract_deleted_sites,
+    extract_deleted_posts,
     is_remote_newer,
     merge_sites,
 )
@@ -271,5 +273,107 @@ def test_history_payload_helpers():
         [{"url": "u", "device_ip": "1.1.1.1", "site_name": "s", "title": "t", "synced_at": "2026-01-01 00:00:00"}]
     )
     assert payload["kind"] == "synced_posts"
+    assert payload["export_version"] == 2
+    assert extract_deleted_posts(payload) == []
     sites = build_sites_payload([{"name": "n", "type": "rss", "url": "https://x"}])
-    assert sites["export_version"] == 2
+    assert sites["export_version"] == 3
+    assert extract_deleted_sites(sites) == []
+
+
+def test_backup_propagates_history_deletion_without_resurrection():
+    tmp = tempfile.mkdtemp()
+    try:
+        cloud = os.path.join(tmp, "cloud")
+        os.makedirs(cloud)
+
+        def make_service(name):
+            cm = ConfigManager(os.path.join(tmp, f"{name}.json"))
+            cfg = cm.load_config()
+            cfg["backup_sync"] = {
+                "enabled": True,
+                "folder": cloud,
+                "include_history": True,
+                "auto_export": True,
+            }
+            cm.save_config(cfg)
+            db = SyncHistoryDb(os.path.join(tmp, f"{name}.db"))
+            return cm, db, BackupSyncService(cm, db)
+
+        cm1, db1, svc1 = make_service("one")
+        cm2, db2, svc2 = make_service("two")
+        url = "https://example.com/shared-delete"
+        device = "dev_primary"
+        db1.mark_synced(url, "site", "title", device_ip=device)
+        assert svc1.push(force=True)["ok"]
+        assert svc2.pull(force=True)["ok"]
+        assert db2.is_synced_for_device(url, device)
+
+        db1.delete_entry(url)
+        assert svc1.push(force=True)["ok"]
+        assert svc2.pull(force=True)["ok"]
+        assert not db2.is_synced_for_device(url, device)
+
+        assert svc2.push(force=True)["ok"]
+        with open(os.path.join(cloud, HISTORY_FILENAME), encoding="utf-8") as f:
+            payload = json.load(f)
+        assert payload["posts"] == []
+        assert len(payload["deleted_posts"]) == 1
+        _cleanup_objs(svc2, svc1, db2, db1, cm2, cm1)
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_backup_propagates_site_tombstone_without_resurrection():
+    from websync.backup.format import now_iso
+    from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
+
+    tmp = tempfile.mkdtemp()
+    try:
+        cloud = os.path.join(tmp, "cloud")
+        os.makedirs(cloud)
+
+        def make_service(name):
+            cm = ConfigManager(os.path.join(tmp, f"{name}.json"))
+            cfg = cm.load_config()
+            cfg["sites"] = []
+            cfg["backup_sync"] = {
+                "enabled": True, "folder": cloud, "include_history": False,
+                "auto_export": True,
+            }
+            cm.save_config(cfg)
+            db = SyncHistoryDb(os.path.join(tmp, f"{name}.db"))
+            return cm, db, BackupSyncService(cm, db)
+
+        cm1, db1, svc1 = make_service("site-one")
+        cm2, db2, svc2 = make_service("site-two")
+        url = "https://feed.example/rss"
+        cfg1 = cm1.load_config()
+        cfg1["sites"] = [{
+            "name": "Shared", "type": "rss", "url": url,
+            "_sync_updated_at": "2026-01-01T00:00:00",
+        }]
+        cm1.save_config(cfg1)
+        assert svc1.push(force=True)["ok"]
+        assert svc2.pull(force=True)["ok"]
+        assert any(s.get("url") == url for s in cm2.load_config()["sites"])
+
+        def delete_site(cfg):
+            cfg["sites"] = [s for s in cfg.get("sites", []) if s.get("url") != url]
+            portable = get_portable_cfg(cfg)
+            portable["deleted_sites"] = [{"url": url, "deleted_at": now_iso()}]
+            apply_portable_cfg(cfg, portable)
+
+        cm1.update_config(delete_site)
+        assert svc1.push(force=True)["ok"]
+        assert svc2.pull(force=True)["ok"]
+        assert not any(s.get("url") == url for s in cm2.load_config()["sites"])
+        assert svc2.push(force=True)["ok"]
+        with open(os.path.join(cloud, SITES_FILENAME), encoding="utf-8") as f:
+            payload = json.load(f)
+        assert not any(s.get("url") == url for s in payload["sites"])
+        assert payload["deleted_sites"][0]["url"] == url
+        _cleanup_objs(svc2, svc1, db2, db1, cm2, cm1)
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)

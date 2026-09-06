@@ -12,7 +12,7 @@ from websync.gui.widgets import (
 )
 from websync.db.history import SyncHistoryDbError
 from websync.backup.atomic_io import read_json_safe, write_json_atomic
-from websync.backup.format import build_history_payload, extract_posts
+from websync.backup.format import build_history_payload, extract_deleted_posts, extract_posts
 
 
 class HistoryTab(ctk.CTkFrame):
@@ -144,7 +144,8 @@ class HistoryTab(ctk.CTkFrame):
             return
         try:
             posts = self.db.export_all_posts()
-            write_json_atomic(file_path, build_history_payload(posts))
+            deleted_posts = self.db.export_deleted_posts()
+            write_json_atomic(file_path, build_history_payload(posts, deleted_posts=deleted_posts))
             messagebox.showinfo("완료", f"이력 {len(posts)}건을 내보냈습니다.")
             self.app._log_message(f"☁ 이력 JSON 내보내기: {len(posts)}건 → {file_path}")
         except Exception as e:
@@ -160,13 +161,15 @@ class HistoryTab(ctk.CTkFrame):
         try:
             payload = read_json_safe(file_path)
             posts, _ = extract_posts(payload)
-            if not posts:
+            deleted_posts = extract_deleted_posts(payload)
+            if not posts and not deleted_posts:
                 messagebox.showwarning(
                     "형식 오류",
                     "올바른 이력 JSON이 아닙니다. (kind=synced_posts 또는 posts 배열 필요)",
                 )
                 return
-            changed = self.db.import_posts_union(posts)
+            changed = self.db.import_deleted_posts(deleted_posts)
+            changed += self.db.import_posts_union(posts)
             self._refresh_history()
             self.service.schedule_backup_push()
             messagebox.showinfo(

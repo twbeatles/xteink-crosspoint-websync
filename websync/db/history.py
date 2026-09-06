@@ -1,6 +1,8 @@
 import sqlite3
 import os
 import threading
+from contextlib import contextmanager
+from datetime import datetime
 from websync.core.paths import PROJECT_ROOT, resolve_path
 
 LEGACY_DEVICE_IP = "*"
@@ -34,9 +36,17 @@ class SyncHistoryDb:
             self.db_path = resolve_path(db_path)
         self._init_db()
 
+    @contextmanager
     def _connect(self):
         conn = sqlite3.connect(self.db_path, timeout=10.0)
-        return conn
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def _init_db(self):
         with self._db_lock:
@@ -59,6 +69,7 @@ class SyncHistoryDb:
                             self._migrate_legacy_schema(conn)
                     else:
                         self._create_v2_table(conn)
+                    self._create_deleted_posts_table(conn)
                     conn.commit()
             except SyncHistoryDbError:
                 raise
@@ -74,6 +85,17 @@ class SyncHistoryDb:
                 site_name TEXT,
                 title TEXT,
                 synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (url, device_ip)
+            )
+        """)
+
+    @staticmethod
+    def _create_deleted_posts_table(conn: sqlite3.Connection):
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS deleted_posts (
+                url TEXT NOT NULL,
+                device_ip TEXT NOT NULL,
+                deleted_at TEXT NOT NULL,
                 PRIMARY KEY (url, device_ip)
             )
         """)
@@ -135,8 +157,7 @@ class SyncHistoryDb:
           - global_url: URL 이력이 하나라도 있으면 False (전역 스킵)
         target_ips 는 실제로는 이력 키 목록(안정 device id 또는 IP)일 수 있습니다.
         key_aliases: 기기별 후보 키 목록 (id·현재 IP·과거 host). 있으면 target_ips 대신 사용.
-        단일 기기(대상 1개)일 때: 예전에 crosspoint.local 등으로 기록된 이력이
-        현재 IP와 달라도 URL 이력이 있으면 스킵 (단일 기기 호환).
+        주소 변경 호환성은 key_aliases의 안정 ID·이전 주소로만 판정합니다.
         """
         if not url:
             return False
@@ -152,10 +173,6 @@ class SyncHistoryDb:
 
         if not groups:
             return not self.is_synced(url)
-
-        # 단일 기기: device_ip 가 바뀌어도 (crosspoint.local → LAN IP) 기존 이력 유지
-        if len(groups) == 1 and self.is_synced(url):
-            return False
 
         return any(not self.is_synced_for_any_key(url, g) for g in groups)
 
@@ -191,9 +208,6 @@ class SyncHistoryDb:
             if self.is_synced(url):
                 return []
             return [(g[0] if g else "") for g in groups if g]
-
-        if len(groups) == 1 and self.is_synced(url):
-            return []
 
         pending: list[str] = []
         for g in groups:
@@ -256,6 +270,10 @@ class SyncHistoryDb:
                         VALUES (?, ?, ?, ?)
                         """,
                         rows,
+                    )
+                    cursor.executemany(
+                        "DELETE FROM deleted_posts WHERE url = ? AND device_ip = ?",
+                        [(url, device_ip) for url, device_ip, _site, _title in rows],
                     )
                     conn.commit()
                     return len(rows)
@@ -329,6 +347,14 @@ class SyncHistoryDb:
             try:
                 with self._connect() as conn:
                     cursor = conn.cursor()
+                    deleted_at = datetime.now().isoformat(timespec="microseconds")
+                    cursor.execute(
+                        """
+                        INSERT OR REPLACE INTO deleted_posts (url, device_ip, deleted_at)
+                        SELECT url, device_ip, ? FROM synced_posts WHERE url = ?
+                        """,
+                        (deleted_at, url),
+                    )
                     cursor.execute("DELETE FROM synced_posts WHERE url = ?", (url,))
                     conn.commit()
             except Exception as e:
@@ -340,6 +366,14 @@ class SyncHistoryDb:
             try:
                 with self._connect() as conn:
                     cursor = conn.cursor()
+                    deleted_at = datetime.now().isoformat(timespec="microseconds")
+                    cursor.execute(
+                        """
+                        INSERT OR REPLACE INTO deleted_posts (url, device_ip, deleted_at)
+                        SELECT url, device_ip, ? FROM synced_posts
+                        """,
+                        (deleted_at,),
+                    )
                     cursor.execute("DELETE FROM synced_posts")
                     conn.commit()
             except Exception as e:
@@ -384,6 +418,71 @@ class SyncHistoryDb:
             except Exception as e:
                 raise SyncHistoryDbError(f"DB 이력 내보내기 실패: {e}") from e
 
+    def export_deleted_posts(self) -> list[dict]:
+        """클라우드 동기화에서 삭제를 전파할 tombstone 목록을 반환합니다."""
+        with self._db_lock:
+            try:
+                with self._connect() as conn:
+                    rows = conn.execute(
+                        """
+                        SELECT url, device_ip, deleted_at FROM deleted_posts
+                        ORDER BY deleted_at ASC, url ASC, device_ip ASC
+                        """
+                    ).fetchall()
+                    return [
+                        {"url": row[0], "device_ip": row[1], "deleted_at": row[2]}
+                        for row in rows
+                    ]
+            except Exception as e:
+                raise SyncHistoryDbError(f"DB 삭제 이력 내보내기 실패: {e}") from e
+
+    def import_deleted_posts(self, deleted_posts: list[dict]) -> int:
+        """원격 tombstone을 병합하고 그보다 오래된 전송 이력을 제거합니다."""
+        if not deleted_posts:
+            return 0
+        changed = 0
+        with self._db_lock:
+            try:
+                with self._connect() as conn:
+                    cursor = conn.cursor()
+                    for item in deleted_posts:
+                        if not isinstance(item, dict):
+                            continue
+                        url = (item.get("url") or "").strip()
+                        device_ip = (item.get("device_ip") or "").strip()
+                        deleted_at = (item.get("deleted_at") or "").strip()
+                        if not url or not device_ip or not deleted_at:
+                            continue
+                        cursor.execute(
+                            "SELECT deleted_at FROM deleted_posts WHERE url = ? AND device_ip = ?",
+                            (url, device_ip),
+                        )
+                        row = cursor.fetchone()
+                        old_deleted = (row[0] if row else "") or ""
+                        if not row or self._time_key(deleted_at) > self._time_key(old_deleted):
+                            cursor.execute(
+                                "INSERT OR REPLACE INTO deleted_posts (url, device_ip, deleted_at) VALUES (?, ?, ?)",
+                                (url, device_ip, deleted_at),
+                            )
+                            changed += 1
+                        cursor.execute(
+                            "SELECT synced_at FROM synced_posts WHERE url = ? AND device_ip = ?",
+                            (url, device_ip),
+                        )
+                        synced = cursor.fetchone()
+                        if synced and self._time_key(deleted_at) >= self._time_key(synced[0] or ""):
+                            cursor.execute(
+                                "DELETE FROM synced_posts WHERE url = ? AND device_ip = ?",
+                                (url, device_ip),
+                            )
+                    return changed
+            except Exception as e:
+                raise SyncHistoryDbError(f"DB 삭제 이력 가져오기 실패: {e}") from e
+
+    @staticmethod
+    def _time_key(value: str) -> str:
+        return (value or "").replace("T", " ", 1).replace("Z", "+00:00")
+
     def import_posts_union(self, posts: list[dict]) -> int:
         """원격 이력을 합집합 병합합니다. (url, device_ip) 기준.
 
@@ -409,6 +508,19 @@ class SyncHistoryDb:
                         site_name = post.get("site_name") or ""
                         title = post.get("title") or ""
                         synced_at = post.get("synced_at") or ""
+
+                        cursor.execute(
+                            "SELECT deleted_at FROM deleted_posts WHERE url = ? AND device_ip = ?",
+                            (url, device_ip),
+                        )
+                        tombstone = cursor.fetchone()
+                        if tombstone and self._time_key(tombstone[0] or "") >= self._time_key(synced_at):
+                            continue
+                        if tombstone:
+                            cursor.execute(
+                                "DELETE FROM deleted_posts WHERE url = ? AND device_ip = ?",
+                                (url, device_ip),
+                            )
 
                         cursor.execute(
                             """

@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+import io
 from typing import Optional
 
 
@@ -51,7 +52,7 @@ class ProcessFileLock:
         try:
             os.makedirs(os.path.dirname(self.lock_path) or ".", exist_ok=True)
             # a+ 로 열고 배타 바이트 락
-            fh = open(self.lock_path, "a+", encoding="utf-8")
+            fh = io.open(self.lock_path, "a+", encoding="utf-8")
             try:
                 if sys.platform == "win32":
                     import msvcrt

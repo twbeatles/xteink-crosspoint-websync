@@ -35,6 +35,7 @@ class WebDashboard:
         self.allow_lan = allow_lan
         self.cancel_callback = cancel_callback
         self._server: Optional[DashboardHTTPServer] = None
+        self._thread: Optional[threading.Thread] = None
         self._running = False
 
     def start(self) -> bool:
@@ -54,8 +55,9 @@ class WebDashboard:
                 self.allow_lan,
                 self.cancel_callback,
             )
-            t = threading.Thread(target=self._server.serve_forever, daemon=True)
-            t.start()
+            self.port = self._server.server_port
+            self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+            self._thread.start()
             self._running = True
             return True
         except Exception as e:
@@ -63,10 +65,15 @@ class WebDashboard:
             return False
 
     def stop(self):
-        if self._server:
-            self._server.shutdown()
-            self._server = None
+        server, thread = self._server, self._thread
+        self._server = None
+        self._thread = None
         self._running = False
+        if server:
+            server.shutdown()
+            server.server_close()
+        if thread and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
 
     @property
     def is_running(self) -> bool:

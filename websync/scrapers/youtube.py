@@ -1,4 +1,6 @@
 """YoutubeScraper"""
+from typing import cast
+
 from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url
 from bs4 import BeautifulSoup
 
@@ -53,7 +55,7 @@ class YoutubeScraper(BaseScraper):
 
         getter = getattr(YouTubeTranscriptApi, "get_transcript", None)
         if callable(getter):
-            return getter(video_id, languages=languages)
+            return cast(list[dict], getter(video_id, languages=languages))
 
         api = YouTubeTranscriptApi()
         fetched = api.fetch(video_id, languages=languages)

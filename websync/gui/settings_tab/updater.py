@@ -151,7 +151,8 @@ class SettingsUpdaterMixin:
                 else:
                     self._safe_ui(lambda: self._on_update_found(manifest, service))
             except Exception as exc:
-                self._safe_ui(lambda: self._on_update_check_failed(str(exc)))
+                error_msg = str(exc)
+                self._safe_ui(lambda msg=error_msg: self._on_update_check_failed(msg))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -214,7 +215,8 @@ class SettingsUpdaterMixin:
             except UpdateCancelledError:
                 self._safe_ui(self._on_download_cancelled)
             except Exception as exc:
-                self._safe_ui(lambda: self._on_download_failed(str(exc)))
+                error_msg = str(exc)
+                self._safe_ui(lambda msg=error_msg: self._on_download_failed(msg))
 
         threading.Thread(target=download_worker, daemon=True).start()
 

@@ -162,17 +162,19 @@ python -m pytest tests/ -q --tb=short -ra
 
 ```bash
 pip install pyinstaller
-pyinstaller x3_websync.spec
+pyinstaller --clean x3_websync.spec
 ```
 
 결과: `dist/x3_websync.exe` (GUI, 콘솔 없음).
 
+빌드 후 `dist/x3_websync.exe --smoke`를 실행하여 핵심 모듈이 frozen 환경에서 로드되는지 확인합니다. 종료 코드가 0이 아니면 배포하지 않습니다.
+
 EXE는 실행 파일과 같은 폴더에 `config.json`, `sync_history.db`, `logs/`, `output/` 을 둡니다.
 
-공유 데이터 폴더(`portable_data` / 하위 호환 `backup_sync`): 사이트·이력 **정본**은 OneDrive 등 폴더의 `sites.json` + `synced_posts.json` 입니다. 로컬 `sync_history.db` 는 작업 캐시이며 클라우드 경로에 직접 두지 마세요. 이력 모드 `history_mode`: `per_device` | `global_url`.
+공유 데이터 폴더(`portable_data` / 하위 호환 `backup_sync`): 사이트·이력 **정본**은 OneDrive 등 폴더의 `sites.json` + `synced_posts.json` 입니다. 두 파일은 삭제 tombstone을 포함하며, 로컬 `sync_history.db` 는 작업 캐시이므로 클라우드 경로에 직접 두지 마세요. 이력 모드 `history_mode`: `per_device` | `global_url`.
 
 **로컬 사이드카 이어받기** (`websync/backup/local_import.py`): 실행 폴더의 `synced_posts.json`, `sites.json`, `*설정백업*.json`(kind 없는 레거시 sites export 포함)을 앱 기동 시 `import_posts_union` / `merge_sites` 로 반영합니다.  
-단일 기기일 때 이력 `device_ip` 가 `crosspoint.local` 이고 현재 주소가 LAN IP여도 재전송하지 않습니다 (`needs_sync` 단일 기기 호환 + alias_keys).
+기기별 이력은 안정 기기 ID와 명시적 `alias_keys`로만 동일 기기를 판정합니다. 단일 기기라는 이유만으로 다른 기기의 URL 이력을 완료로 간주하지 않습니다.
 
 **스펙에서 제외되는 선택 기능** (`x3_websync.spec` excludes):
 

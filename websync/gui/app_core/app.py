@@ -94,6 +94,7 @@ class SyncAppGui(
         self.root.after(0, lambda w=init_w, h=init_h: self._finalize_layout(w, h))
         self.root.after(200, self._maybe_show_portable_wizard)
         self.root.after(400, self._start_backup_pull_if_enabled)
+        self.root.after(700, self.tab_settings._start_watch_if_enabled)
         self.root.after(1500, self._start_auto_update_check_if_enabled)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 

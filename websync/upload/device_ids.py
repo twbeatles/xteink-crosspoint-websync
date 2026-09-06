@@ -153,7 +153,7 @@ def resolve_pending_upload_ips(
 ) -> list[str]:
     """아직 업로드가 필요한 기기 IP 목록.
 
-    - per_device: alias_keys(id·IP·레거시 host) 기준. 단일 기기는 URL 전역 이력도 인정
+    - per_device: alias_keys(id·IP·레거시 host) 기준
     - global_url: URL 전역 이력이 없으면 전 대상 IP, 있으면 빈 목록
     """
     from websync.backup.portable_cfg import HISTORY_MODE_GLOBAL_URL, normalize_history_mode
@@ -177,11 +177,6 @@ def resolve_pending_upload_ips(
                 seen.add(ip)
                 pending.append(ip)
         return pending
-
-    # 단일 기기: 예전 device_ip(crosspoint.local 등) 이력도 스킵
-    if len(upload_targets) == 1:
-        if all(is_synced_url(u) for u in clean_urls):
-            return []
 
     for t in upload_targets:
         if not isinstance(t, dict):

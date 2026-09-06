@@ -149,8 +149,8 @@ main()
 | 항목 | 내용 |
 |------|------|
 | 역할 | `config.json` 로드·저장, 결손 키 자동 보강 |
-| 동시성 보호 | `threading.Lock()` 클래스 수준 락 |
-| 내부 메서드 | `_save_config_unlocked()` — 원자적 쓰기(tmp+bak+replace), `ConfigLoadError` |
+| 동시성 보호 | `threading.Lock()` + config 경로별 `ProcessFileLock` |
+| 내부 메서드 | `_save_config_unlocked()` — writer별 고유 tmp+bak+replace, `ConfigLoadError` |
 | 스키마 버전 | `config_version` (현재 3), 결손 키 자동 보강 |
 | RMW 안전 | `_config_revision` CAS + `update_config(mutator)` / `ConfigConflictError` |
 
@@ -572,7 +572,7 @@ DEFAULT_CONFIG = {
 | CrossPoint 기기 크래시 | 한글/공백 파일명 전송 | `websync/upload/uploader.py` 세니타이징 로직 확인 |
 | EPUB 한글 깨짐 | 인코딩 문제 | `websync/epub/builder.py`의 UTF-8 메타 선언 확인 |
 | pythonw 실행 후 아무 일도 없음 | stdout=None 크래시 | `x3_websync.py`의 `NullWriter` 확인 |
-| 동시 기동 시 config.json 손상 | Race Condition | `websync/config/manager.py`의 `threading.Lock` 확인 |
+| 동시 기동 시 config.json 저장 충돌 | Race Condition | `websync/config/manager.py`의 config 경로별 `ProcessFileLock`과 revision 확인 |
 | PyInstaller 빌드 후 import 오류 | hiddenimports 누락 | `x3_websync.spec`의 `websync.*` 서브패키지 목록 확인 |
 
 ---

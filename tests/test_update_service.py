@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -72,3 +73,43 @@ def test_update_service_check_for_update_up_to_date(tmp_path, test_keypair):
     with patch("websync.core.update_service.download_release_manifest", return_value=doc_bytes):
         manifest = service.check_for_update()
         assert manifest is None
+
+
+def test_download_and_stage_streams_chunks_without_buffering(tmp_path):
+    data = [b"first", b"second"]
+    manifest = ReleaseManifest(
+        version="1.1.0",
+        artifact_url="https://example.invalid/app.exe",
+        artifact_sha256=hashlib.sha256(b"".join(data)).hexdigest(),
+        artifact_size=sum(map(len, data)),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+        signature="dummy",
+    )
+    service = UpdateService(storage_root=tmp_path)
+    progress = []
+    consumed = []
+
+    def source(*_args, **_kwargs):
+        for chunk in data:
+            consumed.append(chunk)
+            yield chunk
+
+    def staging(_manifest, *, chunks, staging_root, **_kwargs):
+        iterator = iter(chunks)
+        assert consumed == []
+        assert next(iterator) == b"first"
+        assert consumed == [b"first"]
+        assert next(iterator) == b"second"
+        path = Path(staging_root) / "staged.exe"
+        path.write_bytes(b"".join(consumed))
+        return path
+
+    with patch("websync.core.update_service.stream_update_artifact", source), patch(
+        "websync.core.update_service.prepare_staged_update", staging
+    ):
+        staged = service.download_and_stage(
+            manifest, progress_callback=lambda current, total: progress.append((current, total))
+        )
+
+    assert staged.read_bytes() == b"firstsecond"
+    assert progress == [(5, 11), (11, 11)]

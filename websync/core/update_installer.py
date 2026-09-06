@@ -9,6 +9,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from websync.backup.atomic_io import write_json_atomic

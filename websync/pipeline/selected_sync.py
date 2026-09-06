@@ -1,6 +1,7 @@
 """선택 기사 동기화 파이프라인."""
 from __future__ import annotations
 
+import copy
 import os
 from typing import Callable, Optional
 
@@ -45,28 +46,32 @@ def sync_selected_articles(
         # 공유 데이터 폴더 pull — 본 파이프라인과 동일하게 정본 반영 (N3)
         service.maybe_backup_pull(log_callback=log)
         service._reload_config()
-        generate_cover = service.config.get("epub_cover", True)
-        upload_targets = service.uploader._build_target_list()
+        config = copy.deepcopy(service.config)
+        uploader = service.uploader
+        epub_builder = service.epub_builder
+        db = service.db
+        generate_cover = config.get("epub_cover", True)
+        upload_targets = uploader._build_target_list()
         target_ips = [d["ip"] for d in upload_targets]
         ip_to_name = {d["ip"]: d["name"] for d in upload_targets}
         from websync.backup.portable_cfg import get_portable_cfg
         from websync.upload.device_ids import ip_to_history_key_map, resolve_pending_upload_ips
 
         ip_hist_map = ip_to_history_key_map(upload_targets)
-        history_mode = get_portable_cfg(service.config).get("history_mode", "per_device")
-        epub_merge_mode = service.config.get("epub_merge_mode", "per_site")
+        history_mode = get_portable_cfg(config).get("history_mode", "per_device")
+        epub_merge_mode = config.get("epub_merge_mode", "per_site")
 
         if not target_ips:
             log("⚠️ 등록된 전송 기기가 없습니다. X3 주소 또는 추가 기기를 설정해 주세요.")
             service._last_pipeline_result = {"status": "no_targets", "success": False}
             return False
 
-        summarizer = Summarizer(service.config, logger=service.logger)
-        translator = Translator(service.config, logger=service.logger)
+        summarizer = Summarizer(config, logger=service.logger)
+        translator = Translator(config, logger=service.logger)
 
         # site_name → translate_to 매핑 구성 (config sites에서 조회)
         site_translate_map: dict[str, str] = {}
-        for site_cfg in service.config.get("sites", []):
+        for site_cfg in config.get("sites", []):
             sname = site_cfg.get("name", "")
             if sname:
                 site_translate_map[sname] = site_cfg.get("translate_to", "").strip()
@@ -105,18 +110,18 @@ def sync_selected_articles(
                     all_urls.append((art["url"], site_name, art.get("title", "")))
 
             pending_ips = resolve_pending_upload_ips(
-                service.db.is_synced_for_device,
-                service.db.is_synced,
+                db.is_synced_for_device,
+                db.is_synced,
                 [url for url, _, _ in all_urls],
                 upload_targets,
                 history_mode=history_mode,
             )
 
             if pending_ips:
-                epub_path = service.epub_builder.build_digest(articles_by_site, generate_cover=generate_cover)
+                epub_path = epub_builder.build_digest(articles_by_site, generate_cover=generate_cover)
                 log(f"   => 파일 생성: {os.path.basename(epub_path)}")
 
-                upload_results = service.uploader.upload_to_targets(epub_path, only_ips=pending_ips)
+                upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
                 any_ok = upload_any_ok(upload_results)
                 all_ok = upload_all_ok(upload_results, pending_ips)
 
@@ -124,11 +129,11 @@ def sync_selected_articles(
                     batch = collect_mark_entries_from_triples(
                         upload_results,
                         all_urls,
-                        is_synced_for_device=service.db.is_synced_for_device,
+                        is_synced_for_device=db.is_synced_for_device,
                         ip_to_history_key=ip_hist_map,
                     )
                     if batch:
-                        service.db.mark_synced_many(batch)
+                        db.mark_synced_many(batch)
                     if all_ok:
                         log("🎉 전송 완료!")
                         success_count = actual_work
@@ -148,8 +153,8 @@ def sync_selected_articles(
                     progress_callback(idx, actual_work)
 
                 pending_ips = resolve_pending_upload_ips(
-                    service.db.is_synced_for_device,
-                    service.db.is_synced,
+                    db.is_synced_for_device,
+                    db.is_synced,
                     [art["url"] for art in arts],
                     upload_targets,
                     history_mode=history_mode,
@@ -161,8 +166,8 @@ def sync_selected_articles(
                     continue
 
                 log(f"📚 [{site_name}] 문서 제작 및 전송 중...")
-                epub_path = service.epub_builder.build(site_name, arts, generate_cover=generate_cover)
-                upload_results = service.uploader.upload_to_targets(epub_path, only_ips=pending_ips)
+                epub_path = epub_builder.build(site_name, arts, generate_cover=generate_cover)
+                upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
 
                 any_ok = upload_any_ok(upload_results)
                 all_ok = upload_all_ok(upload_results, pending_ips)
@@ -172,11 +177,11 @@ def sync_selected_articles(
                         upload_results,
                         arts,
                         site_name=site_name,
-                        is_synced_for_device=service.db.is_synced_for_device,
+                        is_synced_for_device=db.is_synced_for_device,
                         ip_to_history_key=ip_hist_map,
                     )
                     if batch:
-                        service.db.mark_synced_many(batch)
+                        db.mark_synced_many(batch)
                     if all_ok:
                         log(f"🎉 [{site_name}] 전송 성공!")
                         success_count += 1

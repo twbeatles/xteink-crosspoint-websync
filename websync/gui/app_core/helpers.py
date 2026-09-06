@@ -223,6 +223,13 @@ class AppHelpersMixin:
         out["sites"] = merge_sites(
             disk_sites, mem_sites, remote_wins_same_url=True
         )
+        from websync.backup.format import apply_site_tombstones
+        from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
+        portable = get_portable_cfg(out)
+        out["sites"], deleted = apply_site_tombstones(
+            out["sites"], portable.get("deleted_sites", [])
+        )
+        apply_portable_cfg(out, {"deleted_sites": deleted})
         return out
 
     def _get_log_for_web(self) -> str:

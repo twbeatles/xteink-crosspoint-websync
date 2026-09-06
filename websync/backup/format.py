@@ -7,8 +7,8 @@ from typing import Any
 
 FORMAT_NAME = "xteink-websync-backup"
 FORMAT_VERSION = 1
-SITES_EXPORT_VERSION = 2
-HISTORY_EXPORT_VERSION = 1
+SITES_EXPORT_VERSION = 3
+HISTORY_EXPORT_VERSION = 2
 
 SITES_FILENAME = "sites.json"
 HISTORY_FILENAME = "synced_posts.json"
@@ -17,7 +17,7 @@ LOCK_FILENAME = ".backup_sync.lock"
 
 
 def now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return datetime.now().isoformat(timespec="microseconds")
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -48,21 +48,31 @@ def is_remote_newer(remote_at: str | None, local_at: str | None) -> bool:
     return r > l
 
 
-def build_sites_payload(sites: list[dict], exported_at: str | None = None) -> dict:
+def build_sites_payload(
+    sites: list[dict],
+    exported_at: str | None = None,
+    deleted_sites: list[dict] | None = None,
+) -> dict:
     return {
         "export_version": SITES_EXPORT_VERSION,
         "kind": "sites",
         "exported_at": exported_at or now_iso(),
         "sites": copy.deepcopy(sites),
+        "deleted_sites": copy.deepcopy(deleted_sites or []),
     }
 
 
-def build_history_payload(posts: list[dict], exported_at: str | None = None) -> dict:
+def build_history_payload(
+    posts: list[dict],
+    exported_at: str | None = None,
+    deleted_posts: list[dict] | None = None,
+) -> dict:
     return {
         "export_version": HISTORY_EXPORT_VERSION,
         "kind": "synced_posts",
         "exported_at": exported_at or now_iso(),
         "posts": copy.deepcopy(posts),
+        "deleted_posts": copy.deepcopy(deleted_posts or []),
     }
 
 
@@ -118,6 +128,60 @@ def extract_posts(payload: Any) -> tuple[list[dict], str | None]:
     return cleaned, exported_at
 
 
+def extract_deleted_sites(payload: Any) -> list[dict]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("deleted_sites"), list):
+        return []
+    return [item for item in payload["deleted_sites"] if isinstance(item, dict)]
+
+
+def merge_site_tombstones(*groups: list[dict]) -> list[dict]:
+    """URL별로 가장 최신 사이트 삭제 표식만 보존합니다."""
+    by_url: dict[str, dict] = {}
+    for group in groups:
+        for item in group if isinstance(group, list) else []:
+            if not isinstance(item, dict):
+                continue
+            url = (item.get("url") or "").strip().lower()
+            deleted_at = (item.get("deleted_at") or "").strip()
+            if not url or not deleted_at:
+                continue
+            old = by_url.get(url)
+            if old is None or deleted_at.replace("T", " ", 1) > old["deleted_at"].replace("T", " ", 1):
+                by_url[url] = {"url": url, "deleted_at": deleted_at}
+    return [by_url[url] for url in sorted(by_url)]
+
+
+def apply_site_tombstones(
+    sites: list[dict], deleted_sites: list[dict]
+) -> tuple[list[dict], list[dict]]:
+    """삭제보다 새로 저장된 사이트만 살리고 소비된 표식은 제거합니다."""
+    tombstones = {item["url"]: item for item in merge_site_tombstones(deleted_sites)}
+    kept: list[dict] = []
+    for site in sites:
+        if not isinstance(site, dict):
+            continue
+        url = _site_url_key(site)
+        tombstone = tombstones.get(url)
+        if not tombstone:
+            kept.append(site)
+            continue
+        updated_at = (site.get("_sync_updated_at") or "").strip()
+        if updated_at and updated_at.replace("T", " ", 1) > tombstone["deleted_at"].replace("T", " ", 1):
+            kept.append(site)
+            tombstones.pop(url, None)
+    return kept, [tombstones[url] for url in sorted(tombstones)]
+
+
+def extract_deleted_posts(payload: Any) -> list[dict]:
+    """v2 이력 payload의 삭제 tombstone 목록을 추출합니다."""
+    if not isinstance(payload, dict):
+        return []
+    deleted = payload.get("deleted_posts")
+    if not isinstance(deleted, list):
+        return []
+    return [item for item in deleted if isinstance(item, dict)]
+
+
 def _site_url_key(site: dict) -> str:
     return (site.get("url") or "").strip().lower()
 
@@ -165,7 +229,11 @@ def merge_sites(
         if not key:
             continue
         if key in by_url:
-            if remote_wins_same_url:
+            current_at = (by_url[key].get("_sync_updated_at") or "").replace("T", " ", 1)
+            incoming_at = (s.get("_sync_updated_at") or "").replace("T", " ", 1)
+            if incoming_at and incoming_at > current_at:
+                _put(s, overwrite=True)
+            elif not current_at and not incoming_at and remote_wins_same_url:
                 _put(s, overwrite=True)
         else:
             _put(s, overwrite=True)

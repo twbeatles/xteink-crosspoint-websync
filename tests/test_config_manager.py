@@ -1,6 +1,8 @@
 import json
 import os
 import tempfile
+import multiprocessing
+import time
 
 import pytest
 
@@ -8,6 +10,16 @@ from unittest.mock import patch
 
 from websync.config.exceptions import ConfigLoadError, ConfigSaveError
 from websync.config.manager import ConfigManager
+
+
+def _update_config_in_process(path: str, key: str, start_event) -> None:
+    start_event.wait(timeout=10)
+
+    def mutate(config):
+        config[key] = "changed"
+        time.sleep(0.3)
+
+    ConfigManager(path).update_config(mutate)
 
 
 def test_deep_merge_adds_nested_keys():
@@ -106,6 +118,28 @@ def test_update_config_rmw():
         loaded = cm.load_config()
         assert loaded["x3_ip"] == "192.168.9.9"
         assert any(s.get("url") == "https://x.test/feed" for s in loaded["sites"])
+
+
+def test_update_config_is_atomic_across_processes():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "config.json")
+        ConfigManager(path).load_config()
+        ctx = multiprocessing.get_context("spawn")
+        start_event = ctx.Event()
+        processes = [
+            ctx.Process(target=_update_config_in_process, args=(path, key, start_event))
+            for key in ("process_a", "process_b")
+        ]
+        for process in processes:
+            process.start()
+        start_event.set()
+        for process in processes:
+            process.join(timeout=15)
+            assert process.exitcode == 0
+
+        loaded = ConfigManager(path).load_config()
+        assert loaded["process_a"] == "changed"
+        assert loaded["process_b"] == "changed"
 
 
 def test_import_sites_rmw_preserves_other_fields():

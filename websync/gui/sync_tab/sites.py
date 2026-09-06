@@ -44,6 +44,8 @@ class SyncSitesMixin:
         config = self.service.config
         idx = int(selected[0])
         config["sites"][idx]["enabled"] = not config["sites"][idx].get("enabled", True)
+        from websync.backup.format import now_iso
+        config["sites"][idx]["_sync_updated_at"] = now_iso()
         if not self.app._safe_save_config(config):
             return
         self._refresh_site_tree()
@@ -56,8 +58,18 @@ class SyncSitesMixin:
             return
         if not messagebox.askyesno("확인", "선택한 사이트를 삭제하시겠습니까?"):
             return
+        from websync.backup.format import merge_site_tombstones, now_iso
+        from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
+
         config = self.service.config
-        config["sites"].pop(int(selected[0]))
+        removed = config["sites"].pop(int(selected[0]))
+        url = (removed.get("url") or "").strip().lower()
+        portable = get_portable_cfg(config)
+        portable["deleted_sites"] = merge_site_tombstones(
+            portable.get("deleted_sites", []),
+            [{"url": url, "deleted_at": now_iso()}] if url else [],
+        )
+        apply_portable_cfg(config, portable)
         if not self.app._safe_save_config(config):
             return
         self._refresh_site_tree()
@@ -354,6 +366,9 @@ class SyncSitesMixin:
                 "translate_to": translate_cb.get().strip(),
                 "fetch_detail_page": bool(fetch_detail_var.get()) if type_cb.get() == "css" else False,
             }
+            from websync.backup.format import merge_site_tombstones, now_iso
+            updated_at = now_iso()
+            new_site["_sync_updated_at"] = updated_at
             if type_cb.get() == "css":
                 item_sel = item_entry.get().strip()
                 title_sel = title_entry.get().strip()
@@ -408,6 +423,19 @@ class SyncSitesMixin:
                 config["sites"].append(new_site)
             else:
                 config["sites"][idx] = new_site
+            from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
+            portable = get_portable_cfg(config)
+            old_url = (site_data.get("url") or "").strip().lower() if site_data else ""
+            if old_url and old_url != url.lower():
+                portable["deleted_sites"] = merge_site_tombstones(
+                    portable.get("deleted_sites", []),
+                    [{"url": old_url, "deleted_at": updated_at}],
+                )
+            portable["deleted_sites"] = [
+                item for item in portable.get("deleted_sites", [])
+                if (item.get("url") or "").strip().lower() != url.lower()
+            ]
+            apply_portable_cfg(config, portable)
             if not self.app._safe_save_config(config, parent=dialog):
                 return
             self._refresh_site_tree()

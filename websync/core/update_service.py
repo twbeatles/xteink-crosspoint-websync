@@ -5,7 +5,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from websync import __version__
 from websync.core.logger import get_logger
@@ -85,18 +85,18 @@ class UpdateService:
     ) -> Path:
         """새 릴리즈 바이너리를 다운로드하여 스테이징 영역에 안전하게 저장합니다."""
         self.staging_root.mkdir(parents=True, exist_ok=True)
-        chunks = []
-        total_downloaded = 0
 
-        for chunk in stream_update_artifact(manifest, cancel_event=cancel_event):
-            chunks.append(chunk)
-            total_downloaded += len(chunk)
-            if progress_callback:
-                progress_callback(total_downloaded, manifest.artifact_size)
+        def progress_chunks():
+            total_downloaded = 0
+            for chunk in stream_update_artifact(manifest, cancel_event=cancel_event):
+                total_downloaded += len(chunk)
+                if progress_callback:
+                    progress_callback(total_downloaded, manifest.artifact_size)
+                yield chunk
 
         staged_path = prepare_staged_update(
             manifest,
-            chunks=chunks,
+            chunks=progress_chunks(),
             staging_root=self.staging_root,
             cancel_event=cancel_event,
         )

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import uuid
 from typing import Any, Optional
 
 import requests
@@ -289,12 +290,24 @@ class X3DeviceClient:
         if parent_dir:
             os.makedirs(parent_dir, exist_ok=True)
 
+        temp_path = os.path.join(
+            parent_dir or ".",
+            f".{os.path.basename(local_path)}.{uuid.uuid4().hex}.part",
+        )
         try:
-            with open(local_path, "wb") as f:
+            with open(temp_path, "xb") as f:
                 for chunk in response.iter_content(chunk_size=64 * 1024):
                     if chunk:
                         f.write(chunk)
-        except OSError as e:
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, local_path)
+        except (OSError, requests.RequestException) as e:
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except OSError:
+                pass
             msg = f"로컬 저장 실패: {e}"
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e

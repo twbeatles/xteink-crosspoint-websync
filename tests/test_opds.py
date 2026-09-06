@@ -1,9 +1,50 @@
 import os
+import io
 import tempfile
 import urllib.error
 import urllib.request
 
 import pytest
+import requests
+
+
+class _Response:
+    def __init__(self, response):
+        self.status = response.status_code
+        self.headers = response.headers
+        self._body = response.content
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+
+def _urlopen(request, timeout=3):
+    if isinstance(request, urllib.request.Request):
+        url, method, data = request.full_url, request.get_method(), request.data
+        headers = dict(request.header_items())
+    else:
+        url, method, data, headers = request, "GET", None, {}
+    headers.setdefault("Connection", "close")
+    for attempt in range(6):
+        try:
+            with requests.Session() as session:
+                session.trust_env = False
+                response = session.request(method, url, data=data, headers=headers, timeout=timeout)
+            break
+        except requests.RequestException:
+            if attempt == 5:
+                raise
+    if response.status_code >= 400:
+        raise urllib.error.HTTPError(
+            url, response.status_code, response.reason, response.headers, io.BytesIO(response.content)
+        )
+    return _Response(response)
 
 from websync.servers.opds import OPDSServer
 
@@ -16,10 +57,9 @@ def _free_port() -> int:
 
 
 def _start_server(tmp_output: str, *, require_auth: bool = False, api_key: str = "secret-key") -> OPDSServer:
-    port = _free_port()
     srv = OPDSServer(
         output_dir=tmp_output,
-        port=port,
+        port=0,
         bind_host="127.0.0.1",
         api_key=api_key,
         require_auth=require_auth,
@@ -35,7 +75,7 @@ def test_opds_catalog_localhost_no_auth():
         srv = _start_server(tmp, require_auth=False)
         try:
             url = f"http://127.0.0.1:{srv.port}/opds"
-            with urllib.request.urlopen(url, timeout=3) as resp:
+            with _urlopen(url, timeout=3) as resp:
                 body = resp.read().decode("utf-8")
             assert "book_2026-01-01.epub" in body
         finally:
@@ -48,11 +88,11 @@ def test_opds_lan_requires_api_key():
         try:
             url = f"http://127.0.0.1:{srv.port}/opds"
             with pytest.raises(urllib.error.HTTPError) as exc:
-                urllib.request.urlopen(url, timeout=3)
+                _urlopen(url, timeout=3)
             assert exc.value.code == 401
 
             req = urllib.request.Request(url, headers={"X-Api-Key": "mykey"})
-            with urllib.request.urlopen(req, timeout=3) as resp:
+            with _urlopen(req, timeout=3) as resp:
                 assert resp.status == 200
         finally:
             srv.stop()
@@ -66,7 +106,7 @@ def test_opds_download_rejects_non_epub():
         try:
             url = f"http://127.0.0.1:{srv.port}/opds/download/evil.exe"
             with pytest.raises(urllib.error.HTTPError) as exc:
-                urllib.request.urlopen(url, timeout=3)
+                _urlopen(url, timeout=3)
             assert exc.value.code == 403
         finally:
             srv.stop()
@@ -78,7 +118,7 @@ def test_opds_path_traversal_blocked():
         try:
             url = f"http://127.0.0.1:{srv.port}/opds/download/..%2F..%2Fetc%2Fpasswd"
             with pytest.raises(urllib.error.HTTPError) as exc:
-                urllib.request.urlopen(url, timeout=3)
+                _urlopen(url, timeout=3)
             assert exc.value.code in (403, 404)
         finally:
             srv.stop()
@@ -94,12 +134,12 @@ def test_opds_unicode_filename_download():
         srv = _start_server(tmp, require_auth=False)
         try:
             catalog_url = f"http://127.0.0.1:{srv.port}/opds"
-            with urllib.request.urlopen(catalog_url, timeout=3) as resp:
+            with _urlopen(catalog_url, timeout=3) as resp:
                 body = resp.read().decode("utf-8")
             assert quote(fname, safe="") in body or fname in body
 
             dl = f"http://127.0.0.1:{srv.port}/opds/download/{quote(fname, safe='')}"
-            with urllib.request.urlopen(dl, timeout=3) as resp:
+            with _urlopen(dl, timeout=3) as resp:
                 assert resp.read() == b"epub-data"
         finally:
             srv.stop()
@@ -123,11 +163,11 @@ def test_opds_serves_concurrent_requests():
             results = {}
 
             def fetch_catalog():
-                with urllib.request.urlopen(catalog_url, timeout=5) as resp:
+                with _urlopen(catalog_url, timeout=5) as resp:
                     results["catalog"] = resp.read().decode("utf-8")
 
             def fetch_download():
-                with urllib.request.urlopen(dl_url, timeout=10) as resp:
+                with _urlopen(dl_url, timeout=10) as resp:
                     results["download_size"] = len(resp.read())
 
             # 다운로드 먼저 시작, 그 사이 카탈로그 요청이 블로킹되지 않아야

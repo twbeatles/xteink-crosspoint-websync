@@ -80,6 +80,10 @@ class AppSyncControlMixin:
             self._web_dashboard.stop()
         if self._calibre_watcher:
             self._calibre_watcher.stop()
+        try:
+            self.tab_settings._stop_watch_worker(wait_timeout=3.0)
+        except Exception:
+            pass
         self.root.destroy()
 
     def run(self):

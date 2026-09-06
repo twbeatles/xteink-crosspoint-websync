@@ -190,6 +190,31 @@ def test_download_writes_file():
         assert mget.call_args.kwargs["params"]["path"] == "/Books/a.epub"
 
 
+def test_download_failure_preserves_existing_file_and_removes_partial():
+    import requests as req
+
+    c = X3DeviceClient("10.0.0.1")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+
+    def interrupted_chunks(chunk_size):
+        yield b"partial-new-data"
+        raise req.exceptions.ChunkedEncodingError("connection lost")
+
+    mock_resp.iter_content = interrupted_chunks
+    with tempfile.TemporaryDirectory() as td:
+        local = os.path.join(td, "out.epub")
+        with open(local, "wb") as existing:
+            existing.write(b"complete-existing-book")
+        with patch("websync.upload.device_client.requests.get", return_value=mock_resp):
+            with pytest.raises(DeviceClientError):
+                c.download("/Books/a.epub", local)
+
+        with open(local, "rb") as existing:
+            assert existing.read() == b"complete-existing-book"
+        assert not [name for name in os.listdir(td) if name.endswith(".part")]
+
+
 def test_format_status_summary():
     s = X3DeviceClient.format_status_summary(
         {"device": "X3", "version": "1.0.0", "mode": "STA", "rssi": -40, "freeHeap": 2048}

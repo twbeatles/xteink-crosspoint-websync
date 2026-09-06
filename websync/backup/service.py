@@ -21,10 +21,14 @@ from websync.backup.format import (
     build_history_payload,
     build_manifest,
     build_sites_payload,
+    apply_site_tombstones,
+    extract_deleted_sites,
     extract_posts,
+    extract_deleted_posts,
     extract_sites,
     is_remote_newer,
     merge_sites,
+    merge_site_tombstones,
     now_iso,
 )
 from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
@@ -160,12 +164,15 @@ class BackupSyncService:
             # --- sites ---
             remote_sites_payload = read_json_safe(sites_path)
             remote_sites, remote_sites_at = extract_sites(remote_sites_payload)
+            remote_deleted_sites = extract_deleted_sites(remote_sites_payload)
             raw_sites = config.get("sites")
             local_sites: list[dict] = raw_sites if isinstance(raw_sites, list) else []
             last_sites_push = bs.get("last_sites_push_at")
             remote_wins = is_remote_newer(remote_sites_at, last_sites_push if isinstance(last_sites_push, str) else None)
+            local_deleted_sites = bs.get("deleted_sites", [])
+            combined_deleted = merge_site_tombstones(local_deleted_sites, remote_deleted_sites)
 
-            if remote_sites:
+            if remote_sites or combined_deleted:
                 before_urls = {
                     (s.get("url") or "").strip().lower()
                     for s in local_sites
@@ -176,6 +183,7 @@ class BackupSyncService:
                     remote_sites,
                     remote_wins_same_url=remote_wins,
                 )
+                merged, combined_deleted = apply_site_tombstones(merged, combined_deleted)
                 after_urls = {
                     (s.get("url") or "").strip().lower()
                     for s in merged
@@ -183,7 +191,7 @@ class BackupSyncService:
                 }
                 added = len(after_urls - before_urls)
                 # 내용 변경 감지 (길이 또는 remote wins 적용)
-                if merged != local_sites:
+                if merged != local_sites or combined_deleted != local_deleted_sites:
                     expected_rev = config.get("_config_revision")
                     try:
                         expected_i = int(expected_rev) if expected_rev is not None else None
@@ -193,14 +201,21 @@ class BackupSyncService:
                     def _apply_sites(cfg: dict) -> None:
                         # RMW: 디스크 최신 사이트와 다시 병합
                         cur = cfg.get("sites") if isinstance(cfg.get("sites"), list) else []
-                        cfg["sites"] = merge_sites(
+                        portable = get_portable_cfg(cfg)
+                        deleted = merge_site_tombstones(
+                            portable.get("deleted_sites", []), remote_deleted_sites
+                        )
+                        merged_current = merge_sites(
                             cur, remote_sites, remote_wins_same_url=remote_wins
                         )
+                        cfg["sites"], deleted = apply_site_tombstones(merged_current, deleted)
+                        apply_portable_cfg(cfg, {"deleted_sites": deleted})
 
                     try:
                         config = self.config_manager.update_config(_apply_sites)
                     except Exception:
                         config["sites"] = merged
+                        apply_portable_cfg(config, {"deleted_sites": combined_deleted})
                         self.config_manager.save_config(
                             config, expected_revision=expected_i
                         )
@@ -214,9 +229,11 @@ class BackupSyncService:
             if bs.get("include_history", True):
                 remote_hist_payload = read_json_safe(history_path)
                 remote_posts, _ = extract_posts(remote_hist_payload)
-                if remote_posts:
+                remote_deleted = extract_deleted_posts(remote_hist_payload)
+                if remote_posts or remote_deleted:
                     try:
-                        history_changed = self.db.import_posts_union(remote_posts)
+                        history_changed = self.db.import_deleted_posts(remote_deleted)
+                        history_changed += self.db.import_posts_union(remote_posts)
                     except SyncHistoryDbError as e:
                         result["message"] = f"이력 가져오기 실패: {e}"
                         self.logger.error(result["message"])
@@ -287,9 +304,25 @@ class BackupSyncService:
             exported_at = now_iso()
             components: list[str] = []
 
-            # sites — 시크릿/로컬 경로 없이 sites만
+            # sites — 원격 변경과 삭제 표식을 먼저 병합해 다른 PC 변경을 보존
             sites = config.get("sites") if isinstance(config.get("sites"), list) else []
-            sites_payload = build_sites_payload(sites, exported_at=exported_at)
+            deleted_sites = bs.get("deleted_sites", [])
+            remote_sites_payload = read_json_safe(os.path.join(folder, SITES_FILENAME))
+            remote_sites, _ = extract_sites(remote_sites_payload)
+            remote_deleted_sites = extract_deleted_sites(remote_sites_payload)
+            sites = merge_sites(sites, remote_sites, remote_wins_same_url=False)
+            deleted_sites = merge_site_tombstones(deleted_sites, remote_deleted_sites)
+            sites, deleted_sites = apply_site_tombstones(sites, deleted_sites)
+
+            def _apply_site_merge(cfg: dict) -> None:
+                cfg["sites"] = sites
+                apply_portable_cfg(cfg, {"deleted_sites": deleted_sites})
+
+            config = self.config_manager.update_config(_apply_site_merge)
+            bs = self._backup_cfg(config)
+            sites_payload = build_sites_payload(
+                sites, exported_at=exported_at, deleted_sites=deleted_sites
+            )
             write_json_atomic(os.path.join(folder, SITES_FILENAME), sites_payload)
             result["sites_written"] = True
             components.append("sites")
@@ -298,6 +331,7 @@ class BackupSyncService:
             if bs.get("include_history", True):
                 try:
                     posts = self.db.export_all_posts()
+                    deleted_posts = self.db.export_deleted_posts()
                 except SyncHistoryDbError as e:
                     result["message"] = f"이력 내보내기 실패: {e}"
                     self.logger.error(result["message"])
@@ -306,13 +340,20 @@ class BackupSyncService:
                 # push 전 remote와 union 해서 쓴다 (다른 PC 이력 보존)
                 remote_payload = read_json_safe(os.path.join(folder, HISTORY_FILENAME))
                 remote_posts, _ = extract_posts(remote_payload)
-                if remote_posts:
+                remote_deleted = extract_deleted_posts(remote_payload)
+                if remote_posts or remote_deleted:
                     try:
+                        self.db.import_deleted_posts(remote_deleted)
                         self.db.import_posts_union(remote_posts)
                         posts = self.db.export_all_posts()
+                        deleted_posts = self.db.export_deleted_posts()
                     except SyncHistoryDbError as e:
                         self.logger.warning(f"push 전 이력 병합 실패(로컬만 기록): {e}")
-                hist_payload = build_history_payload(posts, exported_at=exported_at)
+                hist_payload = build_history_payload(
+                    posts,
+                    exported_at=exported_at,
+                    deleted_posts=deleted_posts,
+                )
                 write_json_atomic(os.path.join(folder, HISTORY_FILENAME), hist_payload)
                 result["history_written"] = True
                 result["history_count"] = len(posts)

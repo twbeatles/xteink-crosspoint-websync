@@ -99,10 +99,10 @@ def test_import_sidecars_into_fresh_local():
         assert result["sites_changed"] is True
         assert db.get_count() > 0
 
-        # 예전 device_ip=crosspoint.local 이력이 있어도 단일 기기(LAN IP)면 스킵
+        # 전역 URL fallback은 사용하지 않고 명시된 legacy alias로만 스킵
         sample_url = db.export_all_posts()[0]["url"]
         assert db.is_synced(sample_url)
-        assert not db.needs_sync(sample_url, ["192.168.31.54"], history_mode="per_device")
+        assert db.needs_sync(sample_url, ["192.168.31.54"], history_mode="per_device")
 
         targets = build_targets_with_keys("192.168.31.54", primary_id="dev_testprimary")
         pending = resolve_pending_upload_ips(
@@ -123,14 +123,19 @@ def test_import_sidecars_into_fresh_local():
 
 
 def test_needs_sync_single_device_legacy_host():
-    """이력은 crosspoint.local, 대상은 LAN IP → 단일 기기면 재전송 안 함."""
+    """이전 주소는 명시적 alias일 때만 같은 기기로 인정합니다."""
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     try:
         db = SyncHistoryDb(path)
         url = "https://blog.naver.com/example/1"
         db.mark_synced(url, "site", "t", device_ip="crosspoint.local")
-        assert not db.needs_sync(url, ["192.168.31.54"])
+        assert db.needs_sync(url, ["192.168.31.54"])
+        assert not db.needs_sync(
+            url,
+            ["dev_primary"],
+            key_aliases=[["dev_primary", "192.168.31.54", "crosspoint.local"]],
+        )
         assert db.needs_sync(url, ["192.168.31.54", "10.0.0.2"])  # 다중 기기는 엄격
     finally:
         try:

@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.0"
+    timeout = 2
+
     @property
     def _ctx(self) -> "DashboardHTTPServer":
         return self.server  # type: ignore[return-value]
@@ -51,7 +54,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _require_auth(self) -> bool:
         if self._is_authenticated():
             return True
-        self.send_error(401, "Unauthorized")
+        self._send_json(401, {"error": "Unauthorized"})
         return False
 
     def _send_json(self, code: int, payload: dict):
@@ -61,6 +64,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        self.wfile.flush()
 
     def _send_html(self, html: str):
         body = html.encode("utf-8")
@@ -69,6 +73,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        self.wfile.flush()
 
     def do_GET(self):
         if self.path in ("/", "/login"):
@@ -148,9 +153,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "Set-Cookie",
                 f"{SESSION_COOKIE_NAME}={session_val}; {cookie_flags}",
             )
-            self.send_header("Content-Length", "18")
+            body = b'{"ok": true}'
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(b'{"ok": true}')
+            self.wfile.write(body)
+            self.wfile.flush()
         elif self.path == "/api/sync":
             if not self._require_auth():
                 return

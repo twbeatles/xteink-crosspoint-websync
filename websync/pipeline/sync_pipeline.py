@@ -1,6 +1,7 @@
 """전체 사이트 동기화 파이프라인 실행."""
 from __future__ import annotations
 
+import copy
 import os
 from typing import Callable, Optional
 
@@ -42,10 +43,16 @@ def run_sync_pipeline_locked(
         service.clear_cancel()
     service._reload_config()
 
-    summarizer = Summarizer(service.config, logger=service.logger)
-    translator = Translator(service.config, logger=service.logger)
+    # 한 번의 실행은 시작 시점의 설정과 구성요소를 일관되게 사용합니다.
+    config = copy.deepcopy(service.config)
+    uploader = service.uploader
+    epub_builder = service.epub_builder
+    db = service.db
 
-    enabled_sites = [s for s in service.config.get("sites", []) if s.get("enabled", True)]
+    summarizer = Summarizer(config, logger=service.logger)
+    translator = Translator(config, logger=service.logger)
+
+    enabled_sites = [s for s in config.get("sites", []) if s.get("enabled", True)]
     if not enabled_sites:
         log("⚠️ 활성화된 수집 대상 사이트가 설정에 없습니다.")
         ToastNotifier.show_toast("X3 WebSync 실패", "동기화가 중단되었습니다. 활성화된 사이트가 없습니다.", is_error=True)
@@ -58,14 +65,14 @@ def run_sync_pipeline_locked(
     actual_work_sites = 0
     site_errors = 0
     empty_fetch_sites = 0
-    generate_cover = service.config.get("epub_cover", True)
-    upload_targets = service.uploader._build_target_list()
+    generate_cover = config.get("epub_cover", True)
+    upload_targets = uploader._build_target_list()
     target_ips = [d["ip"] for d in upload_targets]
     target_history_keys = history_keys_from_targets(upload_targets)
     key_aliases = alias_key_groups(upload_targets)
     ip_to_name = {d["ip"]: d["name"] for d in upload_targets}
     ip_hist_map = ip_to_history_key_map(upload_targets)
-    history_mode = get_portable_cfg(service.config).get("history_mode", "per_device")
+    history_mode = get_portable_cfg(config).get("history_mode", "per_device")
     log(f"📋 이력 모드: {history_mode}")
 
     if not target_ips:
@@ -81,13 +88,13 @@ def run_sync_pipeline_locked(
     # 레거시 device_ip='*' 이력을 기본 기기 이력 키로 1회 이관
     try:
         legacy_key = target_history_keys[0] if target_history_keys else target_ips[0]
-        remapped = service.db.remap_legacy_star_to_device(legacy_key)
+        remapped = db.remap_legacy_star_to_device(legacy_key)
         if remapped:
             log(f"🔄 레거시 동기화 이력 {remapped}건을 [{ip_to_name.get(target_ips[0], target_ips[0])}]로 이관했습니다.")
     except SyncHistoryDbError as e:
         log(f"⚠️ 레거시 이력 이관 실패(계속 진행): {e}")
 
-    epub_merge_mode = service.config.get("epub_merge_mode", "per_site")
+    epub_merge_mode = config.get("epub_merge_mode", "per_site")
     digest_articles = {}  # {site_name: [new_articles]}
     # 합본(daily_digest) 모드 전용 결과 플래그 — per_site 카운터와 분리 (N1)
     digest_success = False
@@ -137,7 +144,7 @@ def run_sync_pipeline_locked(
                 url = art.get("url")
                 if not url:
                     continue
-                if service.db.needs_sync(
+                if db.needs_sync(
                     url,
                     target_history_keys,
                     history_mode=history_mode,
@@ -174,8 +181,8 @@ def run_sync_pipeline_locked(
                 # 기존 방식: 사이트별 개별 빌드 및 전송
                 # 이번 배치 중 하나라도 미전송인 기기만 업로드 대상
                 pending_ips = resolve_pending_upload_ips(
-                    service.db.is_synced_for_device,
-                    service.db.is_synced,
+                    db.is_synced_for_device,
+                    db.is_synced,
                     [art["url"] for art in new_articles],
                     upload_targets,
                     history_mode=history_mode,
@@ -190,15 +197,15 @@ def run_sync_pipeline_locked(
                     log(f"   => 📡 미전송 기기만 전송: {', '.join(names)}")
 
                 log(f"📚 [{name}] EPUB 문서 제작 중...")
-                epub_path = service.epub_builder.build(name, new_articles, generate_cover=generate_cover)
+                epub_path = epub_builder.build(name, new_articles, generate_cover=generate_cover)
                 log(f"   => 파일 생성: {os.path.basename(epub_path)}")
 
-                upload_results = service.uploader.upload_to_targets(epub_path, only_ips=pending_ips)
+                upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
                 for ip, ok in upload_results.items():
                     status = "✅" if ok else "❌"
                     detail = ""
                     if not ok:
-                        err = getattr(service.uploader, "last_errors", {}).get(ip)
+                        err = getattr(uploader, "last_errors", {}).get(ip)
                         if err:
                             detail = f" — {err}"
                     log(f"   => {status} [{ip_to_name.get(ip, ip)}] ({ip}) 전송{detail}")
@@ -211,11 +218,11 @@ def run_sync_pipeline_locked(
                         upload_results,
                         new_articles,
                         site_name=name,
-                        is_synced_for_device=service.db.is_synced_for_device,
+                        is_synced_for_device=db.is_synced_for_device,
                         ip_to_history_key=ip_hist_map,
                     )
                     if batch:
-                        service.db.mark_synced_many(batch)
+                        db.mark_synced_many(batch)
                     if all_ok:
                         log(f"🎉 [{name}] 동기화 완료 및 전송 성공!")
                         success_count += 1
@@ -253,8 +260,8 @@ def run_sync_pipeline_locked(
 
             # 이번 배치 기사 중 미전송된 기기가 있는 기기 추출
             pending_ips = resolve_pending_upload_ips(
-                service.db.is_synced_for_device,
-                service.db.is_synced,
+                db.is_synced_for_device,
+                db.is_synced,
                 [url for url, _, _ in all_new_urls],
                 upload_targets,
                 history_mode=history_mode,
@@ -262,15 +269,15 @@ def run_sync_pipeline_locked(
 
             if pending_ips:
                 log(f"📚 합본 문서 제작 중... (총 {len(digest_articles)}개 사이트, {len(all_new_urls)}개 기사)")
-                epub_path = service.epub_builder.build_digest(digest_articles, generate_cover=generate_cover)
+                epub_path = epub_builder.build_digest(digest_articles, generate_cover=generate_cover)
                 log(f"   => 파일 생성: {os.path.basename(epub_path)}")
 
-                upload_results = service.uploader.upload_to_targets(epub_path, only_ips=pending_ips)
+                upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
                 for ip, ok in upload_results.items():
                     status = "✅" if ok else "❌"
                     detail = ""
                     if not ok:
-                        err = getattr(service.uploader, "last_errors", {}).get(ip)
+                        err = getattr(uploader, "last_errors", {}).get(ip)
                         if err:
                             detail = f" — {err}"
                     log(f"   => {status} [{ip_to_name.get(ip, ip)}] ({ip}) 전송{detail}")
@@ -282,11 +289,11 @@ def run_sync_pipeline_locked(
                     batch = collect_mark_entries_from_triples(
                         upload_results,
                         all_new_urls,
-                        is_synced_for_device=service.db.is_synced_for_device,
+                        is_synced_for_device=db.is_synced_for_device,
                         ip_to_history_key=ip_hist_map,
                     )
                     if batch:
-                        service.db.mark_synced_many(batch)
+                        db.mark_synced_many(batch)
                     if all_ok:
                         log("🎉 일간 합본 동기화 완료 및 전송 성공!")
                         digest_success = True

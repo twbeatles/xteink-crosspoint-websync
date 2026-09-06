@@ -5,8 +5,11 @@ import shutil
 import threading
 import copy
 import time
+import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from websync.core.paths import PROJECT_ROOT, resolve_path
+from websync.core.process_lock import ProcessFileLock
 from websync.config.exceptions import ConfigLoadError, ConfigSaveError, ConfigConflictError
 from websync.config.validator import log_validation_warnings, validate_config
 
@@ -108,7 +111,8 @@ class ConfigManager:
         },
         "calibre_watch": {
             "enabled": False,
-            "watch_dir": ""
+            "watch_dir": "",
+            "pending_files": [],
         },
         "device_files": {
             "default_browse_path": "/",
@@ -129,6 +133,7 @@ class ConfigManager:
             "last_history_push_at": "",
             "last_sync_at": "",
             "last_sync_message": "",
+            "deleted_sites": [],
         },
         # 하위 호환: portable_data 와 공통 필드 미러
         "backup_sync": {
@@ -153,6 +158,25 @@ class ConfigManager:
             self.config_path = os.path.join(PROJECT_ROOT, "config.json")
         else:
             self.config_path = resolve_path(config_path)
+        self._process_lock_path = f"{self.config_path}.lock"
+
+    def _acquire_process_lock(self) -> ProcessFileLock:
+        """동일 config의 프로세스 간 read-modify-write를 직렬화합니다."""
+        lock = ProcessFileLock(self._process_lock_path)
+        if not lock.acquire(blocking=True, timeout=30.0):
+            raise TimeoutError(f"설정 파일 락 획득 실패: {self._process_lock_path}")
+        return lock
+
+    @contextmanager
+    def _process_guard(self, error_type):
+        try:
+            lock = self._acquire_process_lock()
+        except TimeoutError as e:
+            raise error_type(str(e)) from e
+        try:
+            yield
+        finally:
+            lock.release()
 
     @classmethod
     def _deep_merge(cls, default: dict, current: dict) -> tuple[dict, bool]:
@@ -269,7 +293,7 @@ class ConfigManager:
             raise ConfigLoadError(f"config.json 읽기 실패: {e}") from e
 
     def load_config(self) -> dict:
-        with self._lock:
+        with self._lock, self._process_guard(ConfigLoadError):
             if not os.path.exists(self.config_path):
                 cfg = copy.deepcopy(self.DEFAULT_CONFIG)
                 self._ensure_api_token(cfg)
@@ -305,7 +329,7 @@ class ConfigManager:
         expected_revision 이 주어지면 디스크 revision 과 일치할 때만 저장합니다.
         불일치 시 ConfigConflictError (disk_config 포함).
         """
-        with self._lock:
+        with self._lock, self._process_guard(ConfigSaveError):
             if expected_revision is not None:
                 try:
                     disk = self._read_raw_unlocked()
@@ -326,7 +350,7 @@ class ConfigManager:
         mutator: Callable[[dict], None]
         Returns: 저장된 config
         """
-        with self._lock:
+        with self._lock, self._process_guard(ConfigSaveError):
             config = self._read_raw_unlocked()
             mutator(config)
             self._save_config_unlocked(config, bump_revision=True)
@@ -338,7 +362,10 @@ class ConfigManager:
 
         실패 시 ConfigSaveError를 발생시킵니다.
         """
-        tmp_path = f"{self.config_path}.tmp"
+        tmp_path = (
+            f"{self.config_path}.{os.getpid()}.{threading.get_ident()}."
+            f"{uuid.uuid4().hex}.tmp"
+        )
         try:
             config_data.setdefault("config_version", self.CONFIG_VERSION)
             if bump_revision:
@@ -423,6 +450,7 @@ class ConfigManager:
 
         # 임포트 후보를 미리 정규화 (mutator 밖)
         prepared: list[dict] = []
+        from websync.backup.format import now_iso
         for site in imported_sites:
             if not isinstance(site, dict):
                 continue
@@ -430,6 +458,7 @@ class ConfigManager:
             if not url:
                 continue
             merged_site, _ = self._deep_merge(self.DEFAULT_SITE, site)
+            merged_site["_sync_updated_at"] = now_iso()
             prepared.append(merged_site)
 
         if not prepared:
@@ -454,6 +483,17 @@ class ConfigManager:
                 current_sites.append(site)
                 current_urls.add(url)
                 added_holder.append(site)
+            if added_holder:
+                from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
+                added_urls = {
+                    (site.get("url") or "").strip().lower() for site in added_holder
+                }
+                portable = get_portable_cfg(config)
+                portable["deleted_sites"] = [
+                    item for item in portable.get("deleted_sites", [])
+                    if (item.get("url") or "").strip().lower() not in added_urls
+                ]
+                apply_portable_cfg(config, portable)
 
         self.update_config(_mutator)
         return added_holder

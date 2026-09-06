@@ -1,9 +1,50 @@
 import json
+import io
 import tempfile
 import urllib.error
 import urllib.request
 
 import pytest
+import requests
+
+
+class _Response:
+    def __init__(self, response):
+        self.status = response.status_code
+        self.headers = response.headers
+        self._body = response.content
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+
+def _urlopen(request, timeout=3):
+    if isinstance(request, urllib.request.Request):
+        url, method, data = request.full_url, request.get_method(), request.data
+        headers = dict(request.header_items())
+    else:
+        url, method, data, headers = request, "GET", None, {}
+    headers.setdefault("Connection", "close")
+    for attempt in range(6):
+        try:
+            with requests.Session() as session:
+                session.trust_env = False
+                response = session.request(method, url, data=data, headers=headers, timeout=timeout)
+            break
+        except requests.RequestException:
+            if attempt == 5:
+                raise
+    if response.status_code >= 400:
+        raise urllib.error.HTTPError(
+            url, response.status_code, response.reason, response.headers, io.BytesIO(response.content)
+        )
+    return _Response(response)
 
 from websync.servers.web_dashboard import WebDashboard
 
@@ -16,7 +57,7 @@ def _free_port() -> int:
 
 
 def _start_dashboard(**kwargs) -> WebDashboard:
-    port = kwargs.pop("port", _free_port())
+    port = kwargs.pop("port", 0)
     srv = WebDashboard(port=port, bind_host="127.0.0.1", **kwargs)
     assert srv.start() is True
     return srv
@@ -32,7 +73,7 @@ def test_dashboard_html_requires_auth():
     try:
         url = f"http://127.0.0.1:{srv.port}/dashboard"
         with pytest.raises(urllib.error.HTTPError) as exc:
-            urllib.request.urlopen(url, timeout=3)
+            _urlopen(url, timeout=3)
         assert exc.value.code == 401
     finally:
         srv.stop()
@@ -56,11 +97,11 @@ def test_api_sync_requires_bearer():
         url = f"http://127.0.0.1:{srv.port}/api/sync"
         req = urllib.request.Request(url, method="POST")
         with pytest.raises(urllib.error.HTTPError) as exc:
-            urllib.request.urlopen(req, timeout=3)
+            _urlopen(req, timeout=3)
         assert exc.value.code == 401
 
         req = urllib.request.Request(url, method="POST", headers={"Authorization": "Bearer tok123"})
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with _urlopen(req, timeout=3) as resp:
             assert resp.status in (200, 202)
             data = json.loads(resp.read())
         assert "message" in data
@@ -77,7 +118,7 @@ def test_api_sync_busy_response():
         url = f"http://127.0.0.1:{srv.port}/api/sync"
         req = urllib.request.Request(url, method="POST", headers={"Authorization": "Bearer tok123"})
         with pytest.raises(urllib.error.HTTPError) as exc:
-            urllib.request.urlopen(req, timeout=3)
+            _urlopen(req, timeout=3)
         assert exc.value.code == 409
         body = json.loads(exc.value.read().decode())
         assert "이미 실행" in body.get("message", "")
@@ -98,7 +139,7 @@ def test_api_sync_callback_false_returns_409():
             url, method="POST", headers={"Authorization": "Bearer tok123"}
         )
         with pytest.raises(urllib.error.HTTPError) as exc:
-            urllib.request.urlopen(req, timeout=3)
+            _urlopen(req, timeout=3)
         assert exc.value.code == 409
         body = json.loads(exc.value.read().decode())
         assert body.get("ok") is False
@@ -118,7 +159,7 @@ def test_api_sync_accepted_includes_started_flag():
         req = urllib.request.Request(
             url, method="POST", headers={"Authorization": "Bearer tok123"}
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with _urlopen(req, timeout=3) as resp:
             assert resp.status == 202
             data = json.loads(resp.read())
         assert data.get("ok") is True
@@ -135,7 +176,7 @@ def test_api_status_returns_last_result():
     try:
         url = f"http://127.0.0.1:{srv.port}/api/status"
         req = urllib.request.Request(url, headers={"Authorization": "Bearer tok123"})
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with _urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read())
         assert data["last_result"]["status"] == "no_new"
     finally:
@@ -153,9 +194,12 @@ def test_login_sets_session_cookie():
             method="POST",
             headers={"Content-Type": "application/json", "Authorization": "Bearer tok123"},
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with _urlopen(req, timeout=3) as resp:
             cookies = resp.headers.get("Set-Cookie", "")
+            body = resp.read()
             assert "x3sync_session=" in cookies
+            assert int(resp.headers["Content-Length"]) == len(body)
+            assert json.loads(body) == {"ok": True}
     finally:
         srv.stop()
 
@@ -191,12 +235,12 @@ def test_dashboard_serves_concurrent_status_requests():
             req = urllib.request.Request(
                 sync_url, method="POST", headers={"Authorization": "Bearer tok123"}
             )
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with _urlopen(req, timeout=10) as resp:
                 results["sync_status"] = resp.status
 
         def fetch_status():
             # sync_cb 가 블로킹 중일 때 status 가 바로 응답하는지
-            with urllib.request.urlopen(
+            with _urlopen(
                 urllib.request.Request(status_url, headers={"Authorization": "Bearer tok123"}),
                 timeout=5,
             ) as resp:
@@ -228,11 +272,11 @@ def test_api_cancel_requires_auth_and_invokes_callback():
     try:
         url = f"http://127.0.0.1:{srv.port}/api/cancel"
         with pytest.raises(urllib.error.HTTPError) as exc:
-            urllib.request.urlopen(urllib.request.Request(url, method="POST"), timeout=3)
+            _urlopen(urllib.request.Request(url, method="POST"), timeout=3)
         assert exc.value.code == 401
 
         req = urllib.request.Request(url, method="POST", headers={"Authorization": "Bearer tok123"})
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with _urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read())
         assert resp.status == 200
         assert data["ok"] is True

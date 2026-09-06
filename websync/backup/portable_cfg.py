@@ -36,6 +36,7 @@ DEFAULT_PORTABLE: dict[str, Any] = {
     "last_history_push_at": "",
     "last_sync_at": "",
     "last_sync_message": "",
+    "deleted_sites": [],
 }
 
 

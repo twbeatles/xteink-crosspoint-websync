@@ -7,6 +7,7 @@ from typing import Callable, Optional
 DEBOUNCE_SECONDS = 2.0
 STABLE_SIZE_CHECKS = 2
 STABLE_CHECK_INTERVAL = 0.5
+MAX_STABILITY_RETRIES = 60
 WATCH_BOOK_EXTS = (".epub", ".pdf", ".mobi", ".txt", ".azw3")
 
 
@@ -27,12 +28,14 @@ class CalibreWatcher:
         self._observer: Optional[object] = None
         self._running = False
         self._pending: dict[str, float] = {}
+        self._stability_retries: dict[str, int] = {}
         self._pending_lock = threading.Lock()
         self._debounce_timer: Optional[threading.Timer] = None
 
     def _schedule_debounced(self, fpath: str):
         with self._pending_lock:
             self._pending[fpath] = time.time()
+            self._stability_retries[fpath] = 0
             if self._debounce_timer:
                 self._debounce_timer.cancel()
             self._debounce_timer = threading.Timer(self.debounce_sec, self._flush_pending)
@@ -70,8 +73,32 @@ class CalibreWatcher:
             ]
             for path in candidates:
                 del self._pending[path]
-        ready = [path for path in candidates if self._is_file_stable(path)]
+        ready = []
+        retry = []
+        for path in candidates:
+            if self._is_file_stable(path):
+                ready.append(path)
+            elif os.path.isfile(path):
+                retry.append(path)
+
+        if retry:
+            with self._pending_lock:
+                now = time.time()
+                for path in retry:
+                    attempts = self._stability_retries.get(path, 0) + 1
+                    if attempts <= MAX_STABILITY_RETRIES:
+                        self._stability_retries[path] = attempts
+                        self._pending[path] = now
+                    else:
+                        self._stability_retries.pop(path, None)
+                if self._pending:
+                    self._debounce_timer = threading.Timer(
+                        self.debounce_sec, self._flush_pending
+                    )
+                    self._debounce_timer.daemon = True
+                    self._debounce_timer.start()
         for path in ready:
+            self._stability_retries.pop(path, None)
             try:
                 self.on_new_file(path)
             except Exception as e:
@@ -103,6 +130,12 @@ class CalibreWatcher:
                     if _is_watch_book_file(dest):
                         watcher_self._schedule_debounced(dest)
 
+                def on_modified(self, event):
+                    if event.is_directory:
+                        return
+                    if _is_watch_book_file(event.src_path):
+                        watcher_self._schedule_debounced(event.src_path)
+
             self._observer = Observer()
             self._observer.schedule(_Handler(), self.watch_dir, recursive=True)
             self._observer.start()
@@ -119,6 +152,9 @@ class CalibreWatcher:
         if self._debounce_timer:
             self._debounce_timer.cancel()
             self._debounce_timer = None
+        with self._pending_lock:
+            self._pending.clear()
+            self._stability_retries.clear()
         if self._observer:
             self._observer.stop()
             self._observer.join(timeout=3)

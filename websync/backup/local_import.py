@@ -15,8 +15,12 @@ from websync.backup.format import (
     HISTORY_FILENAME,
     SITES_FILENAME,
     extract_posts,
+    extract_deleted_posts,
+    extract_deleted_sites,
     extract_sites,
+    apply_site_tombstones,
     merge_sites,
+    merge_site_tombstones,
 )
 from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
 from websync.config.manager import ConfigManager
@@ -77,9 +81,11 @@ def import_local_sidecars(
     if os.path.isfile(hist_path):
         payload = read_json_safe(hist_path)
         posts, _ = extract_posts(payload)
-        if posts:
+        deleted_posts = extract_deleted_posts(payload)
+        if posts or deleted_posts:
             try:
-                n = db.import_posts_union(posts)
+                n = db.import_deleted_posts(deleted_posts)
+                n += db.import_posts_union(posts)
                 result["history_changed"] = n
                 result["files"].append(hist_path)
                 msg = f"로컬 {HISTORY_FILENAME}: 이력 {len(posts)}건 중 {n}건 반영"
@@ -101,16 +107,20 @@ def import_local_sidecars(
         if isinstance(s, dict) and s.get("url")
     }
     merged = list(local_sites)
+    deleted_sites = get_portable_cfg(config).get("deleted_sites", [])
     sites_from_files = 0
 
     for path in _list_sidecar_site_files(base):
         payload = read_json_safe(path)
         remote_sites, _ = extract_sites(payload)
-        if not remote_sites:
+        remote_deleted = extract_deleted_sites(payload)
+        if not remote_sites and not remote_deleted:
             continue
         # 설정 백업은 보통 최신 정본에 가깝 → 동일 URL 은 remote 우선
         merged = merge_sites(merged, remote_sites, remote_wins_same_url=True)
-        sites_from_files += len(remote_sites)
+        deleted_sites = merge_site_tombstones(deleted_sites, remote_deleted)
+        merged, deleted_sites = apply_site_tombstones(merged, deleted_sites)
+        sites_from_files += len(remote_sites) + len(remote_deleted)
         result["files"].append(path)
         result["messages"].append(f"로컬 사이트 파일 병합: {os.path.basename(path)} ({len(remote_sites)}개)")
 
@@ -125,16 +135,23 @@ def import_local_sidecars(
             cur = cfg.get("sites") if isinstance(cfg.get("sites"), list) else []
             # 디스크 최신과 다시 병합
             remote_all: list[dict] = []
+            deleted_all = get_portable_cfg(cfg).get("deleted_sites", [])
             for path in _list_sidecar_site_files(base):
                 payload = read_json_safe(path)
                 rs, _ = extract_sites(payload)
                 remote_all.extend(rs)
-            cfg["sites"] = merge_sites(cur, remote_all, remote_wins_same_url=True)
+                deleted_all = merge_site_tombstones(
+                    deleted_all, extract_deleted_sites(payload)
+                )
+            combined = merge_sites(cur, remote_all, remote_wins_same_url=True)
+            cfg["sites"], deleted_all = apply_site_tombstones(combined, deleted_all)
+            apply_portable_cfg(cfg, {"deleted_sites": deleted_all})
 
         try:
             config_manager.update_config(_apply)
         except Exception:
             config["sites"] = merged
+            apply_portable_cfg(config, {"deleted_sites": deleted_sites})
             config_manager.save_config(config)
         result["sites_changed"] = True
         result["sites_added"] = len(after_urls - before_urls)

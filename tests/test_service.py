@@ -168,6 +168,41 @@ def test_pipeline_skips_already_synced_device_on_retry():
     assert entries[0]["device_ip"] == "10.0.0.2"
 
 
+def test_pipeline_uses_startup_snapshot_when_service_components_change_mid_run():
+    cm = MagicMock(spec=ConfigManager)
+    cfg = _base_config([
+        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
+    ])
+    cm.load_config.return_value = cfg
+    cm.get_resolved_output_dir.return_value = "./output"
+    svc = SyncService(cm)
+    svc.db.needs_sync = MagicMock(return_value=True)
+    svc.db.is_synced_for_device = MagicMock(return_value=False)
+    svc.db.mark_synced_many = MagicMock(return_value=1)
+    original_uploader = svc.uploader
+    replacement_uploader = MagicMock()
+
+    def fetch(_site):
+        svc.config["epub_cover"] = True
+        svc.uploader = replacement_uploader
+        return [{"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"}]
+
+    with patch.object(svc, "_reload_config"), \
+         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
+         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
+         patch.object(ScraperFactory, "get_scraper") as mock_get, \
+         patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub") as mock_build, \
+         patch.object(original_uploader, "upload_to_targets", return_value={"127.0.0.1": True}) as mock_upload, \
+         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+        mock_get.return_value.fetch_articles.side_effect = fetch
+        assert svc.run_sync_pipeline() is True
+
+    mock_build.assert_called_once()
+    assert mock_build.call_args.kwargs["generate_cover"] is False
+    mock_upload.assert_called_once()
+    replacement_uploader.upload_to_targets.assert_not_called()
+
+
 def test_pipeline_all_empty_fetch_returns_false():
     cm = MagicMock(spec=ConfigManager)
     cm.load_config.return_value = _base_config([
