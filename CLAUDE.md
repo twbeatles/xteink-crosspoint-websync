@@ -21,7 +21,7 @@
 ## 2. 프로젝트 파일 구조 전체 분석
 
 ```
-xteink-x3-websync/
+xteink-crosspoint-websync/
 ├── x3_websync.py              # 진입점 — CLI/GUI 분기, 단일 인스턴스 락
 ├── x3_websync.spec            # PyInstaller 빌드 스펙
 ├── websync/                   # 메인 패키지 (SOLID 기반 역할별 분리)

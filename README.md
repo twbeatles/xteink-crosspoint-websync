@@ -1,13 +1,13 @@
 # XTEINK WebSync — Web & RSS to EPUB Wireless Sync for CrossPoint Reader
 
-[![Release](https://img.shields.io/github/v/release/twbeatles/xteink-x3-websync?color=blue&label=Release)](https://github.com/twbeatles/xteink-x3-websync/releases/latest)
+[![Release](https://img.shields.io/github/v/release/twbeatles/xteink-crosspoint-websync?color=blue&label=Release)](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
 [![Firmware](https://img.shields.io/badge/Firmware-CrossPoint%20Reader-orange.svg)]()
 [![Target](https://img.shields.io/badge/Devices-XTEINK%20X3%20%7C%20X4-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[🇰🇷 한국어 안내 (Korean)](README.ko.md) · [📥 Download Latest Release](https://github.com/twbeatles/xteink-x3-websync/releases/latest) · [📖 User Guide](docs/USER_GUIDE.md) · [🛠️ Developer Guide](docs/DEVELOPER.md)
+[🇰🇷 한국어 안내 (Korean)](README.ko.md) · [📥 Download Latest Release](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest) · [📖 User Guide](docs/USER_GUIDE.md) · [🛠️ Developer Guide](docs/DEVELOPER.md)
 
 ---
 
@@ -66,7 +66,7 @@ flowchart LR
 
 A zero-install, single portable executable for Windows users.
 
-1. **Download**: Grab the latest `xteink-x3-websync-vX.Y.Z.exe` from [GitHub Releases](https://github.com/twbeatles/xteink-x3-websync/releases/latest).
+1. **Download**: Grab the latest `xteink-x3-websync-vX.Y.Z.exe` from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
 2. **Connect Device**: Launch the executable. In the **News Sync** tab, enter your reader's IP address (e.g., `192.168.0.25`) or `crosspoint.local` into the **X3 Address** field, then click **[Check Connection]**.
 3. **Add Sites & Sync**: Click **[Add Site]** to pick from recommended presets (tech blogs, newsletters) or enter your favorite RSS feed URL. Then click **[Run Full Scraping & Sync to X3 Immediately]** at the bottom.
 
@@ -78,8 +78,8 @@ Ideal for macOS/Linux users or those wanting to customize and contribute to the 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/twbeatles/xteink-x3-websync.git
-cd xteink-x3-websync
+git clone https://github.com/twbeatles/xteink-crosspoint-websync.git
+cd xteink-crosspoint-websync
 
 # 2. Create and activate a virtual environment
 python -m venv .venv

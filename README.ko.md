@@ -1,13 +1,13 @@
 # XTEINK WebSync — CrossPoint Reader를 위한 Web & RSS to EPUB 무선 동기화 매니저
 
-[![Release](https://img.shields.io/github/v/release/twbeatles/xteink-x3-websync?color=blue&label=Release)](https://github.com/twbeatles/xteink-x3-websync/releases/latest)
+[![Release](https://img.shields.io/github/v/release/twbeatles/xteink-crosspoint-websync?color=blue&label=Release)](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
 [![Firmware](https://img.shields.io/badge/Firmware-CrossPoint%20Reader-orange.svg)]()
 [![Target](https://img.shields.io/badge/Devices-XTEINK%20X3%20%7C%20X4-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[🌐 English README](README.md) · [📥 최신 Windows 릴리스 다운로드](https://github.com/twbeatles/xteink-x3-websync/releases/latest) · [📖 상세 사용 설명서](docs/USER_GUIDE.md) · [🛠️ 개발자 가이드](docs/DEVELOPER.md)
+[🌐 English README](README.md) · [📥 최신 Windows 릴리스 다운로드](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest) · [📖 상세 사용 설명서](docs/USER_GUIDE.md) · [🛠️ 개발자 가이드](docs/DEVELOPER.md)
 
 ---
 
@@ -66,7 +66,7 @@ flowchart LR
 
 복잡한 설치 과정 없이 바로 실행할 수 있는 단일 포터블 실행 파일입니다.
 
-1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-x3-websync/releases/latest)에서 실행 파일(`xteink-x3-websync-v1.1.0.exe` 등)을 다운로드합니다.
+1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-x3-websync-v1.1.0.exe` 등)을 다운로드합니다.
 2. **기기 연결**: 프로그램을 실행한 후, **뉴스 동기화** 탭의 **X3 주소** 입력창에 기기의 IP 주소(예: `192.168.0.25`) 또는 `crosspoint.local`을 입력하고 **[연결 확인]**을 누릅니다.
 3. **사이트 등록 및 동기화**: **[사이트 추가]**를 눌러 추천 프리셋(토스, 카카오, 뉴닉 등)을 선택하거나 원하는 RSS 주소를 입력한 뒤, 하단의 **[즉시 전체 뉴스 스크래핑 및 X3 동기화 실행]**을 클릭합니다.
 
@@ -78,8 +78,8 @@ macOS, Linux 환경이거나 최신 개발 기능을 직접 사용하려는 경�
 
 ```bash
 # 1. 저장소 복제
-git clone https://github.com/twbeatles/xteink-x3-websync.git
-cd xteink-x3-websync
+git clone https://github.com/twbeatles/xteink-crosspoint-websync.git
+cd xteink-crosspoint-websync
 
 # 2. 가상환경 생성 및 활성화 (권장)
 python -m venv .venv
