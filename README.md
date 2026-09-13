@@ -66,7 +66,7 @@ flowchart LR
 
 A zero-install, single portable executable for Windows users.
 
-1. **Download**: Grab the latest `xteink-x3-websync-vX.Y.Z.exe` from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
+1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.1.1.exe` from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
 2. **Connect Device**: Launch the executable. In the **News Sync** tab, enter your reader's IP address (e.g., `192.168.0.25`) or `crosspoint.local` into the **X3 Address** field, then click **[Check Connection]**.
 3. **Add Sites & Sync**: Click **[Add Site]** to pick from recommended presets (tech blogs, newsletters) or enter your favorite RSS feed URL. Then click **[Run Full Scraping & Sync to X3 Immediately]** at the bottom.
 

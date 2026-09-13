@@ -66,7 +66,7 @@ flowchart LR
 
 복잡한 설치 과정 없이 바로 실행할 수 있는 단일 포터블 실행 파일입니다.
 
-1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-x3-websync-v1.1.0.exe` 등)을 다운로드합니다.
+1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-crosspoint-websync-v1.1.1.exe` 등)을 다운로드합니다.
 2. **기기 연결**: 프로그램을 실행한 후, **뉴스 동기화** 탭의 **X3 주소** 입력창에 기기의 IP 주소(예: `192.168.0.25`) 또는 `crosspoint.local`을 입력하고 **[연결 확인]**을 누릅니다.
 3. **사이트 등록 및 동기화**: **[사이트 추가]**를 눌러 추천 프리셋(토스, 카카오, 뉴닉 등)을 선택하거나 원하는 RSS 주소를 입력한 뒤, 하단의 **[즉시 전체 뉴스 스크래핑 및 X3 동기화 실행]**을 클릭합니다.
 
