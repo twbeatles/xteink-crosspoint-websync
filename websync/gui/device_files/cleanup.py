@@ -22,6 +22,7 @@ from websync.upload.device_client import (
     filter_old_sync_epubs,
 )
 from websync.upload.uploader import X3Uploader, normalize_upload_remote_dir
+from websync.i18n import t
 
 
 class DeviceFilesCleanupMixin:
@@ -33,9 +34,8 @@ class DeviceFilesCleanupMixin:
         candidates = self._old_candidates()
         if not candidates:
             messagebox.showinfo(
-                "후보 없음",
-                f"현재 폴더에서 {self._cleanup_days()}일보다 오래된 "
-                "동기화 EPUB(파일명 날짜 기준)이 없습니다.",
+                t("gui.device.no_candidates_title"),
+                t("gui.device.no_candidates_select", days=self._cleanup_days()),
             )
             return
         # 필터 해제 후 트리에서 선택
@@ -52,7 +52,7 @@ class DeviceFilesCleanupMixin:
             self.file_tree.selection_set(to_select)
             self.file_tree.see(to_select[0])
         self.app._log_message(
-            f"🧹 오래된 EPUB 후보 {len(candidates)}개 선택 ({self._cleanup_days()}일+)"
+            t("gui.device.log_select_old", count=len(candidates), days=self._cleanup_days())
         )
 
     def _cleanup_old_sync_epubs(self) -> None:
@@ -61,20 +61,23 @@ class DeviceFilesCleanupMixin:
         candidates = self._old_candidates()
         if not candidates:
             messagebox.showinfo(
-                "후보 없음",
-                f"현재 폴더에서 {self._cleanup_days()}일보다 오래된 동기화 EPUB이 없습니다.",
+                t("gui.device.no_candidates_title"),
+                t("gui.device.no_candidates_cleanup", days=self._cleanup_days()),
             )
             return
         preview = "\n".join(
             f"· {c.get('name')} ({c.get('sync_date', '?')})" for c in candidates[:15]
         )
         if len(candidates) > 15:
-            preview += f"\n… 외 {len(candidates) - 15}개"
+            preview += t("gui.device.and_more_nl", count=len(candidates) - 15)
         if not messagebox.askyesno(
-            "오래된 EPUB 삭제",
-            f"{self._cleanup_days()}일보다 오래된 동기화 EPUB {len(candidates)}개를 "
-            f"기기에서 삭제합니다.\n\n{preview}\n\n"
-            "PC 동기화 이력은 유지됩니다. 계속할까요?",
+            t("gui.device.cleanup_title_dialog"),
+            t(
+                "gui.device.cleanup_confirm",
+                days=self._cleanup_days(),
+                count=len(candidates),
+                preview=preview,
+            ),
         ):
             return
 
@@ -84,7 +87,7 @@ class DeviceFilesCleanupMixin:
         ip = self._selected_ip()
         paths = [c["path"] for c in candidates]
         self._set_busy(True)
-        self.app._log_message(f"🧹 [{ip}] 오래된 EPUB 삭제: {len(paths)}개")
+        self.app._log_message(t("gui.device.log_cleanup", ip=ip, count=len(paths)))
 
         def task():
             err: str | None = None
@@ -97,4 +100,3 @@ class DeviceFilesCleanupMixin:
             )
 
         threading.Thread(target=task, daemon=True).start()
-

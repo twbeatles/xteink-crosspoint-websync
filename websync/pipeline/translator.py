@@ -2,6 +2,8 @@
 import logging
 import re
 
+from websync.i18n import t
+
 
 class Translator:
     """기사 HTML을 지정 언어로 번역하는 클래스."""
@@ -41,7 +43,7 @@ class Translator:
                 self._gtrans = GT()
             except Exception as e:
                 self._gtrans = None
-                self._warn(f"googletrans 로드 실패 (번역 비활성): {e}")
+                self._warn(t("pipeline.translator.gtrans_fail", error=e))
         return self._gtrans
 
     def translate_html(self, html_content: str, target_lang: str = "ko", source_lang: str = "auto") -> str:
@@ -63,7 +65,7 @@ class Translator:
                         translated_parts.append(part)
             return "".join(translated_parts)
         except Exception as e:
-            self._warn(f"⚠️ 번역 실패: {e}")
+            self._warn(t("pipeline.translator.fail", error=e))
             return html_content
 
     def _do_translate(self, text: str, target: str, source: str) -> str:
@@ -76,7 +78,7 @@ class Translator:
         elif self.provider == "libretranslate":
             host = (self.libretranslate_host or "").strip()
             if not (host.startswith("http://") or host.startswith("https://")):
-                self._warn(f"LibreTranslate 호스트는 http(s)만 허용합니다: {host[:80]}")
+                self._warn(t("pipeline.translator.bad_host", host=host[:80]))
                 return text
             import urllib.request
             import json

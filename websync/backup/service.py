@@ -36,6 +36,7 @@ from websync.config.manager import ConfigManager
 from websync.core.paths import resolve_path
 from websync.core.process_lock import ProcessFileLock
 from websync.db.history import SyncHistoryDb, SyncHistoryDbError
+from websync.i18n import t
 
 
 class BackupSyncError(Exception):
@@ -140,19 +141,19 @@ class BackupSyncService:
 
         if not folder:
             result["skipped"] = True
-            result["message"] = "백업 폴더가 설정되지 않았습니다."
+            result["message"] = t("backup.no_folder")
             self.last_result = result
             return result
         if not force and not bs.get("enabled"):
             result["skipped"] = True
-            result["message"] = "백업 동기화가 비활성화되어 있습니다."
+            result["message"] = t("backup.disabled")
             self.last_result = result
             return result
 
         file_lock = self._acquire_folder_lock(folder)
         if file_lock is None:
             result["skipped"] = True
-            result["message"] = "다른 프로세스가 백업 폴더를 사용 중입니다."
+            result["message"] = t("backup.busy")
             self.logger.warning(result["message"])
             self.last_result = result
             return result
@@ -235,7 +236,7 @@ class BackupSyncService:
                         history_changed = self.db.import_deleted_posts(remote_deleted)
                         history_changed += self.db.import_posts_union(remote_posts)
                     except SyncHistoryDbError as e:
-                        result["message"] = f"이력 가져오기 실패: {e}"
+                        result["message"] = t("backup.history_import_failed", error=e)
                         self.logger.error(result["message"])
                         self.last_result = result
                         return result
@@ -244,17 +245,17 @@ class BackupSyncService:
             result["ok"] = True
             parts = []
             if result["sites_changed"]:
-                parts.append(f"사이트 병합(+{result['sites_added']})")
+                parts.append(t("backup.sites_merged", n=result["sites_added"]))
             if history_changed:
-                parts.append(f"이력 {history_changed}건 반영")
+                parts.append(t("backup.history_applied", n=history_changed))
             if not parts:
-                parts.append("변경 없음")
-            result["message"] = "가져오기 완료: " + ", ".join(parts)
+                parts.append(t("backup.no_change"))
+            result["message"] = t("backup.pull_done", parts=", ".join(parts))
             self.logger.info(result["message"])
             self.last_result = result
             return result
         except Exception as e:
-            result["message"] = f"가져오기 실패: {e}"
+            result["message"] = t("backup.pull_failed", error=e)
             self.logger.exception(result["message"])
             self.last_result = result
             return result
@@ -277,24 +278,24 @@ class BackupSyncService:
 
         if not folder:
             result["skipped"] = True
-            result["message"] = "백업 폴더가 설정되지 않았습니다."
+            result["message"] = t("backup.no_folder")
             self.last_result = result
             return result
         if not force and not bs.get("enabled"):
             result["skipped"] = True
-            result["message"] = "백업 동기화가 비활성화되어 있습니다."
+            result["message"] = t("backup.disabled")
             self.last_result = result
             return result
         if not force and not bs.get("auto_export", True):
             result["skipped"] = True
-            result["message"] = "자동 내보내기가 비활성화되어 있습니다."
+            result["message"] = t("backup.auto_export_off")
             self.last_result = result
             return result
 
         file_lock = self._acquire_folder_lock(folder)
         if file_lock is None:
             result["skipped"] = True
-            result["message"] = "다른 프로세스가 백업 폴더를 사용 중입니다."
+            result["message"] = t("backup.busy")
             self.logger.warning(result["message"])
             self.last_result = result
             return result
@@ -333,7 +334,7 @@ class BackupSyncService:
                     posts = self.db.export_all_posts()
                     deleted_posts = self.db.export_deleted_posts()
                 except SyncHistoryDbError as e:
-                    result["message"] = f"이력 내보내기 실패: {e}"
+                    result["message"] = t("backup.history_export_failed", error=e)
                     self.logger.error(result["message"])
                     self.last_result = result
                     return result
@@ -348,7 +349,7 @@ class BackupSyncService:
                         posts = self.db.export_all_posts()
                         deleted_posts = self.db.export_deleted_posts()
                     except SyncHistoryDbError as e:
-                        self.logger.warning(f"push 전 이력 병합 실패(로컬만 기록): {e}")
+                        self.logger.warning(t("backup.push_merge_failed", error=e))
                 hist_payload = build_history_payload(
                     posts,
                     exported_at=exported_at,
@@ -374,21 +375,22 @@ class BackupSyncService:
                     last_sites_push_at=exported_at,
                     last_history_push_at=exported_at if hist_written else prev_hist,
                     last_sync_at=exported_at,
-                    last_sync_message=f"내보내기 완료 ({exported_at})",
+                    last_sync_message=t("backup.export_done_at", at=exported_at),
                 )
 
             self.config_manager.update_config(_apply_meta)
 
             result["ok"] = True
-            result["message"] = (
-                f"내보내기 완료: 사이트 {len(sites)}개"
-                + (f", 이력 {result['history_count']}건" if result["history_written"] else "")
+            result["message"] = t("backup.export_done", n=len(sites)) + (
+                t("backup.export_history", n=result["history_count"])
+                if result["history_written"]
+                else ""
             )
             self.logger.info(result["message"])
             self.last_result = result
             return result
         except Exception as e:
-            result["message"] = f"내보내기 실패: {e}"
+            result["message"] = t("backup.export_failed", error=e)
             self.logger.exception(result["message"])
             self.last_result = result
             return result

@@ -13,6 +13,7 @@ import requests
 from websync.upload.host import normalize_device_host
 from websync.upload.remote_path import normalize_upload_remote_dir
 from websync.upload.device_ids import build_targets_with_keys
+from websync.i18n import t
 
 __all__ = ["X3Uploader", "normalize_device_host", "normalize_upload_remote_dir"]
 
@@ -73,7 +74,7 @@ class X3Uploader:
         """지정 IP의 기기로 파일 1건 전송"""
         host = normalize_device_host(ip)
         if not host:
-            msg = "기기 주소가 비어 있습니다."
+            msg = t("upload.empty_host")
             self.last_errors[str(ip)] = msg
             print(f"❌ [{ip}] {msg}")
             return False
@@ -101,19 +102,19 @@ class X3Uploader:
             if body:
                 msg += f" — {body}"
             if response.status_code == 404 and "//" in url:
-                msg += " (주소 끝 '/' 확인)"
+                msg += t("upload.trailing_slash")
             self.last_errors[host] = msg
-            print(f"❌ [{host}] 전송 응답 오류: {msg} (URL: {url})")
+            print(t("upload.http_error", host=host, msg=msg, url=url))
             return False
         except requests.Timeout as e:
-            msg = f"타임아웃 {timeout}초: {e}"
+            msg = t("upload.timeout", timeout=timeout, error=e)
             self.last_errors[host] = msg
-            print(f"❌ [{host}] 전송 실패 ({msg})")
+            print(t("upload.failed", host=host, msg=msg))
             return False
         except Exception as e:
             msg = f"{type(e).__name__}: {e}"
             self.last_errors[host] = msg
-            print(f"❌ [{host}] 전송 실패: {msg}")
+            print(t("upload.failed_exc", host=host, msg=msg))
             return False
 
     def _build_target_list(self) -> list[dict]:
@@ -138,8 +139,8 @@ class X3Uploader:
             file_path, host, safe_filename, timeout, remote_dir=remote_dir
         )
         if not result:
-            print("💡 팁: CrossPoint 기기가 켜져 있고 Wi-Fi에 연결되어 있는지 확인해 주세요.")
-            print("💡 주소에 끝 슬래시(/)나 http:// 를 넣지 마세요. 예: 192.168.31.54")
+            print(t("upload.tip_wifi"))
+            print(t("upload.tip_address"))
         return result
 
     def upload_to_all_devices(self, file_path: str, remote_dir: str | None = None) -> dict:
@@ -166,7 +167,7 @@ class X3Uploader:
             all_devices = [d for d in all_devices if d["ip"] in allow]
 
         if not all_devices:
-            print("⚠️ 등록된 기기가 없습니다." if only_ips is None else "⚠️ 전송 대상 기기가 없습니다.")
+            print(t("upload.no_devices") if only_ips is None else t("upload.no_targets"))
             return {}
 
         safe_filename = self._sanitize_filename(file_path)
@@ -189,7 +190,7 @@ class X3Uploader:
                 except Exception as e:
                     msg = f"{type(e).__name__}: {e}"
                     self.last_errors[ip] = msg
-                    print(f"❌ [{device.get('name', ip)}] 전송 예외: {e}")
+                    print(t("upload.upload_exc", name=device.get("name", ip), error=e))
                     results[ip] = False
         return results
 

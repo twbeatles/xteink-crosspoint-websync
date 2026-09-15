@@ -26,6 +26,7 @@ from websync.upload.sync_epub import (  # noqa: F401
     filter_old_sync_epubs,
     parse_sync_epub_date,
 )
+from websync.i18n import t
 
 class X3DeviceClient:
     """CrossPoint 기기 파일·상태 API 클라이언트 (단일/다중 기기)."""
@@ -44,7 +45,7 @@ class X3DeviceClient:
     def _resolve_host(self, ip: str | None = None) -> str:
         host = normalize_device_host(ip or self.x3_ip)
         if not host:
-            raise DeviceClientError("기기 주소가 비어 있습니다.")
+            raise DeviceClientError(t("device.empty_host"))
         return host
 
     def _record_error(self, host: str, msg: str) -> None:
@@ -61,7 +62,7 @@ class X3DeviceClient:
         if body:
             msg += f" — {body}"
         if response.status_code == 404:
-            msg += " (File Transfer 모드이거나 펌웨어 API 지원 여부를 확인하세요)"
+            msg += t("device.http_404_hint")
         return msg
 
     def _build_target_list(self) -> list[dict]:
@@ -72,7 +73,7 @@ class X3DeviceClient:
         if self.x3_ip:
             ip = normalize_device_host(self.x3_ip)
             if ip:
-                targets.append({"name": "기본 기기", "ip": ip})
+                targets.append({"name": t("device.default_name"), "ip": ip})
                 seen_ips.add(ip)
 
         for dev in self.devices:
@@ -91,7 +92,7 @@ class X3DeviceClient:
         try:
             response = requests.get(url, timeout=self.DEFAULT_TIMEOUT)
         except requests.Timeout as e:
-            msg = f"타임아웃: {e}"
+            msg = t("device.timeout", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except requests.RequestException as e:
@@ -107,12 +108,12 @@ class X3DeviceClient:
         try:
             data = response.json()
         except ValueError as e:
-            msg = "상태 응답 JSON 파싱 실패"
+            msg = t("device.status_json")
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
 
         if not isinstance(data, dict):
-            msg = "상태 응답 형식이 올바르지 않습니다."
+            msg = t("device.status_format")
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host)
 
@@ -131,7 +132,7 @@ class X3DeviceClient:
                 timeout=self.LIST_TIMEOUT,
             )
         except requests.Timeout as e:
-            msg = f"목록 타임아웃: {e}"
+            msg = t("device.list_timeout", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except requests.RequestException as e:
@@ -147,12 +148,12 @@ class X3DeviceClient:
         try:
             data = response.json()
         except ValueError as e:
-            msg = "파일 목록 JSON 파싱 실패"
+            msg = t("device.list_json")
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
 
         if not isinstance(data, list):
-            msg = "파일 목록 응답 형식이 올바르지 않습니다."
+            msg = t("device.list_format")
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host)
 
@@ -195,7 +196,7 @@ class X3DeviceClient:
         cleaned = [normalize_remote_path(p) for p in paths if p]
         cleaned = [p for p in cleaned if p != "/"]
         if not cleaned:
-            msg = "삭제할 경로가 없습니다."
+            msg = t("device.no_delete_paths")
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host)
 
@@ -209,7 +210,7 @@ class X3DeviceClient:
         try:
             response = requests.post(url, data=data, timeout=self.DELETE_TIMEOUT)
         except requests.Timeout as e:
-            msg = f"삭제 타임아웃: {e}"
+            msg = t("device.delete_timeout", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except requests.RequestException as e:
@@ -231,7 +232,7 @@ class X3DeviceClient:
         parent = normalize_remote_path(path)
         folder_name = (name or "").strip()
         if not folder_name or "/" in folder_name or "\\" in folder_name:
-            raise DeviceClientError("올바른 폴더 이름을 입력해 주세요.", host=host)
+            raise DeviceClientError(t("device.bad_folder_name"), host=host)
 
         url = f"http://{host}/mkdir"
         try:
@@ -241,7 +242,7 @@ class X3DeviceClient:
                 timeout=self.DEFAULT_TIMEOUT,
             )
         except requests.Timeout as e:
-            msg = f"폴더 생성 타임아웃: {e}"
+            msg = t("device.mkdir_timeout", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except requests.RequestException as e:
@@ -262,7 +263,7 @@ class X3DeviceClient:
         host = self._resolve_host(ip)
         remote = normalize_remote_path(remote_path)
         if remote == "/":
-            raise DeviceClientError("다운로드할 파일을 지정해 주세요.", host=host)
+            raise DeviceClientError(t("device.no_download"), host=host)
 
         url = f"http://{host}/download"
         try:
@@ -273,7 +274,7 @@ class X3DeviceClient:
                 stream=True,
             )
         except requests.Timeout as e:
-            msg = f"다운로드 타임아웃: {e}"
+            msg = t("device.download_timeout", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except requests.RequestException as e:
@@ -308,7 +309,7 @@ class X3DeviceClient:
                     os.remove(temp_path)
             except OSError:
                 pass
-            msg = f"로컬 저장 실패: {e}"
+            msg = t("device.save_failed", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
 
@@ -321,9 +322,9 @@ class X3DeviceClient:
         remote = normalize_remote_path(path)
         name = (new_name or "").strip()
         if remote == "/":
-            raise DeviceClientError("이름을 변경할 파일을 지정해 주세요.", host=host)
+            raise DeviceClientError(t("device.no_rename"), host=host)
         if not name or "/" in name or "\\" in name or name in (".", ".."):
-            raise DeviceClientError("올바른 새 파일 이름을 입력해 주세요.", host=host)
+            raise DeviceClientError(t("device.bad_new_name"), host=host)
 
         url = f"http://{host}/rename"
         try:
@@ -333,7 +334,7 @@ class X3DeviceClient:
                 timeout=self.DEFAULT_TIMEOUT,
             )
         except requests.Timeout as e:
-            msg = f"이름 변경 타임아웃: {e}"
+            msg = t("device.rename_timeout", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except requests.RequestException as e:
@@ -355,7 +356,7 @@ class X3DeviceClient:
         remote = normalize_remote_path(path)
         dest = normalize_remote_path(dest_dir)
         if remote == "/":
-            raise DeviceClientError("이동할 파일을 지정해 주세요.", host=host)
+            raise DeviceClientError(t("device.no_move"), host=host)
 
         url = f"http://{host}/move"
         try:
@@ -365,7 +366,7 @@ class X3DeviceClient:
                 timeout=self.DEFAULT_TIMEOUT,
             )
         except requests.Timeout as e:
-            msg = f"이동 타임아웃: {e}"
+            msg = t("device.move_timeout", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except requests.RequestException as e:
@@ -407,7 +408,7 @@ class X3DeviceClient:
         """POST /upload?path=... — 지정 폴더로 파일 업로드."""
         host = self._resolve_host(ip)
         if not file_path or not os.path.isfile(file_path):
-            raise DeviceClientError(f"로컬 파일이 없습니다: {file_path}", host=host)
+            raise DeviceClientError(t("device.no_local_file", path=file_path), host=host)
 
         dest = normalize_remote_path(remote_dir)
         if safe_filename is None:
@@ -439,7 +440,7 @@ class X3DeviceClient:
                     url, files=files, params=params or None, timeout=timeout
                 )
         except requests.Timeout as e:
-            msg = f"업로드 타임아웃 {timeout}초: {e}"
+            msg = t("device.upload_timeout", timeout=timeout, error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except requests.RequestException as e:
@@ -448,7 +449,7 @@ class X3DeviceClient:
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
         except OSError as e:
-            msg = f"파일 읽기 실패: {e}"
+            msg = t("device.read_failed", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
 

@@ -3,6 +3,8 @@ import html
 import logging
 import re
 
+from websync.i18n import t
+
 
 class Summarizer:
     """기사 텍스트를 AI로 요약하는 클래스. API 키가 없으면 자동 스킵."""
@@ -36,7 +38,7 @@ class Summarizer:
 
     def _format_summary(self, summary: str) -> str:
         safe = html.escape(summary, quote=False).replace("\n", "<br/>")
-        return f'<blockquote class="ai-summary"><strong>📝 AI 요약</strong><br/>{safe}</blockquote>'
+        return f'<blockquote class="ai-summary"><strong>{t("pipeline.summarizer.label")}</strong><br/>{safe}</blockquote>'
 
     def summarize(self, title: str, html_content: str) -> str:
         if not self.is_available():
@@ -50,7 +52,7 @@ class Summarizer:
             elif self.provider == "ollama":
                 return self._call_ollama(prompt)
         except Exception as e:
-            self._warn(f"⚠️ AI 요약 실패: {e}")
+            self._warn(t("pipeline.summarizer.fail", error=e))
         return ""
 
     def _call_openai(self, prompt: str) -> str:
@@ -71,12 +73,12 @@ class Summarizer:
             result = json.loads(resp.read())
         choices = result.get("choices") or []
         if not choices:
-            self._warn("⚠️ AI 요약: OpenAI 응답에 choices가 없습니다.")
+            self._warn(t("pipeline.summarizer.no_choices"))
             return ""
         message = choices[0].get("message") or {}
         summary = (message.get("content") or "").strip()
         if not summary:
-            self._warn("⚠️ AI 요약: OpenAI 응답 본문이 비어 있습니다.")
+            self._warn(t("pipeline.summarizer.empty"))
             return ""
         return self._format_summary(summary)
 
@@ -85,7 +87,7 @@ class Summarizer:
         import json
         host = (self.ollama_host or "").strip()
         if not (host.startswith("http://") or host.startswith("https://")):
-            self._warn(f"Ollama 호스트는 http(s)만 허용합니다: {host[:80]}")
+            self._warn(t("pipeline.summarizer.bad_host", host=host[:80]))
             return ""
         payload = {"model": self.model, "prompt": prompt, "stream": False}
         req = urllib.request.Request(

@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup, Tag
 
 from websync.scrapers.base import fetch_url, maybe_strip_images
 from websync.scrapers.newsletter_base import BaseNewsletterScraper
+from websync.i18n import t
 
 
 class MoneyLetterScraper(BaseNewsletterScraper):
@@ -97,7 +98,7 @@ class MoneyLetterScraper(BaseNewsletterScraper):
             full = urljoin(base_url, href)
             if full in seen or not self._is_detail_url(full):
                 continue
-            title = a.get_text(strip=True) or "머니레터"
+            title = a.get_text(strip=True) or t("moneyletter.fallback_title")
             if len(title) < 8:
                 continue
             seen.add(full)
@@ -121,7 +122,7 @@ class MoneyLetterScraper(BaseNewsletterScraper):
             score = len(text)
             if score > best_len:
                 best_len = score
-                best = (full, text or "머니레터")
+                best = (full, text or t("moneyletter.fallback_title"))
         return best
 
     def _get_title(self, url: str) -> str | None:
@@ -149,7 +150,7 @@ class MoneyLetterScraper(BaseNewsletterScraper):
 
             container = self._find_content_container(soup)
             if not container:
-                self.logger.warning(f"본문 컨테이너를 찾을 수 없음: {url}")
+                self.logger.warning(t("newsletter.no_container", url=url))
                 return ""
 
             self._clean_content(container, site_config)
@@ -157,11 +158,11 @@ class MoneyLetterScraper(BaseNewsletterScraper):
 
             html_out = self._to_eink_html(container)
             if not html_out or len(BeautifulSoup(html_out, "lxml").get_text(strip=True)) < 50:
-                self.logger.warning(f"본문 텍스트가 비정상적으로 짧음: {url}")
+                self.logger.warning(t("moneyletter.too_short", url=url))
                 return ""
             return html_out
         except Exception as e:
-            self.logger.warning(f"상세 페이지 수집 실패 ({url}): {e}")
+            self.logger.warning(t("newsletter.detail_failed", url=url, error=e))
             return ""
 
     def _clean_content(self, container: BeautifulSoup, site_config: dict) -> None:

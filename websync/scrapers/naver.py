@@ -5,6 +5,7 @@ import re
 from bs4 import BeautifulSoup
 from websync.core.logger import get_logger
 from websync.scrapers.naver_common import clean_naver_content
+from websync.i18n import t
 
 # 상세 페이지 병렬 수집 워커 수 (N2)
 _DETAIL_MAX_WORKERS = 3
@@ -34,7 +35,7 @@ class NaverBlogScraper(BaseScraper):
                 blog_id = me_match.group(1)
 
         if not blog_id:
-            raise Exception("올바른 네이버 블로그 URL 형식이 아닙니다. (예: https://blog.naver.com/아이디 또는 https://아이디.blog.me)")
+            raise Exception(t("naver.invalid_url"))
 
         # 네이버 블로그 RSS 피드 URL 구성
         rss_url = f"https://rss.blog.naver.com/{blog_id}.xml"
@@ -44,13 +45,13 @@ class NaverBlogScraper(BaseScraper):
             response = fetch_url(rss_url, timeout=15)
             response.raise_for_status()
         except Exception as e:
-            raise Exception(f"네이버 블로그 RSS 호출 실패: {e}") from e
+            raise Exception(t("naver.rss_failed", error=e)) from e
 
         soup = BeautifulSoup(response.text, "xml")
         items = soup.find_all("item")[:limit]
 
         if not items:
-            raise Exception("네이버 블로그 RSS에서 포스트 목록을 읽어오지 못했습니다.")
+            raise Exception(t("naver.list_failed"))
 
         # 메타 추출 (순서 보존)
         post_meta = []
@@ -58,7 +59,7 @@ class NaverBlogScraper(BaseScraper):
             title_elem = item.find("title")
             link_elem = item.find("link")
             if not title_elem or not link_elem:
-                self._record_skip("제목/링크 누락")
+                self._record_skip(t("naver.skip_meta"))
                 continue
             title = title_elem.text.strip()
             post_link = link_elem.text.strip()
@@ -70,8 +71,8 @@ class NaverBlogScraper(BaseScraper):
                 log_no_match = re.search(r"logNo=(\d+)", post_link)
 
             if not log_no_match:
-                self.logger.warning(f"네이버 블로그 포스트 번호 파싱 불가로 건너뜀: {post_link}")
-                self._record_skip(f"logNo 파싱 실패: {title}")
+                self.logger.warning(t("naver.logno_warn", url=post_link))
+                self._record_skip(t("naver.skip_logno", title=title))
                 continue
 
             log_no = log_no_match.group(1)
@@ -94,20 +95,17 @@ class NaverBlogScraper(BaseScraper):
                 if art is not None:
                     articles[idx] = art
                 else:
-                    self._record_skip(f"본문 수집 실패: {meta['title']}")
+                    self._record_skip(t("naver.skip_body", title=meta["title"]))
 
         # None(실패) 제거
         articles = [a for a in articles if a is not None]
 
         if not articles:
-            raise Exception(
-                f"네이버 블로그 본문 수집 성공 0건 (RSS {len(items)}건 중). "
-                "블로그 공개 설정·네트워크·스마트에디터 구조 변경을 확인하세요."
-            )
+            raise Exception(t("naver.zero_body", n=len(items)))
 
         skipped = self.last_fetch_stats.get("skipped", 0)
         if skipped:
-            self.logger.info(f"네이버 블로그: {skipped}건 스킵 (본문·메타 실패 등)")
+            self.logger.info(t("naver.skipped_info", n=skipped))
         return articles
 
     def _record_skip(self, reason: str) -> None:
@@ -124,7 +122,7 @@ class NaverBlogScraper(BaseScraper):
             post_view_url = f"https://blog.naver.com/PostView.naver?blogId={blog_id}&logNo={log_no}"
             post_response = fetch_url(post_view_url, timeout=15)
             if post_response.status_code != 200:
-                self.logger.error(f"포스트 본문 획득 실패 (HTTP {post_response.status_code}): {title}")
+                self.logger.error(t("naver.http_failed", status=post_response.status_code, title=title))
                 return None
 
             # 인코딩 처리
@@ -135,7 +133,7 @@ class NaverBlogScraper(BaseScraper):
             content_elem = post_soup.select_one("div.se-main-container") or post_soup.select_one("#postViewArea")
 
             if not content_elem:
-                self.logger.warning(f"본문 엘리먼트를 식별할 수 없습니다. 건너뜁니다: {title}")
+                self.logger.warning(t("naver.no_container", title=title))
                 return None
 
             maybe_strip_images(content_elem, site_config)
@@ -148,5 +146,5 @@ class NaverBlogScraper(BaseScraper):
                 "url": post_link,
             }
         except Exception as e:
-            self.logger.warning(f"네이버 개별 글 파싱 오류 패스: {e}")
+            self.logger.warning(t("naver.parse_error", error=e))
             return None

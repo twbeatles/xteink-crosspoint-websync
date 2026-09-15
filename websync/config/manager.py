@@ -12,6 +12,7 @@ from websync.core.paths import PROJECT_ROOT, resolve_path
 from websync.core.process_lock import ProcessFileLock
 from websync.config.exceptions import ConfigLoadError, ConfigSaveError, ConfigConflictError
 from websync.config.validator import log_validation_warnings, validate_config
+from websync.i18n import t
 
 class ConfigManager:
 
@@ -148,6 +149,7 @@ class ConfigManager:
             "last_sync_message": "",
         },
         "auto_check_update": True,
+        "ui_language": "auto",
         # RMW 충돌 감지용 (파일에 저장, UI 비노출)
         "_config_revision": 0,
     }
@@ -164,7 +166,7 @@ class ConfigManager:
         """동일 config의 프로세스 간 read-modify-write를 직렬화합니다."""
         lock = ProcessFileLock(self._process_lock_path)
         if not lock.acquire(blocking=True, timeout=30.0):
-            raise TimeoutError(f"설정 파일 락 획득 실패: {self._process_lock_path}")
+            raise TimeoutError(t("config.lock_timeout", path=self._process_lock_path))
         return lock
 
     @contextmanager
@@ -274,7 +276,7 @@ class ConfigManager:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
             if not isinstance(config, dict):
-                raise ConfigLoadError("config.json 최상위는 객체여야 합니다.")
+                raise ConfigLoadError(t("config.must_be_object"))
             config, _ = self._normalize_loaded(config)
             return config
         except json.JSONDecodeError as e:
@@ -284,13 +286,13 @@ class ConfigManager:
             except OSError:
                 corrupt_path = None
             raise ConfigLoadError(
-                f"config.json 파싱 실패: {e}. 손상 파일을 '{corrupt_path}'에 보존했습니다.",
+                t("config.parse_failed", error=e, path=corrupt_path),
                 corrupt_path=corrupt_path,
             ) from e
         except ConfigLoadError:
             raise
         except OSError as e:
-            raise ConfigLoadError(f"config.json 읽기 실패: {e}") from e
+            raise ConfigLoadError(t("config.read_failed", error=e)) from e
 
     def load_config(self) -> dict:
         with self._lock, self._process_guard(ConfigLoadError):
@@ -317,11 +319,11 @@ class ConfigManager:
                 except OSError:
                     corrupt_path = None
                 raise ConfigLoadError(
-                    f"config.json 파싱 실패: {e}. 손상 파일을 '{corrupt_path}'에 보존했습니다.",
+                    t("config.parse_failed", error=e, path=corrupt_path),
                     corrupt_path=corrupt_path,
                 ) from e
             except OSError as e:
-                raise ConfigLoadError(f"config.json 읽기 실패: {e}") from e
+                raise ConfigLoadError(t("config.read_failed", error=e)) from e
 
     def save_config(self, config_data: dict, *, expected_revision: int | None = None):
         """설정을 원자적으로 저장합니다.
@@ -338,8 +340,7 @@ class ConfigManager:
                 disk_rev = int(disk.get("_config_revision") or 0)
                 if disk_rev != int(expected_revision):
                     raise ConfigConflictError(
-                        f"설정이 다른 작업에 의해 변경되었습니다 "
-                        f"(disk={disk_rev}, expected={expected_revision}).",
+                        t("config.conflict", disk=disk_rev, expected=expected_revision),
                         disk_config=disk,
                     )
             self._save_config_unlocked(config_data, bump_revision=True)
@@ -356,6 +357,14 @@ class ConfigManager:
             self._save_config_unlocked(config, bump_revision=True)
             log_validation_warnings(config)
             return config
+
+    def patch_fields(self, **fields) -> dict:
+        """디스크 최신본에 최상위 필드만 덮어씁니다 (사이트 목록 등 다른 키 보존)."""
+        def mutate(cfg: dict) -> None:
+            for key, value in fields.items():
+                cfg[key] = value
+
+        return self.update_config(mutate)
 
     def _save_config_unlocked(self, config_data: dict, *, bump_revision: bool = True):
         """락이 이미 잡힌 상태에서 호출하는 내부 저장 전용 함수 (원자적 쓰기).
@@ -397,7 +406,7 @@ class ConfigManager:
                     os.remove(tmp_path)
                 except OSError:
                     pass
-            raise ConfigSaveError(f"config.json 저장 실패: {e}") from e
+            raise ConfigSaveError(t("config.save_failed", error=e)) from e
 
     def get_validation_errors(self, config: dict | None = None) -> list[str]:
         cfg = config if config is not None else self.load_config()
@@ -427,7 +436,7 @@ class ConfigManager:
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(export_data, f, ensure_ascii=False, indent=4)
         except Exception as e:
-            raise ConfigSaveError(f"사이트 설정 내보내기 실패: {e}") from e
+            raise ConfigSaveError(t("config.export_failed", error=e)) from e
 
     def import_sites(self, file_path: str) -> list[dict]:
         """JSON 파일에서 사이트 설정을 읽어와 기존 설정에 중복 없이 임포트한 뒤 추가된 목록을 반환합니다.
@@ -439,14 +448,14 @@ class ConfigManager:
             with open(file_path, "r", encoding="utf-8") as f:
                 import_data = json.load(f)
         except Exception as e:
-            raise ConfigLoadError(f"사이트 설정 파일 읽기 실패: {e}") from e
+            raise ConfigLoadError(t("config.import_read_failed", error=e)) from e
 
         if not isinstance(import_data, dict) or "sites" not in import_data:
-            raise ConfigLoadError("올바른 사이트 설정 내보내기 파일 포맷이 아닙니다.")
+            raise ConfigLoadError(t("config.import_format"))
 
         imported_sites = import_data.get("sites", [])
         if not isinstance(imported_sites, list):
-            raise ConfigLoadError("올바른 사이트 설정 내보내기 파일 포맷이 아닙니다.")
+            raise ConfigLoadError(t("config.import_format"))
 
         # 임포트 후보를 미리 정규화 (mutator 밖)
         prepared: list[dict] = []

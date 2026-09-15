@@ -53,11 +53,11 @@ jobs:
           pyinstaller --clean x3_websync.spec
           $source = Get-ChildItem dist -Filter '*.exe' | Select-Object -First 1
           if ($null -eq $source) { throw 'PyInstaller did not create an EXE' }
-          $artifact = Join-Path $PWD "dist/xteink-x3-websync-v$version.exe"
+          $artifact = Join-Path $PWD "dist/xteink-crosspoint-websync-v$version.exe"
           Copy-Item -LiteralPath $source.FullName -Destination $artifact -Force
           & $artifact --smoke
           if ($LASTEXITCODE -ne 0) { throw "Frozen smoke check failed: $LASTEXITCODE" }
-          $artifactUrl = "https://github.com/twbeatles/xteink-x3-websync/releases/download/v$version/xteink-x3-websync-v$version.exe"
+          $artifactUrl = "https://github.com/twbeatles/xteink-crosspoint-websync/releases/download/v$version/xteink-crosspoint-websync-v$version.exe"
           python scripts/build_update_manifest.py --version $version --artifact $artifact --artifact-url $artifactUrl --output "$env:RUNNER_TEMP/latest.json"
           "ARTIFACT=$artifact" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 

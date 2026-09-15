@@ -3,6 +3,7 @@ from typing import cast
 
 from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url
 from bs4 import BeautifulSoup
+from websync.i18n import t
 
 class YoutubeScraper(BaseScraper):
     """YouTube 채널 최신 영상의 자막을 수집하여 EPUB으로 변환하는 스크래퍼"""
@@ -38,14 +39,12 @@ class YoutubeScraper(BaseScraper):
                     skipped += 1
             self.last_fetch_stats = {"skipped": skipped}
             if entries and not articles:
-                raise Exception(
-                    f"영상 {len(entries)}건 중 자막 수집 성공 0건 "
-                    "(youtube-transcript-api 설치·자막 가용 여부를 확인하세요)"
-                )
+                raise Exception(t("youtube.zero_transcript", n=len(entries)))
         except Exception as e:
-            if "자막 수집 성공 0건" in str(e) or "YouTube 채널 수집 실패" in str(e):
+            msg = str(e)
+            if t("youtube.zero_marker") in msg or t("youtube.failed", error="") in msg:
                 raise
-            raise Exception(f"YouTube 채널 수집 실패: {e}") from e
+            raise Exception(t("youtube.failed", error=e)) from e
         return articles
 
     @staticmethod
@@ -86,7 +85,7 @@ class YoutubeScraper(BaseScraper):
                 except Exception:
                     continue
         except ImportError:
-            print("⚠️ youtube_transcript_api 미설치. pip install youtube-transcript-api")
+            print(t("youtube.missing_api"))
         except Exception as e:
-            print(f"⚠️ YouTube 자막 수집 실패 ({video_id}): {e}")
+            print(t("youtube.transcript_failed", video_id=video_id, error=e))
         return ""

@@ -10,6 +10,7 @@ from urllib.parse import unquote, urlparse
 from websync.core.logger import get_logger
 from websync.scrapers.base import BaseScraper
 from websync.scrapers.rss import RssScraper
+from websync.i18n import t
 
 
 class VelogScraper(BaseScraper):
@@ -34,10 +35,7 @@ class VelogScraper(BaseScraper):
         url = (site_config.get("url") or "").strip()
         rss_url = self.resolve_rss_url(url)
         if not rss_url:
-            raise Exception(
-                "Velog URL에서 사용자명을 추출할 수 없습니다. "
-                "예: https://velog.io/@아이디 또는 https://v2.velog.io/rss/@아이디"
-            )
+            raise Exception(t("velog.no_username"))
         cfg = dict(site_config)
         cfg["url"] = rss_url
         cfg["type"] = "rss"

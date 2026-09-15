@@ -9,6 +9,8 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from typing import Optional
 from urllib.parse import quote, unquote, urlparse, parse_qs
 
+from websync.i18n import t
+
 
 class _OPDSHTTPServer(ThreadingHTTPServer):
     """핸들러에 OPDS 설정을 주입하는 HTTP 서버 (ThreadingHTTPServer — 동시 요청 처리, N6)."""
@@ -113,7 +115,7 @@ class OPDSHandler(BaseHTTPRequestHandler):
         now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog">
-  <title>X3 WebSync OPDS 카탈로그</title>
+  <title>{t("opds.catalog_title")}</title>
   <id>urn:x3sync:root</id>
   <updated>{now_utc}</updated>
   <link rel="self" href="/opds" type="application/atom+xml;profile=opds-catalog"/>{entries}
@@ -191,10 +193,10 @@ class OPDSServer:
         if self._running:
             return True
         if self.require_auth and not self.api_key:
-            print("❌ OPDS: LAN 공개 모드에는 api_key가 필요합니다.")
+            print(t("opds.need_api_key"))
             return False
         if self.bind_host not in ("127.0.0.1", "localhost"):
-            print(f"⚠️ [OPDS] LAN 공개 모드 활성화 ({self.bind_host}:{self.port}) — 평문 HTTP 통신이므로 보안 토큰 사용을 권장합니다.")
+            print(t("opds.lan_warning", host=self.bind_host, port=self.port))
         try:
             self._server = _OPDSHTTPServer(
                 (self.bind_host, self.port),
@@ -208,7 +210,7 @@ class OPDSServer:
             self._running = True
             return True
         except Exception as e:
-            print(f"❌ OPDS 서버 시작 실패: {e}")
+            print(t("opds.start_failed", error=e))
             return False
 
     def stop(self):

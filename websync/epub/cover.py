@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import io
 
+from websync.i18n import t
+
 
 def make_cover_image(site_name: str, article_count: int, today_str: str) -> bytes | None:
     """Pillow를 사용해 EPUB 표지 이미지를 동적으로 생성. Pillow 미설치 시 None 반환."""
@@ -38,7 +40,7 @@ def make_cover_image(site_name: str, article_count: int, today_str: str) -> byte
         draw.text((W // 2, H // 2 - 20), today_str, font=font_sub, fill="#89b4fa", anchor="mm")
         draw.text(
             (W // 2, H // 2 + 40),
-            f"기사 {article_count}건",
+            t("epub.cover.articles", n=article_count),
             font=font_small,
             fill="#a6e3a1",
             anchor="mm",
@@ -52,7 +54,7 @@ def make_cover_image(site_name: str, article_count: int, today_str: str) -> byte
     except ImportError:
         try:
             from websync.core.logger import get_logger
-            get_logger().info("Pillow 미설치로 표지 생성을 건너뜁니다. (EXE 경량 빌드 환경 등)")
+            get_logger().info(t("epub.cover.pillow_skip"))
         except Exception:
             pass
         return None

@@ -2,6 +2,7 @@
 from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url
 from bs4 import BeautifulSoup
 from websync.core.logger import get_logger
+from websync.i18n import t
 
 class TistoryScraper(BaseScraper):
     """티스토리 블로그 전용 스크래퍼 - RSS에서 URL 추출 후 본문 직접 수집"""
@@ -43,11 +44,15 @@ class TistoryScraper(BaseScraper):
                     skipped += 1
             self.last_fetch_stats = {"skipped": skipped}
             if items and not articles:
-                raise Exception(f"RSS 항목 {len(items)}건 중 본문 수집 성공 0건")
+                raise Exception(t("tistory.zero_body", n=len(items)))
         except Exception as e:
-            if "본문 수집 성공 0건" in str(e) or "티스토리 블로그 수집 실패" in str(e):
+            msg = str(e)
+            if (
+                t("scraper.zero_body") in msg
+                or t("tistory.failed", error="") in msg
+            ):
                 raise
-            raise Exception(f"티스토리 블로그 수집 실패: {e}") from e
+            raise Exception(t("tistory.failed", error=e)) from e
         return articles
 
     def _fetch_post_content(self, url: str, site_config: dict) -> str:
@@ -70,6 +75,6 @@ class TistoryScraper(BaseScraper):
             maybe_strip_images(content_tag, site_config)
             return str(content_tag)
         except Exception as e:
-            self.logger.warning(f"TistoryScraper 포스트 수집 실패 ({url}): {e}")
+            self.logger.warning(t("tistory.post_failed", url=url, error=e))
             return ""
 

@@ -15,6 +15,7 @@ from websync.core.logger import get_log_dir
 from websync.servers.opds import OPDSServer
 from websync.servers.web_dashboard import WebDashboard
 from websync.watch.calibre import CalibreWatcher
+from websync.i18n import t
 
 
 class SettingsEpubMixin:
@@ -36,7 +37,7 @@ class SettingsEpubMixin:
         self._save_epub_settings()
 
     def _browse_custom_css(self):
-        f = filedialog.askopenfilename(title="커스텀 CSS 파일 선택", filetypes=[("CSS files", "*.css"), ("All files", "*.*")])
+        f = filedialog.askopenfilename(title=t("gui.settings.epub.browse_title"), filetypes=[("CSS files", "*.css"), ("All files", "*.*")])
         if f:
             self.custom_css_entry.configure(state="normal")
             self.custom_css_entry.delete(0, tk.END)

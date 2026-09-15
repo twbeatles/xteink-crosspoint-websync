@@ -26,6 +26,7 @@ from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
 from websync.config.manager import ConfigManager
 from websync.core.paths import PROJECT_ROOT
 from websync.db.history import SyncHistoryDb, SyncHistoryDbError
+from websync.i18n import t
 
 
 def _list_sidecar_site_files(root: str) -> list[str]:
@@ -88,12 +89,12 @@ def import_local_sidecars(
                 n += db.import_posts_union(posts)
                 result["history_changed"] = n
                 result["files"].append(hist_path)
-                msg = f"로컬 {HISTORY_FILENAME}: 이력 {len(posts)}건 중 {n}건 반영"
+                msg = t("local_import.history_applied", name=HISTORY_FILENAME, total=len(posts), n=n)
                 result["messages"].append(msg)
                 log.info(msg)
             except SyncHistoryDbError as e:
                 result["ok"] = False
-                msg = f"로컬 {HISTORY_FILENAME} 가져오기 실패: {e}"
+                msg = t("local_import.history_failed", name=HISTORY_FILENAME, error=e)
                 result["messages"].append(msg)
                 log.error(msg)
 
@@ -122,7 +123,9 @@ def import_local_sidecars(
         merged, deleted_sites = apply_site_tombstones(merged, deleted_sites)
         sites_from_files += len(remote_sites) + len(remote_deleted)
         result["files"].append(path)
-        result["messages"].append(f"로컬 사이트 파일 병합: {os.path.basename(path)} ({len(remote_sites)}개)")
+        result["messages"].append(
+            t("local_import.sites_merged", name=os.path.basename(path), n=len(remote_sites))
+        )
 
     if sites_from_files and merged != local_sites:
         after_urls = {
@@ -156,9 +159,7 @@ def import_local_sidecars(
         result["sites_changed"] = True
         result["sites_added"] = len(after_urls - before_urls)
         log.info(
-            "로컬 사이트 사이드카 병합: +%s URL (파일 %s개)",
-            result["sites_added"],
-            sites_from_files,
+            t("local_import.sidecar_merged", n=result["sites_added"], files=sites_from_files)
         )
 
     return result

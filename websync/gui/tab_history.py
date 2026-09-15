@@ -13,6 +13,7 @@ from websync.gui.widgets import (
 from websync.db.history import SyncHistoryDbError
 from websync.backup.atomic_io import read_json_safe, write_json_atomic
 from websync.backup.format import build_history_payload, extract_deleted_posts, extract_posts
+from websync.i18n import t
 
 
 class HistoryTab(ctk.CTkFrame):
@@ -36,26 +37,26 @@ class HistoryTab(ctk.CTkFrame):
         btn_row = ctk.CTkFrame(ctrl_card, fg_color="transparent")
         btn_row.pack(fill="x", padx=12, pady=10)
 
-        ctk.CTkButton(btn_row, text="🔄 새로고침", font=get_font(12, "bold"), width=105, height=34, command=self._refresh_history).pack(side="left", padx=3)
-        ctk.CTkButton(btn_row, text="🗑 선택 삭제 (재전송 허용)", font=get_font(12), width=165, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._delete_history_entry).pack(side="left", padx=3)
-        ctk.CTkButton(btn_row, text="⚠️ 전체 초기화", font=get_font(12, "bold"), width=120, height=34, fg_color=COLOR_DANGER[0], hover_color=COLOR_DANGER[1], command=self._clear_all_history).pack(side="left", padx=3)
+        ctk.CTkButton(btn_row, text=t("gui.history.refresh"), font=get_font(12, "bold"), width=105, height=34, command=self._refresh_history).pack(side="left", padx=3)
+        ctk.CTkButton(btn_row, text=t("gui.history.delete_selected"), font=get_font(12), width=165, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._delete_history_entry).pack(side="left", padx=3)
+        ctk.CTkButton(btn_row, text=t("gui.history.clear_all"), font=get_font(12, "bold"), width=120, height=34, fg_color=COLOR_DANGER[0], hover_color=COLOR_DANGER[1], command=self._clear_all_history).pack(side="left", padx=3)
 
-        ctk.CTkButton(btn_row, text="JSON 내보내기", font=get_font(12), width=120, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._export_history_json).pack(side="right", padx=3)
-        ctk.CTkButton(btn_row, text="JSON 가져오기", font=get_font(12), width=120, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._import_history_json).pack(side="right", padx=3)
+        ctk.CTkButton(btn_row, text=t("gui.history.export_json"), font=get_font(12), width=120, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._export_history_json).pack(side="right", padx=3)
+        ctk.CTkButton(btn_row, text=t("gui.history.import_json"), font=get_font(12), width=120, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._import_history_json).pack(side="right", padx=3)
 
         self.history_count_label = ctk.CTkLabel(ctrl_card, text="", font=get_font(13, "bold"), text_color=COLOR_WARNING[0])
         self.history_count_label.pack(anchor="e", padx=12, pady=(0, 8))
 
-        hist_card = CardFrame(body, title="📋 전송 완료 포스트 이력", subtitle="더블 클릭 시 해당 기사 URL 복사")
+        hist_card = CardFrame(body, title=t("gui.history.card_title"), subtitle=t("gui.history.card_sub"))
         hist_card.pack(fill="x", padx=8, pady=6)
 
         h_columns = ("site", "title", "synced_at", "url")
         self.hist_tree = create_scrolled_tree(
             hist_card, h_columns, height=10, selectmode="extended"
         )
-        self.hist_tree.heading("site", text="사이트")
-        self.hist_tree.heading("title", text="제목")
-        self.hist_tree.heading("synced_at", text="전송 시각")
+        self.hist_tree.heading("site", text=t("gui.history.col_site"))
+        self.hist_tree.heading("title", text=t("gui.history.col_title"))
+        self.hist_tree.heading("synced_at", text=t("gui.history.col_synced_at"))
         self.hist_tree.heading("url", text="URL")
         self.hist_tree.column("site", width=130, minwidth=80, anchor="w")
         self.hist_tree.column("title", width=300, minwidth=120, anchor="w")
@@ -72,7 +73,7 @@ class HistoryTab(ctk.CTkFrame):
             return
         self.app.root.clipboard_clear()
         self.app.root.clipboard_append(url)
-        self.app._log_message(f"📋 URL 복사됨: {url[:80]}{'...' if len(url) > 80 else ''}")
+        self.app._log_message(t("gui.history.log_url_copied", url=url[:80], ellipsis="..." if len(url) > 80 else ""))
 
     def _refresh_history(self):
         for item in self.hist_tree.get_children():
@@ -82,8 +83,8 @@ class HistoryTab(ctk.CTkFrame):
             rows = self.db.get_history(limit=200)
             count = self.db.get_count()
         except SyncHistoryDbError as e:
-            messagebox.showerror("이력 조회 실패", str(e))
-            self.history_count_label.configure(text="이력 조회 실패")
+            messagebox.showerror(t("gui.history.load_fail_title"), str(e))
+            self.history_count_label.configure(text=t("gui.history.load_fail"))
             return
         for row in rows:
             url = row[0]
@@ -99,43 +100,43 @@ class HistoryTab(ctk.CTkFrame):
             self.hist_tree.insert("", "end", iid=iid, values=(
                 site_name or "", display_title, synced_at or "", url or ""
             ))
-        self.history_count_label.configure(text=f"총 {count}건 기록됨")
+        self.history_count_label.configure(text=t("gui.history.count", count=count))
 
     def _delete_history_entry(self):
         selected = self.hist_tree.selection()
         if not selected:
-            messagebox.showwarning("경고", "삭제할 항목을 선택해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.history.select_delete"))
             return
-        if not messagebox.askyesno("확인", f"{len(selected)}개 항목을 삭제하면 다음 동기화 시 재수집됩니다. 계속할까요?"):
+        if not messagebox.askyesno(t("dialog.confirm"), t("gui.history.delete_confirm", count=len(selected))):
             return
         try:
             for iid in selected:
                 url = self._history_url_by_iid.get(iid, iid)
                 self.db.delete_entry(url)
         except SyncHistoryDbError as e:
-            messagebox.showerror("이력 삭제 실패", str(e))
-            self.app._log_message(f"❌ 이력 삭제 실패: {e}")
+            messagebox.showerror(t("gui.history.delete_fail_title"), str(e))
+            self.app._log_message(t("gui.history.log_delete_fail", error=e))
             return
         self._refresh_history()
-        self.app._log_message(f"🗑 이력 {len(selected)}건 삭제 완료 (재전송 허용)")
+        self.app._log_message(t("gui.history.log_deleted", count=len(selected)))
         self.service.schedule_backup_push()
 
     def _clear_all_history(self):
-        if not messagebox.askyesno("전체 초기화 확인", "모든 동기화 이력을 삭제합니다.\n다음 동기화 시 모든 기사가 재수집됩니다. 계속할까요?"):
+        if not messagebox.askyesno(t("gui.history.clear_confirm_title"), t("gui.history.clear_confirm")):
             return
         try:
             self.db.clear_all()
         except SyncHistoryDbError as e:
-            messagebox.showerror("이력 초기화 실패", str(e))
-            self.app._log_message(f"❌ 이력 초기화 실패: {e}")
+            messagebox.showerror(t("gui.history.clear_fail_title"), str(e))
+            self.app._log_message(t("gui.history.log_clear_fail", error=e))
             return
         self._refresh_history()
-        self.app._log_message("⚠️ 동기화 이력 전체 초기화 완료")
+        self.app._log_message(t("gui.history.log_cleared"))
         self.service.schedule_backup_push()
 
     def _export_history_json(self):
         file_path = filedialog.asksaveasfilename(
-            title="동기화 이력 JSON 내보내기",
+            title=t("gui.history.export_title"),
             defaultextension=".json",
             filetypes=[("JSON", "*.json")],
             initialfile="synced_posts.json",
@@ -146,14 +147,14 @@ class HistoryTab(ctk.CTkFrame):
             posts = self.db.export_all_posts()
             deleted_posts = self.db.export_deleted_posts()
             write_json_atomic(file_path, build_history_payload(posts, deleted_posts=deleted_posts))
-            messagebox.showinfo("완료", f"이력 {len(posts)}건을 내보냈습니다.")
-            self.app._log_message(f"☁ 이력 JSON 내보내기: {len(posts)}건 → {file_path}")
+            messagebox.showinfo(t("dialog.info"), t("gui.history.export_ok", count=len(posts)))
+            self.app._log_message(t("gui.history.log_export", count=len(posts), path=file_path))
         except Exception as e:
-            messagebox.showerror("내보내기 실패", str(e))
+            messagebox.showerror(t("gui.history.export_fail_title"), str(e))
 
     def _import_history_json(self):
         file_path = filedialog.askopenfilename(
-            title="동기화 이력 JSON 가져오기",
+            title=t("gui.history.import_title"),
             filetypes=[("JSON", "*.json")],
         )
         if not file_path:
@@ -164,8 +165,8 @@ class HistoryTab(ctk.CTkFrame):
             deleted_posts = extract_deleted_posts(payload)
             if not posts and not deleted_posts:
                 messagebox.showwarning(
-                    "형식 오류",
-                    "올바른 이력 JSON이 아닙니다. (kind=synced_posts 또는 posts 배열 필요)",
+                    t("gui.history.import_bad_title"),
+                    t("gui.history.import_bad"),
                 )
                 return
             changed = self.db.import_deleted_posts(deleted_posts)
@@ -173,9 +174,9 @@ class HistoryTab(ctk.CTkFrame):
             self._refresh_history()
             self.service.schedule_backup_push()
             messagebox.showinfo(
-                "완료",
-                f"이력 {len(posts)}건 중 {changed}건을 신규/갱신 반영했습니다. (합집합 병합)",
+                t("dialog.info"),
+                t("gui.history.import_ok", count=len(posts), changed=changed),
             )
-            self.app._log_message(f"☁ 이력 JSON 가져오기: {changed}건 반영 ← {file_path}")
+            self.app._log_message(t("gui.history.log_import", changed=changed, path=file_path))
         except Exception as e:
-            messagebox.showerror("가져오기 실패", str(e))
+            messagebox.showerror(t("gui.history.import_fail_title"), str(e))

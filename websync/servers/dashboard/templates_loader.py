@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 from websync.core.logger import get_logger
+from websync.i18n import get_language, t
 
 logger = get_logger()
+
+_I18N_RE = re.compile(r"\{\{i18n\.([a-zA-Z0-9_.]+)\}\}")
 
 
 def load_template(name: str) -> str:
@@ -26,13 +30,18 @@ def load_template(name: str) -> str:
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
-        logger.error(f"템플릿 로드 실패 ({name}): {e}")
+        logger.error(t("dashboard.template_failed", name=name, error=e))
         return f"Template {name} not found."
 
 
+def _apply_i18n(html: str) -> str:
+    html = html.replace("{{lang}}", get_language())
+    return _I18N_RE.sub(lambda m: t(m.group(1)), html)
+
+
 def login_html() -> str:
-    return load_template("login.html")
+    return _apply_i18n(load_template("login.html"))
 
 
 def dashboard_html() -> str:
-    return load_template("dashboard.html")
+    return _apply_i18n(load_template("dashboard.html"))

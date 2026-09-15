@@ -13,16 +13,15 @@ from bs4 import BeautifulSoup
 from websync.core.logger import get_logger
 from websync.scrapers.base import BaseScraper, fetch_url, maybe_strip_images
 from websync.scrapers.naver_common import clean_naver_content
+from websync.i18n import t
 
 
 class NaverPostScraper(BaseScraper):
     """네이버 포스트 스크래퍼 (서비스 종료)."""
 
-    SERVICE_ENDED_MSG = (
-        "네이버 포스트(post.naver.com) 서비스는 2025년 4월 30일 종료되어 "
-        "더 이상 글을 수집할 수 없습니다. "
-        "네이버 블로그(type=naver) 또는 RSS/다른 소스를 이용해 주세요."
-    )
+    @staticmethod
+    def _ended_msg() -> str:
+        return t("naver_post.ended")
 
     def __init__(self):
         self.logger = get_logger()
@@ -38,19 +37,19 @@ class NaverPostScraper(BaseScraper):
                 resp = fetch_url(url, timeout=10)
                 text = (resp.text or "")[:4000]
                 if "종료" in text or "end_post" in text or "2025년 4월 30일" in text:
-                    self.logger.error(self.SERVICE_ENDED_MSG)
-                    raise Exception(self.SERVICE_ENDED_MSG)
+                    self.logger.error(self._ended_msg())
+                    raise Exception(self._ended_msg())
         except Exception as e:
-            if "네이버 포스트" in str(e) and "종료" in str(e):
+            if str(e) == self._ended_msg():
                 raise
             # 네트워크 오류여도 서비스 종료가 확정된 상태이므로 동일 메시지
-            self.logger.error(self.SERVICE_ENDED_MSG)
-            raise Exception(self.SERVICE_ENDED_MSG) from e
+            self.logger.error(self._ended_msg())
+            raise Exception(self._ended_msg()) from e
 
         # 종료 문구가 없는 예외적 응답 — 레거시 파싱 최후 시도
         articles = self._legacy_fetch(site_config)
         if not articles:
-            raise Exception(self.SERVICE_ENDED_MSG)
+            raise Exception(self._ended_msg())
         return articles
 
     def _legacy_fetch(self, site_config: dict) -> list:
@@ -92,7 +91,7 @@ class NaverPostScraper(BaseScraper):
                 else:
                     self.last_fetch_stats["skipped"] = self.last_fetch_stats.get("skipped", 0) + 1
         except Exception as e:
-            self.logger.warning(f"네이버 포스트 레거시 파싱 실패: {e}")
+            self.logger.warning(t("naver_post.legacy_failed", error=e))
         return articles
 
     def _fetch_post_content(self, post_url: str, site_config: dict) -> str | None:
@@ -116,5 +115,5 @@ class NaverPostScraper(BaseScraper):
             clean_naver_content(container)
             return str(container)
         except Exception as e:
-            self.logger.warning(f"포스트 본문 수집 실패 ({post_url}): {e}")
+            self.logger.warning(t("naver_post.body_failed", url=post_url, error=e))
             return None

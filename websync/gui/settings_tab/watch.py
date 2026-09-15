@@ -15,6 +15,7 @@ from websync.core.logger import get_log_dir
 from websync.servers.opds import OPDSServer
 from websync.servers.web_dashboard import WebDashboard
 from websync.watch.calibre import CalibreWatcher
+from websync.i18n import t
 
 
 class SettingsWatchMixin:
@@ -65,12 +66,12 @@ class SettingsWatchMixin:
             def disable(cfg: dict) -> None:
                 cfg.setdefault("calibre_watch", {})["enabled"] = False
             self.service.config = self.service.config_manager.update_config(disable)
-            self.watch_start_btn.configure(text="▶ 감시 시작")
-            self.watch_status_label.configure(text="감시 중지됨", text_color=RED_COLOR)
+            self.watch_start_btn.configure(text=t("gui.settings.watch.start_btn"))
+            self.watch_status_label.configure(text=t("gui.settings.watch.stopped"), text_color=RED_COLOR)
         else:
             watch_dir = self.watch_dir_entry.get().strip()
             if not watch_dir or not os.path.isdir(watch_dir):
-                messagebox.showerror("오류", "유효한 감시 폴더를 선택해 주세요.")
+                messagebox.showerror(t("dialog.error"), t("gui.settings.watch.invalid_dir"))
                 return
 
             # 단일 워커 스레드 + 큐 기반 직렬 처리 (스레드 누적 방지)
@@ -89,7 +90,7 @@ class SettingsWatchMixin:
                     except Exception as e:
                         name = os.path.basename(fpath)
                         self.app.root.after(
-                            0, lambda m=e, n=name: self.app._log_message(f"❌ Watch 업로드 오류 ({n}): {m}")
+                            0, lambda m=e, n=name: self.app._log_message(t("gui.settings.watch.log_upload_error", name=n, error=m))
                         )
                     finally:
                         watch_queue.task_done()
@@ -99,7 +100,7 @@ class SettingsWatchMixin:
                 self._remember_watch_file(fpath)
                 self.app.root.after(
                     0,
-                    lambda n=name: self.app._log_message(f"👁 새 파일 감지: {n} → 전송 큐 대기 중"),
+                    lambda n=name: self.app._log_message(t("gui.settings.watch.log_detected", name=n)),
                 )
                 watch_queue.put(fpath)
 
@@ -109,9 +110,9 @@ class SettingsWatchMixin:
 
             self.app._calibre_watcher = CalibreWatcher(watch_dir, on_new_file)
             if self.app._calibre_watcher.start():
-                self.watch_start_btn.configure(text="■ 감시 중지")
-                self.watch_status_label.configure(text=f"✅ 감시 중: {watch_dir}", text_color=GREEN_COLOR)
-                self.app._log_message(f"👁 Calibre Watch 시작: {watch_dir}")
+                self.watch_start_btn.configure(text=t("gui.settings.watch.stop_btn"))
+                self.watch_status_label.configure(text=t("gui.settings.watch.watching", dir=watch_dir), text_color=GREEN_COLOR)
+                self.app._log_message(t("gui.settings.watch.log_start", dir=watch_dir))
                 def enable(cfg: dict) -> None:
                     watch = cfg.setdefault("calibre_watch", {})
                     watch.update({"enabled": True, "watch_dir": watch_dir})
@@ -125,7 +126,7 @@ class SettingsWatchMixin:
             else:
                 self._stop_watch_worker()
                 self.app._calibre_watcher = None
-                messagebox.showerror("오류", "파일 감시 시작 실패. watchdog 패키지가 설치되어 있는지 확인하세요.")
+                messagebox.showerror(t("dialog.error"), t("gui.settings.watch.start_fail"))
 
     def _upload_single_file(self, fpath: str) -> bool:
         """Watch 감지 파일 1건을 파이프라인 락 획득 후 업로드 (타임아웃 30초)."""
@@ -137,7 +138,7 @@ class SettingsWatchMixin:
                 self.app.root.after(
                     0,
                     lambda: self.app._log_message(
-                        f"⚠️ 자동 전송 대기 타임아웃 (30초 초과, 파이프라인 락): {os.path.basename(fpath)} — 스킵"
+                        t("gui.settings.watch.log_timeout_pipeline", name=os.path.basename(fpath))
                     ),
                 )
                 return False
@@ -146,22 +147,23 @@ class SettingsWatchMixin:
                 self.app.root.after(
                     0,
                     lambda: self.app._log_message(
-                        f"⚠️ 자동 전송 대기 타임아웃 (30초 초과, 프로세스 락): {os.path.basename(fpath)} — 스킵"
+                        t("gui.settings.watch.log_timeout_process", name=os.path.basename(fpath))
                     ),
                 )
                 return False
 
             self.app.root.after(
-                0, lambda: self.app._log_message(f"📡 자동 전송 시작: {os.path.basename(fpath)}")
+                0, lambda: self.app._log_message(t("gui.settings.watch.log_upload_start", name=os.path.basename(fpath)))
             )
             results = self.app._make_uploader().upload_to_targets(fpath)
             all_ok, any_ok, summary = self.app._summarize_upload_results(results)
+            name = os.path.basename(fpath)
             if all_ok:
-                msg = f"🎉 자동 전송 성공: {os.path.basename(fpath)} ({summary})"
+                msg = t("gui.settings.watch.log_upload_ok", name=name, summary=summary)
             elif any_ok:
-                msg = f"⚠️ 자동 부분 전송: {os.path.basename(fpath)} ({summary})"
+                msg = t("gui.settings.watch.log_upload_partial", name=name, summary=summary)
             else:
-                msg = f"❌ 자동 전송 실패: {os.path.basename(fpath)} ({summary})"
+                msg = t("gui.settings.watch.log_upload_fail", name=name, summary=summary)
             self.app.root.after(0, lambda m=msg: self.app._log_message(m))
             return all_ok
         finally:
@@ -171,7 +173,7 @@ class SettingsWatchMixin:
                 self.service._pipeline_lock.release()
 
     def _browse_watch_dir(self):
-        d = filedialog.askdirectory(title="감시할 Calibre 라이브러리 폴더 선택")
+        d = filedialog.askdirectory(title=t("gui.settings.watch.browse_title"))
         if d:
             self.watch_dir_entry.delete(0, tk.END)
             self.watch_dir_entry.insert(0, d)

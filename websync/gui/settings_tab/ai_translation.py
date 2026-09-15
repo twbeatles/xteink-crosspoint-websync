@@ -16,6 +16,7 @@ from websync.servers.opds import OPDSServer
 from websync.servers.web_dashboard import WebDashboard
 from websync.watch.calibre import CalibreWatcher
 from websync.config.secrets import mask_secret
+from websync.i18n import t
 
 
 class SettingsAiTranslationMixin:
@@ -30,7 +31,7 @@ class SettingsAiTranslationMixin:
         }
         if not self.app._safe_save_config(config):
             return
-        messagebox.showinfo("저장 완료", "AI 요약 설정이 저장되었습니다.")
+        messagebox.showinfo(t("gui.settings.saved_title"), t("gui.settings.ai.saved"))
 
     def _save_trans_settings(self):
         config = self.service.config
@@ -47,7 +48,7 @@ class SettingsAiTranslationMixin:
         }
         if not self.app._safe_save_config(config):
             return
-        messagebox.showinfo("저장 완료", "번역 설정이 저장되었습니다.")
+        messagebox.showinfo(t("gui.settings.saved_title"), t("gui.settings.trans.saved"))
 
     # ------------------------------------------------------------------
     # N5: 시크릿 입력 보기/숨기기 토글
@@ -69,10 +70,10 @@ class SettingsAiTranslationMixin:
         config = self.service.config_manager.load_config()
         key = (config.get("opds_server") or {}).get("api_key", "")
         if not key:
-            self.opds_api_key_label.configure(text="(자동 생성됨)")
+            self.opds_api_key_label.configure(text=t("gui.settings.auto_generated"))
             return
         shown = key if self.opds_key_show_var.get() else mask_secret(key)
-        label = f"API 키: {shown}" if self.opds_key_show_var.get() else f"API 키: {shown} (표시 체크로 전체 확인)"
+        label = t("gui.settings.api_key_shown", key=shown) if self.opds_key_show_var.get() else t("gui.settings.api_key_masked", key=shown)
         self.opds_api_key_label.configure(text=label)
 
     def _refresh_web_token_display(self) -> None:
@@ -80,10 +81,10 @@ class SettingsAiTranslationMixin:
         config = self.service.config_manager.load_config()
         token = (config.get("web_dashboard") or {}).get("api_token", "")
         if not token:
-            self.web_token_label.configure(text="(자동 생성됨)")
+            self.web_token_label.configure(text=t("gui.settings.auto_generated"))
             return
         shown = token if self.web_token_show_var.get() else mask_secret(token)
-        label = f"토큰: {shown}" if self.web_token_show_var.get() else f"토큰: {shown} (표시 체크로 전체 확인)"
+        label = t("gui.settings.token_shown", token=shown) if self.web_token_show_var.get() else t("gui.settings.token_masked", token=shown)
         self.web_token_label.configure(text=label)
 
     def _open_log_folder(self):
@@ -99,5 +100,5 @@ class SettingsAiTranslationMixin:
                 import subprocess
                 subprocess.Popen(["xdg-open", folder])
         except Exception as e:
-            messagebox.showerror("오류", f"로그 폴더를 열 수 없습니다: {e}")
+            messagebox.showerror(t("dialog.error"), t("gui.settings.log.open_fail", error=e))
 

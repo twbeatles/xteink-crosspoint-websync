@@ -7,6 +7,40 @@ from websync.pipeline.service import SyncService
 from websync.scrapers.factory import ScraperFactory
 
 
+def test_shutdown_pipeline_cancels_running_worker():
+    cm = MagicMock(spec=ConfigManager)
+    cm.load_config.return_value = {
+        "x3_ip": "127.0.0.1",
+        "x3_devices": [],
+        "output_dir": "./output",
+        "font_family": "serif",
+        "font_size": 16,
+        "line_height": 1.7,
+        "epub_cover": False,
+        "sites": [],
+        "ai_summary": {"enabled": False},
+        "translation": {"enabled": False},
+    }
+    cm.get_resolved_output_dir.return_value = "./output"
+
+    svc = SyncService(cm)
+    started = threading.Event()
+
+    def slow_pipeline(*args, **kwargs):
+        started.set()
+        while not svc.is_cancel_requested():
+            time.sleep(0.02)
+        return True
+
+    with patch.object(svc, "_run_sync_pipeline_locked", side_effect=slow_pipeline):
+        assert svc.begin_sync_pipeline_async() is True
+        assert started.wait(timeout=2)
+        assert svc.is_pipeline_running()
+        assert svc.shutdown_pipeline(timeout=2.0) is True
+        assert not svc.is_pipeline_running()
+        assert svc.is_cancel_requested()
+
+
 def test_pipeline_lock_prevents_concurrent_run():
     cm = MagicMock(spec=ConfigManager)
     cm.load_config.return_value = {

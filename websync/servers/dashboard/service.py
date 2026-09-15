@@ -6,6 +6,7 @@ from typing import Callable, Optional
 
 from websync.core.logger import get_logger
 from websync.servers.dashboard.http_server import DashboardHTTPServer
+from websync.i18n import t
 
 logger = get_logger()
 
@@ -42,7 +43,7 @@ class WebDashboard:
         if self._running:
             return True
         if not self.api_token:
-            logger.error("웹 대시보드: API 토큰이 없습니다. config.json을 확인하세요.")
+            logger.error(t("dashboard.missing_token_log"))
             return False
         try:
             self._server = DashboardHTTPServer(
@@ -61,7 +62,7 @@ class WebDashboard:
             self._running = True
             return True
         except Exception as e:
-            logger.error(f"웹 대시보드 서버 시작 실패: {e}")
+            logger.error(t("dashboard.server_failed", error=e))
             return False
 
     def stop(self):

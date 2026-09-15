@@ -10,10 +10,11 @@
 ## 1. 모듈 구성
 
 ```
-xteink-x3-websync/
+xteink-crosspoint-websync/
 ├── x3_websync.py              # 진입점 (CLI/GUI, 단일 인스턴스 락)
 ├── websync/                  # 메인 패키지
 │   ├── core/                 # paths, article, logger, process_lock
+│   ├── i18n/                 # t(), OS 언어 감지, locales/ko.json·en.json
 │   ├── config/               # ConfigManager, validator
 │   ├── db/                   # SyncHistoryDb
 │   ├── scrapers/             # 스크래퍼 + factory + 한국 프리셋
@@ -33,8 +34,9 @@ xteink-x3-websync/
 
 | 패키지 | 역할 |
 |--------|------|
-| `x3_websync.py` | 진입점 — GUI / `--sync` / `--smoke`(핵심 모듈 import 검증) |
+| `x3_websync.py` | 진입점 — GUI / `--sync` / `--smoke`(핵심 모듈 import + i18n 카탈로그) |
 | `websync.core` | 경로, 로깅, 프로세스 락, 기사 URL 유틸 |
+| `websync.i18n` | UI 언어 감지(`auto`/`ko`/`en`)와 JSON 카탈로그 `t()` |
 | `websync.config` | `config.json` CRUD, 검증, secrets 마스킹 유틸 |
 | `websync.pipeline` | 동기화·프리뷰·선택 전송 오케스트레이션 (`upload_results` 공통 헬퍼) |
 | `websync.scrapers` | 사이트별 수집기 + `ScraperFactory` + 프리셋 |
@@ -186,6 +188,8 @@ EXE는 실행 파일과 같은 폴더에 `config.json`, `sync_history.db`, `logs
 | googletrans 번역 | googletrans | 동일 |
 
 새 스크래퍼·GUI 서브모듈 추가 시 `x3_websync.spec` 의 `hiddenimports` 에 모듈을 넣어야 합니다.  
+i18n 문자열을 추가하면 `websync/i18n/locales/ko.json` 과 `en.json` 에 **동일 키**를 넣고 `tests/test_i18n_catalogs.py`가 패리티를 검사합니다. PyInstaller `datas`에 `websync/i18n/locales/*.json`이 포함되어야 하며 `--smoke`가 `t("gui.tabs.sync")` 적재를 확인합니다.  
+설정 필드만 바꿀 때는 `ConfigManager.patch_fields` / `update_config`를 쓰고, GUI 메모리 전체를 `save_config`하지 마세요 (사이트 목록 덮어쓰기 방지).  
 업데이트 UI는 `websync.gui.settings_tab.updater` 입니다.
 
 ---

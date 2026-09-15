@@ -38,6 +38,7 @@ a = Analysis(
     datas=[
         ('websync/servers/templates/*.html', 'websync/servers/templates'),
         ('websync/epub/themes/*.css', 'websync/epub/themes'),
+        ('websync/i18n/locales/*.json', 'websync/i18n/locales'),
         (os.path.dirname(customtkinter.__file__), 'customtkinter'),
     ],
     hiddenimports=[
@@ -47,6 +48,7 @@ a = Analysis(
         'websync.core.process_lock', 'websync.core.article', 'websync.core.types',
         'websync.core.update_constants', 'websync.core.update_manifest',
         'websync.core.update_installer', 'websync.core.update_service',
+        'websync.i18n', 'websync.i18n.detect', 'websync.i18n.catalog',
         'websync.config', 'websync.config.exceptions', 'websync.config.validator',
         'websync.config.manager', 'websync.config.secrets',
         'websync.db', 'websync.db.history',

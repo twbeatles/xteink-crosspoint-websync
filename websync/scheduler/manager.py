@@ -4,6 +4,8 @@ import shlex
 import subprocess
 from pathlib import PureWindowsPath
 
+from websync.i18n import t
+
 
 class SchedulerManager:
     """작업 스케줄러 등록 및 제어를 전담하는 클래스 (Windows/macOS/Linux 크로스플랫폼 지원)"""
@@ -40,11 +42,11 @@ class SchedulerManager:
         """플랫폼에 맞는 일간 스케줄 등록"""
         # 쉘 인젝션 방어용 입력 화이트리스트 정수 검증
         if not hour.isdigit() or not minute.isdigit():
-            print("❌ 오류: 스케줄러 시간 인자는 숫자여야 합니다.")
+            print(t("scheduler.hour_not_int"))
             return False
         h_val, m_val = int(hour), int(minute)
         if not (0 <= h_val <= 23) or not (0 <= m_val <= 59):
-            print("❌ 오류: 지정한 시간 범주(00-23시 / 00-59분)가 올바르지 않습니다.")
+            print(t("scheduler.hour_range"))
             return False
 
         if sys.platform == "win32":
@@ -90,7 +92,7 @@ class SchedulerManager:
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="cp949", errors="ignore")
             return result.returncode == 0
         except Exception as e:
-            print(f"스케줄 등록 오류: {e}")
+            print(t("scheduler.register_failed", error=e))
             return False
 
     @staticmethod
@@ -156,7 +158,7 @@ class SchedulerManager:
             result = subprocess.run(["launchctl", "load", plist_path], capture_output=True)
             return result.returncode == 0
         except Exception as e:
-            print(f"macOS 스케줄 등록 오류: {e}")
+            print(t("scheduler.macos_register_failed", error=e))
             return False
 
     def _register_linux(self, h_val: int, m_val: int) -> bool:
@@ -183,7 +185,7 @@ class SchedulerManager:
             proc = subprocess.run(["crontab", "-"], input=new_crontab, text=True, capture_output=True)
             return proc.returncode == 0
         except Exception as e:
-            print(f"Linux 크론 등록 오류: {e}")
+            print(t("scheduler.linux_register_failed", error=e))
             return False
 
 
@@ -194,7 +196,7 @@ class SchedulerManager:
                 result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="cp949", errors="ignore")
                 return result.returncode == 0
             except Exception as e:
-                print(f"스케줄 해제 오류: {e}")
+                print(t("scheduler.unregister_failed", error=e))
                 return False
         elif sys.platform == "darwin":
             plist_path = os.path.expanduser(f"~/Library/LaunchAgents/com.x3websync.{self.TASK_NAME}.plist")
@@ -204,7 +206,7 @@ class SchedulerManager:
                     os.remove(plist_path)
                 return True
             except Exception as e:
-                print(f"macOS 스케줄 해제 오류: {e}")
+                print(t("scheduler.macos_unregister_failed", error=e))
                 return False
         else:
             try:
@@ -215,7 +217,7 @@ class SchedulerManager:
                 proc = subprocess.run(["crontab", "-"], input=new_crontab, text=True, capture_output=True)
                 return proc.returncode == 0
             except Exception as e:
-                print(f"Linux 크론 해제 오류: {e}")
+                print(t("scheduler.linux_unregister_failed", error=e))
                 return False
 
     def get_task_status(self) -> str:
@@ -224,15 +226,15 @@ class SchedulerManager:
             cmd = ["schtasks", "/query", "/tn", self.TASK_NAME, "/fo", "csv"]
             try:
                 result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="cp949", errors="ignore")
-                return "등록됨 (대기 중)" if result.returncode == 0 else "등록되지 않음"
+                return t("scheduler.registered_waiting") if result.returncode == 0 else t("scheduler.not_registered")
             except Exception:
-                return "상태 확인 불가"
+                return t("scheduler.status_unknown")
         elif sys.platform == "darwin":
             plist_path = os.path.expanduser(f"~/Library/LaunchAgents/com.x3websync.{self.TASK_NAME}.plist")
-            return "등록됨 (launchd)" if os.path.exists(plist_path) else "등록되지 않음"
+            return t("scheduler.registered_launchd") if os.path.exists(plist_path) else t("scheduler.not_registered")
         else:
             try:
                 result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-                return "등록됨 (crontab)" if self.TASK_NAME in result.stdout else "등록되지 않음"
+                return t("scheduler.registered_crontab") if self.TASK_NAME in result.stdout else t("scheduler.not_registered")
             except Exception:
-                return "상태 확인 불가"
+                return t("scheduler.status_unknown")

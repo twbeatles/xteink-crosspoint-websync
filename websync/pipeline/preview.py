@@ -7,6 +7,7 @@ from websync.scrapers import ScraperFactory
 from websync.scrapers.base import is_allowed_fetch_url
 from websync.upload.uploader import X3Uploader
 from websync.pipeline.article_keys import article_sync_key
+from websync.i18n import t
 
 def preview_articles(
     service,
@@ -28,7 +29,7 @@ def preview_articles(
 
     # 파이프라인과 동일 락을 비차단 획득 (N7 — service 헬퍼로 통일)
     if not service._try_acquire_pipeline_locks(log):
-        log("⚠️ 이미 파이프라인이 구동 중이거나 다른 프로세스에서 동기화 중이므로 프리뷰를 실행할 수 없습니다.")
+        log(t("pipeline.preview.busy"))
         return []
 
     try:
@@ -38,7 +39,7 @@ def preview_articles(
         config = service.config_manager.load_config()
         enabled_sites = [s for s in config.get("sites", []) if s.get("enabled", True)]
         if not enabled_sites:
-            log("⚠️ 활성화된 수집 대상 사이트가 없습니다.")
+            log(t("pipeline.preview.no_sites"))
             return []
 
         total_sites = len(enabled_sites)
@@ -59,24 +60,24 @@ def preview_articles(
         preview_results = []
 
         for site_idx, site in enumerate(enabled_sites):
-            name = site.get("name", "무명 사이트")
+            name = site.get("name", t("pipeline.unnamed_site"))
             scraper_type = site.get("type", "css")
             base_url = site.get("url", "")
 
             if not is_allowed_fetch_url(base_url):
-                log(f"⚠️ [{name}] URL이 http(s)가 아니어서 건너뜁니다: {(base_url or '')[:80]}")
+                log(t("pipeline.skip_bad_url", site=name, url=(base_url or "")[:80]))
                 continue
 
             if progress_callback:
                 progress_callback(site_idx, total_sites)
 
-            log(f"\n[📰 {name}] ({scraper_type.upper()}) 기사 스크래핑(프리뷰) 중...")
+            log(t("pipeline.preview.scraping", site=name, type=scraper_type.upper()))
             try:
                 scraper = ScraperFactory.get_scraper(scraper_type)
                 articles = scraper.fetch_articles(site)
 
                 if not articles:
-                    log(f"⚠️ [{name}] 수집된 기사가 없습니다.")
+                    log(t("pipeline.preview.no_articles", site=name))
                     continue
 
                 for art in articles:
@@ -95,23 +96,23 @@ def preview_articles(
                     ):
                         new_articles.append(art)
 
-                log(f"   => 수집: {len(articles)}건 (신규 검출: {len(new_articles)}건)")
+                log(t("pipeline.preview.collected", total=len(articles), new=len(new_articles)))
                 for art in new_articles:
                     preview_results.append({
                         "site_name": name,
-                        "title": art.get("title", "제목 없음"),
+                        "title": art.get("title", t("pipeline.preview.untitled")),
                         "url": art.get("url", ""),
                         "content": art.get("content", ""),
                         "scraper_type": scraper_type
                     })
             except Exception as e:
-                service.logger.exception(f"[{name}] 프리뷰 중 오류: {e}")
-                log(f"❌ [{name}] 스크래핑 실패: {e}")
+                service.logger.exception(t("pipeline.preview.error_log", site=name, error=e))
+                log(t("pipeline.preview.scrape_fail", site=name, error=e))
 
         if progress_callback:
             progress_callback(total_sites, total_sites)
 
-        log(f"\n📊 프리뷰 요약: 총 {len(preview_results)}개의 신규 기사를 검출했습니다.")
+        log(t("pipeline.preview.summary", n=len(preview_results)))
         return preview_results
     finally:
         service._release_pipeline_locks()

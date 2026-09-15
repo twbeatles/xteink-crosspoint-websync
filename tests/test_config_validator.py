@@ -163,3 +163,17 @@ def test_validate_site_css_valid_selectors():
     }
     errors = validate_site(site)
     assert errors == []
+
+
+def test_validate_config_ui_language():
+    cfg = _base_config()
+    cfg["ui_language"] = "fr"
+    errors = validate_config(cfg)
+    assert any("ui_language" in e for e in errors)
+
+    cfg["ui_language"] = "ko"
+    assert validate_config(cfg) == []
+    cfg["ui_language"] = "auto"
+    assert validate_config(cfg) == []
+    cfg["ui_language"] = "en"
+    assert validate_config(cfg) == []

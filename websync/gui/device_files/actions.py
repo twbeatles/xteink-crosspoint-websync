@@ -22,6 +22,7 @@ from websync.upload.device_client import (
     filter_old_sync_epubs,
 )
 from websync.upload.uploader import X3Uploader, normalize_upload_remote_dir
+from websync.i18n import t
 
 
 class DeviceFilesActionsMixin:
@@ -30,22 +31,21 @@ class DeviceFilesActionsMixin:
             return
         items = self._selected_items()
         if not items:
-            messagebox.showwarning("경고", "삭제할 항목을 선택해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.device.select_delete"))
             return
         names = ", ".join(i.get("name", "") for i in items[:5])
         if len(items) > 5:
-            names += f" 외 {len(items) - 5}개"
+            names += t("gui.device.and_more", count=len(items) - 5)
         if not messagebox.askyesno(
-            "삭제 확인",
-            f"{len(items)}개 항목을 기기에서 삭제합니다.\n\n{names}\n\n"
-            "이 작업은 되돌릴 수 없습니다. (PC 동기화 이력은 유지됩니다)\n계속할까요?",
+            t("gui.device.delete_confirm_title"),
+            t("gui.device.delete_confirm", count=len(items), names=names),
         ):
             return
 
         ip = self._selected_ip()
         paths = [i["path"] for i in items]
         self._set_busy(True)
-        self.app._log_message(f"🗑 [{ip}] 삭제 요청: {len(paths)}개")
+        self.app._log_message(t("gui.device.log_delete_request", ip=ip, count=len(paths)))
 
         def task():
             err: str | None = None
@@ -62,13 +62,13 @@ class DeviceFilesActionsMixin:
     def _delete_finished(self, ip: str, count: int, err: str | None) -> None:
         self._set_busy(False)
         if err:
-            self.app._log_message(f"❌ [{ip}] 삭제 실패: {err}")
+            self.app._log_message(t("gui.device.log_delete_fail", ip=ip, err=err))
             messagebox.showerror(
-                "삭제 실패",
-                f"{err}\n\n비어 있지 않은 폴더이거나 보호된 경로일 수 있습니다.",
+                t("gui.device.delete_fail_title"),
+                t("gui.device.delete_fail_body", err=err),
             )
             return
-        self.app._log_message(f"✅ [{ip}] {count}개 삭제 완료")
+        self.app._log_message(t("gui.device.log_delete_ok", ip=ip, count=count))
         self.refresh()
 
     def _mkdir(self) -> None:
@@ -76,19 +76,19 @@ class DeviceFilesActionsMixin:
             return
         ip = self._selected_ip()
         if not ip:
-            messagebox.showwarning("경고", "기기를 선택해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.device.select_device"))
             return
-        name = simpledialog.askstring("폴더 생성", "새 폴더 이름:", parent=self.app.root)
+        name = simpledialog.askstring(t("gui.device.mkdir_title"), t("gui.device.mkdir_prompt"), parent=self.app.root)
         if not name:
             return
         name = name.strip()
         if not name or "/" in name or "\\" in name:
-            messagebox.showerror("오류", "올바른 폴더 이름을 입력해 주세요.")
+            messagebox.showerror(t("dialog.error"), t("gui.device.mkdir_bad_name"))
             return
 
         path = self._current_path
         self._set_busy(True)
-        self.app._log_message(f"📂 [{ip}] 폴더 생성: {path}/{name}")
+        self.app._log_message(t("gui.device.log_mkdir", ip=ip, path=path, name=name))
 
         def task():
             err: str | None = None
@@ -105,10 +105,10 @@ class DeviceFilesActionsMixin:
     def _mkdir_finished(self, ip: str, name: str, err: str | None) -> None:
         self._set_busy(False)
         if err:
-            self.app._log_message(f"❌ [{ip}] 폴더 생성 실패: {err}")
-            messagebox.showerror("폴더 생성 실패", err)
+            self.app._log_message(t("gui.device.log_mkdir_fail", ip=ip, err=err))
+            messagebox.showerror(t("gui.device.mkdir_fail_title"), err)
             return
-        self.app._log_message(f"✅ [{ip}] 폴더 생성됨: {name}")
+        self.app._log_message(t("gui.device.log_mkdir_ok", ip=ip, name=name))
         self.refresh()
 
     def _rename_selected(self) -> None:
@@ -116,17 +116,17 @@ class DeviceFilesActionsMixin:
             return
         items = self._selected_items()
         if len(items) != 1:
-            messagebox.showwarning("경고", "이름을 변경할 파일 하나를 선택해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.device.select_one_file"))
             return
         item = items[0]
         if item.get("isDirectory"):
             messagebox.showwarning(
-                "경고", "폴더 이름 변경은 기기 API에서 지원하지 않습니다. (파일만 가능)"
+                t("dialog.warning"), t("gui.device.rename_folder_unsupported")
             )
             return
         new_name = simpledialog.askstring(
-            "이름 변경",
-            "새 파일 이름:",
+            t("gui.device.rename_title"),
+            t("gui.device.rename_prompt"),
             initialvalue=item.get("name", ""),
             parent=self.app.root,
         )
@@ -134,12 +134,12 @@ class DeviceFilesActionsMixin:
             return
         new_name = new_name.strip()
         if "/" in new_name or "\\" in new_name:
-            messagebox.showerror("오류", "이름에 경로 구분자를 넣을 수 없습니다.")
+            messagebox.showerror(t("dialog.error"), t("gui.device.rename_bad_name"))
             return
 
         ip = self._selected_ip()
         self._set_busy(True)
-        self.app._log_message(f"✏ [{ip}] 이름 변경: {item['path']} → {new_name}")
+        self.app._log_message(t("gui.device.log_rename", ip=ip, path=item["path"], name=new_name))
 
         def task():
             err: str | None = None
@@ -148,7 +148,7 @@ class DeviceFilesActionsMixin:
             except DeviceClientError as e:
                 err = str(e)
             self.app.root.after(
-                0, lambda ip=ip, err=err: self._op_finished(ip, "이름 변경", err)
+                0, lambda ip=ip, err=err: self._op_finished(ip, t("gui.device.op_rename"), err)
             )
 
         threading.Thread(target=task, daemon=True).start()
@@ -159,12 +159,12 @@ class DeviceFilesActionsMixin:
         items = [i for i in self._selected_items() if not i.get("isDirectory")]
         if not items:
             messagebox.showwarning(
-                "경고", "이동할 파일을 선택해 주세요. (폴더는 이동 API 미지원)"
+                t("dialog.warning"), t("gui.device.select_move")
             )
             return
         dest = simpledialog.askstring(
-            "파일 이동",
-            "대상 폴더 경로 (예: /Books 또는 /Read):",
+            t("gui.device.move_title"),
+            t("gui.device.move_prompt"),
             initialvalue="/",
             parent=self.app.root,
         )
@@ -173,7 +173,7 @@ class DeviceFilesActionsMixin:
         dest = normalize_remote_path(dest)
         ip = self._selected_ip()
         self._set_busy(True)
-        self.app._log_message(f"➡ [{ip}] {len(items)}개 → {dest}")
+        self.app._log_message(t("gui.device.log_move", ip=ip, count=len(items), dest=dest))
 
         def task():
             client = self._make_client()
@@ -188,7 +188,7 @@ class DeviceFilesActionsMixin:
             self.app.root.after(
                 0,
                 lambda ip=ip, ok=ok, errors=errors: self._multi_op_finished(
-                    ip, "이동", ok, errors
+                    ip, t("gui.device.op_move"), ok, errors
                 ),
             )
 
@@ -197,10 +197,10 @@ class DeviceFilesActionsMixin:
     def _op_finished(self, ip: str, label: str, err: str | None) -> None:
         self._set_busy(False)
         if err:
-            self.app._log_message(f"❌ [{ip}] {label} 실패: {err}")
-            messagebox.showerror(f"{label} 실패", err)
+            self.app._log_message(t("gui.device.log_op_failed", ip=ip, label=label, err=err))
+            messagebox.showerror(t("gui.device.op_failed_title", label=label), err)
             return
-        self.app._log_message(f"✅ [{ip}] {label} 완료")
+        self.app._log_message(t("gui.device.log_op_ok", ip=ip, label=label))
         self.refresh()
 
     def _multi_op_finished(
@@ -209,14 +209,14 @@ class DeviceFilesActionsMixin:
         self._set_busy(False)
         if errors:
             self.app._log_message(
-                f"⚠️ [{ip}] {label} 부분 실패: 성공 {ok}, 실패 {len(errors)}"
+                t("gui.device.log_op_partial", ip=ip, label=label, ok=ok, fail=len(errors))
             )
             messagebox.showwarning(
-                f"{label} 결과",
-                f"성공 {ok}개, 실패 {len(errors)}개\n\n" + "\n".join(errors[:8]),
+                t("gui.device.op_result_title", label=label),
+                t("gui.device.op_result_body", ok=ok, fail=len(errors), errors="\n".join(errors[:8])),
             )
         else:
-            self.app._log_message(f"✅ [{ip}] {label} 완료: {ok}개")
+            self.app._log_message(t("gui.device.log_op_ok_count", ip=ip, label=label, ok=ok))
         self.refresh()
 
     # ------------------------------------------------------------------
@@ -229,17 +229,17 @@ class DeviceFilesActionsMixin:
         items = [i for i in self._selected_items() if not i.get("isDirectory")]
         if not items:
             messagebox.showwarning(
-                "경고", "다운로드할 파일을 선택해 주세요. (폴더는 지원하지 않습니다)"
+                t("dialog.warning"), t("gui.device.select_download")
             )
             return
 
-        dest_dir = filedialog.askdirectory(title="저장할 PC 폴더 선택")
+        dest_dir = filedialog.askdirectory(title=t("gui.device.save_folder"))
         if not dest_dir:
             return
 
         ip = self._selected_ip()
         self._set_busy(True)
-        self.app._log_message(f"⬇ [{ip}] 다운로드 시작: {len(items)}개 → {dest_dir}")
+        self.app._log_message(t("gui.device.log_download_start", ip=ip, count=len(items), dest=dest_dir))
 
         def task():
             client = self._make_client()
@@ -263,28 +263,28 @@ class DeviceFilesActionsMixin:
         self._set_busy(False)
         if errors:
             self.app._log_message(
-                f"⚠️ [{ip}] 다운로드 부분 실패: 성공 {ok}, 실패 {len(errors)}"
+                t("gui.device.log_download_partial", ip=ip, ok=ok, fail=len(errors))
             )
             messagebox.showwarning(
-                "다운로드 결과",
-                f"성공 {ok}개, 실패 {len(errors)}개\n\n" + "\n".join(errors[:8]),
+                t("gui.device.download_result_title"),
+                t("gui.device.op_result_body", ok=ok, fail=len(errors), errors="\n".join(errors[:8])),
             )
         else:
-            self.app._log_message(f"✅ [{ip}] 다운로드 완료: {ok}개")
-            messagebox.showinfo("다운로드 완료", f"{ok}개 파일을 저장했습니다.")
+            self.app._log_message(t("gui.device.log_download_ok", ip=ip, ok=ok))
+            messagebox.showinfo(t("gui.device.download_ok_title"), t("gui.device.download_ok", ok=ok))
 
     def _upload_to_current(self) -> None:
         if self._busy:
             return
         ip = self._selected_ip()
         if not ip:
-            messagebox.showwarning("경고", "기기를 선택해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.device.select_device"))
             return
         paths = filedialog.askopenfilenames(
-            title="기기로 업로드할 파일 선택",
+            title=t("gui.device.upload_title"),
             filetypes=[
-                ("전자책/문서", "*.epub;*.pdf;*.mobi;*.txt"),
-                ("모든 파일", "*.*"),
+                (t("gui.device.filetype_ebooks"), "*.epub;*.pdf;*.mobi;*.txt"),
+                (t("gui.device.filetype_all"), "*.*"),
             ],
         )
         if not paths:
@@ -305,23 +305,24 @@ class DeviceFilesActionsMixin:
                         collisions.append(safe)
             except DeviceClientError as e:
                 if not messagebox.askyesno(
-                    "확인",
-                    f"기기 목록 확인 실패: {e}\n그래도 업로드를 시도할까요?",
+                    t("dialog.confirm"),
+                    t("gui.device.list_check_fail", error=e),
                 ):
                     return
             if collisions:
                 if not messagebox.askyesno(
-                    "덮어쓰기 경고",
-                    "다음 파일이 이미 존재합니다 (업로드 시 덮어씀):\n\n"
-                    + "\n".join(collisions[:12])
-                    + ("\n…" if len(collisions) > 12 else "")
-                    + "\n\n계속할까요?",
+                    t("gui.device.overwrite_title"),
+                    t(
+                        "gui.device.overwrite_body",
+                        names="\n".join(collisions[:12]),
+                        more="\n…" if len(collisions) > 12 else "",
+                    ),
                 ):
                     return
 
         self._set_busy(True)
         self.app._log_message(
-            f"⬆ [{ip}] 업로드 {len(paths)}개 → {remote_dir}"
+            t("gui.device.log_upload", ip=ip, count=len(paths), dir=remote_dir)
         )
 
         def task():
@@ -337,7 +338,7 @@ class DeviceFilesActionsMixin:
             self.app.root.after(
                 0,
                 lambda ip=ip, ok=ok, errors=errors: self._multi_op_finished(
-                    ip, "업로드", ok, errors
+                    ip, t("gui.device.op_upload"), ok, errors
                 ),
             )
 
@@ -346,4 +347,3 @@ class DeviceFilesActionsMixin:
     # ------------------------------------------------------------------
     # 오래된 동기화 EPUB 정리
     # ------------------------------------------------------------------
-

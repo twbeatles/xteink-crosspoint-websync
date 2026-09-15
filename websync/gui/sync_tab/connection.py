@@ -13,11 +13,12 @@ from websync.gui.widgets import (
 )
 from websync.upload.uploader import X3Uploader, normalize_device_host
 from websync.config.exceptions import ConfigSaveError, ConfigLoadError
+from websync.i18n import t
 
 
 class SyncConnectionMixin:
     def _test_connection(self):
-        self.conn_status_label.configure(text="연결 중...", text_color=COLOR_WARNING[0])
+        self.conn_status_label.configure(text=t("gui.sync.connecting"), text_color=COLOR_WARNING[0])
         self.test_conn_btn.configure(state="disabled")
 
         def task():
@@ -34,19 +35,22 @@ class SyncConnectionMixin:
         if not self.app._sync_busy:
             self.test_conn_btn.configure(state="normal")
         if not results:
-            self.conn_status_label.configure(text="등록된 기기 없음", text_color=COLOR_DANGER[0])
+            self.conn_status_label.configure(text=t("gui.sync.no_devices"), text_color=COLOR_DANGER[0])
             return
         ok_count = sum(1 for _, _, ok in results if ok)
         if ok_count == len(results):
-            self.conn_status_label.configure(text=f"전체 {len(results)}대 연결 성공 ✅", text_color=COLOR_SUCCESS[0])
+            self.conn_status_label.configure(
+                text=t("gui.sync.all_connected", count=len(results)),
+                text_color=COLOR_SUCCESS[0],
+            )
         elif ok_count > 0:
             failed = [name for name, _, ok in results if not ok]
             self.conn_status_label.configure(
-                text=f"부분 성공 ({ok_count}/{len(results)}) — 실패: {', '.join(failed)}",
+                text=t("gui.sync.partial_connected", ok=ok_count, total=len(results), failed=", ".join(failed)),
                 text_color=COLOR_WARNING[0],
             )
         else:
-            self.conn_status_label.configure(text="모든 기기 연결 실패 ❌", text_color=COLOR_DANGER[0])
+            self.conn_status_label.configure(text=t("gui.sync.all_failed"), text_color=COLOR_DANGER[0])
         for name, ip, ok in results:
             status = "✅" if ok else "❌"
             self.app._log_message(f"   {status} [{name}] {ip}")
@@ -59,7 +63,7 @@ class SyncConnectionMixin:
             self.app._save_ui_settings()
 
     def _browse_file(self):
-        f = filedialog.askopenfilename(title="X3로 전송할 파일 선택", filetypes=[("eBook files", "*.epub;*.pdf;*.txt;*.mobi"), ("All files", "*.*")])
+        f = filedialog.askopenfilename(title=t("gui.sync.choose_file_title"), filetypes=[("eBook files", "*.epub;*.pdf;*.txt;*.mobi"), ("All files", "*.*")])
         if f:
             self.file_entry.delete(0, tk.END)
             self.file_entry.insert(0, f)
@@ -78,15 +82,15 @@ class SyncConnectionMixin:
                 import subprocess
                 subprocess.Popen(["xdg-open", folder])
         except Exception as e:
-            messagebox.showerror("오류", f"폴더를 열 수 없습니다: {e}")
+            messagebox.showerror(t("dialog.error"), t("gui.sync.folder_open_failed", error=e))
 
     def _direct_upload(self):
         file_path = self.file_entry.get().strip()
         if not file_path or not os.path.exists(file_path):
-            messagebox.showwarning("경고", "올바른 파일 경로를 지정해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.sync.invalid_file_path"))
             return
         self.app._save_ui_settings()
-        self.app._log_message(f"📡 로컬 파일 직접 전송 중: {os.path.basename(file_path)}")
+        self.app._log_message(t("gui.sync.log_uploading", filename=os.path.basename(file_path)))
         self.direct_upload_btn.configure(state="disabled")
 
         def task():
@@ -101,20 +105,30 @@ class SyncConnectionMixin:
         all_ok, any_ok, summary = self.app._summarize_upload_results(results)
         basename = os.path.basename(file_path)
         if all_ok:
-            self.app._log_message(f"🎉 파일 전송 성공 ({basename}): {summary}")
+            self.app._log_message(t("gui.sync.log_upload_ok", filename=basename, summary=summary))
             from websync.integrations.notifier import ToastNotifier
-            ToastNotifier.show_toast("파일 업로드 성공", f"'{basename}' 전송 완료.")
-            messagebox.showinfo("완료", f"모든 기기로 전송 완료.\n{summary}")
+            ToastNotifier.show_toast(
+                t("gui.sync.toast_upload_ok_title"),
+                t("gui.sync.toast_upload_ok_body", filename=basename),
+            )
+            messagebox.showinfo(t("dialog.info"), t("gui.sync.upload_all_ok", summary=summary))
         elif any_ok:
-            self.app._log_message(f"⚠️ 파일 부분 전송 ({basename}): {summary}")
+            self.app._log_message(t("gui.sync.log_upload_partial", filename=basename, summary=summary))
             from websync.integrations.notifier import ToastNotifier
-            ToastNotifier.show_toast("파일 부분 업로드", summary, is_error=True)
-            messagebox.showwarning("부분 성공", f"일부 기기만 전송되었습니다.\n{summary}")
+            ToastNotifier.show_toast(t("gui.sync.toast_upload_partial_title"), summary, is_error=True)
+            messagebox.showwarning(
+                t("gui.sync.partial_success_title"),
+                t("gui.sync.upload_partial", summary=summary),
+            )
         else:
-            self.app._log_message(f"❌ 파일 전송 실패 ({basename}): {summary}")
+            self.app._log_message(t("gui.sync.log_upload_fail", filename=basename, summary=summary))
             from websync.integrations.notifier import ToastNotifier
-            ToastNotifier.show_toast("파일 업로드 실패", "기기 전송 오류. 연결 상태 확인 요망.", is_error=True)
-            messagebox.showerror("오류", "기기로 전송하지 못했습니다.")
+            ToastNotifier.show_toast(
+                t("gui.sync.toast_upload_fail_title"),
+                t("gui.sync.toast_upload_fail_body"),
+                is_error=True,
+            )
+            messagebox.showerror(t("dialog.error"), t("gui.sync.upload_failed"))
 
     # ------------------------------------------------------------------
     # 스케줄러

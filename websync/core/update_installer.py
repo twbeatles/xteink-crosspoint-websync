@@ -19,6 +19,7 @@ from websync.core.update_constants import (
     UPDATE_REQUEST_TIMEOUT_SECONDS,
 )
 from websync.core.update_manifest import ReleaseManifest
+from websync.i18n import t
 
 
 class UpdateApplyError(RuntimeError):
@@ -100,7 +101,7 @@ def prepare_staged_update(
         with open(staged, "xb") as handle:
             for chunk in chunks:
                 if cancel_event is not None and getattr(cancel_event, "is_set", lambda: False)():
-                    raise UpdateCancelledError("업데이트 다운로드가 취소되었습니다.")
+                    raise UpdateCancelledError(t("update.cancelled"))
                 if not isinstance(chunk, bytes):
                     raise TypeError("Update chunk must be bytes")
                 total += len(chunk)
@@ -113,7 +114,7 @@ def prepare_staged_update(
             handle.flush()
             os.fsync(handle.fileno())
         if cancel_event is not None and getattr(cancel_event, "is_set", lambda: False)():
-            raise UpdateCancelledError("업데이트 다운로드가 취소되었습니다.")
+            raise UpdateCancelledError(t("update.cancelled"))
         if total != manifest.artifact_size:
             raise ValueError("Update artifact size mismatch")
         if digest.hexdigest().lower() != manifest.artifact_sha256.lower():
@@ -148,7 +149,7 @@ def stream_update_artifact(
             raise ValueError("Update artifact redirect must remain HTTPS")
         while True:
             if cancel_event is not None and getattr(cancel_event, "is_set", lambda: False)():
-                raise UpdateCancelledError("업데이트 다운로드가 취소되었습니다.")
+                raise UpdateCancelledError(t("update.cancelled"))
             chunk = response.read(1024 * 1024)
             if not chunk:
                 return

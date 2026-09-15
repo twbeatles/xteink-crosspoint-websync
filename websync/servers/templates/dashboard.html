@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{lang}}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>X3 WebSync 대시보드</title>
+<title>{{i18n.dashboard.title}}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
@@ -17,18 +17,18 @@
 </style>
 </head>
 <body>
-<h1>🚀 X3 WebSync 대시보드</h1>
+<h1>{{i18n.dashboard.heading}}</h1>
 <div class="card">
-  <h2>동기화 제어</h2>
-  <button onclick="runSync()">🚀 즉시 동기화 실행</button>
-  <button onclick="refreshStatus()">📊 상태 새로고침</button>
+  <h2>{{i18n.dashboard.sync_control}}</h2>
+  <button onclick="runSync()">{{i18n.dashboard.run_sync}}</button>
+  <button onclick="refreshStatus()">{{i18n.dashboard.refresh_status}}</button>
   <div id="sync-result"></div>
   <div id="status-area"></div>
 </div>
 <div class="card">
-  <h2>실행 로그</h2>
-  <button onclick="refreshLog()">🔄 로그 새로고침</button>
-  <div id="log-area">로그를 로드하는 중...</div>
+  <h2>{{i18n.dashboard.logs}}</h2>
+  <button onclick="refreshLog()">{{i18n.dashboard.refresh_log}}</button>
+  <div id="log-area">{{i18n.dashboard.log_loading}}</div>
 </div>
 <script>
 async function apiFetch(url, opts={}) {
@@ -37,11 +37,11 @@ async function apiFetch(url, opts={}) {
   return r;
 }
 async function runSync() {
-  document.getElementById('sync-result').textContent = '⏳ 동기화 실행 중...';
+  document.getElementById('sync-result').textContent = '{{i18n.dashboard.syncing}}';
   const r = await apiFetch('/api/sync', {method: 'POST'});
   if (!r) return;
   const d = await r.json();
-  document.getElementById('sync-result').textContent = d.message || d.error || '완료';
+  document.getElementById('sync-result').textContent = d.message || d.error || '{{i18n.dialog.info}}';
   refreshStatus();
 }
 async function refreshStatus() {
@@ -54,7 +54,7 @@ async function refreshLog() {
   const r = await apiFetch('/api/log');
   if (!r) return;
   const d = await r.json();
-  document.getElementById('log-area').textContent = d.log || '(로그 없음)';
+  document.getElementById('log-area').textContent = d.log || '{{i18n.dashboard.no_log}}';
   document.getElementById('log-area').scrollTop = document.getElementById('log-area').scrollHeight;
 }
 refreshLog();

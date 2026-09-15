@@ -25,6 +25,7 @@ from websync.pipeline.upload_results import (
     upload_all_ok,
     upload_any_ok,
 )
+from websync.i18n import t
 
 def run_sync_pipeline_locked(
     service,
@@ -38,7 +39,7 @@ def run_sync_pipeline_locked(
         else:
             print(msg)
 
-    log("✨ 동기화 프로세스를 실행합니다...")
+    log(t("pipeline.start"))
     if hasattr(service, "clear_cancel"):
         service.clear_cancel()
     service._reload_config()
@@ -54,8 +55,8 @@ def run_sync_pipeline_locked(
 
     enabled_sites = [s for s in config.get("sites", []) if s.get("enabled", True)]
     if not enabled_sites:
-        log("⚠️ 활성화된 수집 대상 사이트가 설정에 없습니다.")
-        ToastNotifier.show_toast("X3 WebSync 실패", "동기화가 중단되었습니다. 활성화된 사이트가 없습니다.", is_error=True)
+        log(t("pipeline.no_enabled_sites"))
+        ToastNotifier.show_toast(t("toast.fail_title"), t("toast.no_sites"), is_error=True)
         service._last_pipeline_result = {"status": "no_sites", "success": False}
         return False
 
@@ -73,13 +74,13 @@ def run_sync_pipeline_locked(
     ip_to_name = {d["ip"]: d["name"] for d in upload_targets}
     ip_hist_map = ip_to_history_key_map(upload_targets)
     history_mode = get_portable_cfg(config).get("history_mode", "per_device")
-    log(f"📋 이력 모드: {history_mode}")
+    log(t("pipeline.history_mode", mode=history_mode))
 
     if not target_ips:
-        log("⚠️ 등록된 전송 기기가 없습니다. X3 주소 또는 추가 기기를 설정해 주세요.")
+        log(t("pipeline.no_targets"))
         ToastNotifier.show_toast(
-            "X3 WebSync 실패",
-            "전송 대상 기기가 없습니다. 기기 주소를 확인해 주세요.",
+            t("toast.fail_title"),
+            t("toast.no_targets"),
             is_error=True,
         )
         service._last_pipeline_result = {"status": "no_targets", "success": False}
@@ -90,9 +91,13 @@ def run_sync_pipeline_locked(
         legacy_key = target_history_keys[0] if target_history_keys else target_ips[0]
         remapped = db.remap_legacy_star_to_device(legacy_key)
         if remapped:
-            log(f"🔄 레거시 동기화 이력 {remapped}건을 [{ip_to_name.get(target_ips[0], target_ips[0])}]로 이관했습니다.")
+            log(t(
+                "pipeline.legacy_remap",
+                n=remapped,
+                device=ip_to_name.get(target_ips[0], target_ips[0]),
+            ))
     except SyncHistoryDbError as e:
-        log(f"⚠️ 레거시 이력 이관 실패(계속 진행): {e}")
+        log(t("pipeline.legacy_remap_fail", error=e))
 
     epub_merge_mode = config.get("epub_merge_mode", "per_site")
     digest_articles = {}  # {site_name: [new_articles]}
@@ -102,26 +107,26 @@ def run_sync_pipeline_locked(
     digest_attempted = False
 
     for site_idx, site in enumerate(enabled_sites):
-        name = site.get("name", "무명 사이트")
+        name = site.get("name", t("pipeline.unnamed_site"))
         scraper_type = site.get("type", "css")
         base_url = site.get("url", "")
         translate_to = site.get("translate_to", "").strip()
 
         if getattr(service, "is_cancel_requested", lambda: False)():
-            log("⏹ 사용자에 의해 동기화가 취소되었습니다.")
+            log(t("pipeline.cancelled"))
             service._last_pipeline_result = {"status": "cancelled", "success": False}
-            ToastNotifier.show_toast("X3 WebSync 취소", "동기화가 취소되었습니다.", is_error=True)
+            ToastNotifier.show_toast(t("toast.cancel_title"), t("toast.cancelled"), is_error=True)
             return False
 
         if not is_allowed_fetch_url(base_url):
             site_errors += 1
-            log(f"⚠️ [{name}] URL이 http(s)가 아니어서 건너뜁니다: {(base_url or '')[:80]}")
+            log(t("pipeline.skip_bad_url", site=name, url=(base_url or "")[:80]))
             continue
 
         if progress_callback:
             progress_callback(site_idx, total_sites)
 
-        log(f"\n[📰 {name}] ({scraper_type.upper()}) 글 수집 중...")
+        log(t("pipeline.scraping", site=name, type=scraper_type.upper()))
         try:
             scraper = ScraperFactory.get_scraper(scraper_type)
             articles = scraper.fetch_articles(site)
@@ -129,11 +134,11 @@ def run_sync_pipeline_locked(
             fetch_stats = getattr(scraper, "last_fetch_stats", None) or {}
             skipped_items = int(fetch_stats.get("skipped", 0) or 0)
             if skipped_items:
-                log(f"   => ⚠️ 수집 중 개별 스킵 {skipped_items}건 (본문·자막 실패 등)")
+                log(t("pipeline.skip_items", n=skipped_items))
 
             if not articles:
                 empty_fetch_sites += 1
-                log(f"⚠️ [{name}] 수집된 기사가 없어 건너뜁니다. (URL·스크래퍼 설정·네트워크를 확인하세요)")
+                log(t("pipeline.no_articles", site=name))
                 continue
 
             for art in articles:
@@ -154,29 +159,29 @@ def run_sync_pipeline_locked(
 
             skipped = len(articles) - len(new_articles)
             if skipped:
-                log(f"   => 💡 중복 제외 {skipped}건 (이미 전송된 포스트)")
+                log(t("pipeline.dup_skip", n=skipped))
 
             if not new_articles:
-                log(f"   => 💡 [{name}] 전송할 신규 포스트가 없습니다.")
+                log(t("pipeline.no_new_posts", site=name))
                 continue
 
             actual_work_sites += 1
-            log(f"📦 [{name}] 신규 포스트 {len(new_articles)}개 검출. 후처리 중...")
+            log(t("pipeline.new_posts", site=name, n=len(new_articles)))
 
             if translate_to and translator.is_available_for_site(translate_to):
-                log(f"   => 🌐 [{name}] '{translate_to}' 언어로 번역 중...")
+                log(t("pipeline.translate_site", site=name, lang=translate_to))
                 for art in new_articles:
                     art["content"] = translator.translate_html(art["content"], target_lang=translate_to)
 
             if summarizer.is_available():
-                log(f"   => 🤖 [{name}] AI 요약 생성 중...")
+                log(t("pipeline.summarize_site", site=name))
                 for art in new_articles:
                     art["summary_html"] = summarizer.summarize(art.get("title", ""), art.get("content", ""))
 
             if epub_merge_mode == "daily_digest":
                 # 일간 합본을 위해 기사를 축적
                 digest_articles[name] = new_articles
-                log(f"   => 💡 [{name}] 합본 대기열에 추가됨 ({len(new_articles)}건)")
+                log(t("pipeline.digest_queued", site=name, n=len(new_articles)))
             else:
                 # 기존 방식: 사이트별 개별 빌드 및 전송
                 # 이번 배치 중 하나라도 미전송인 기기만 업로드 대상
@@ -189,16 +194,16 @@ def run_sync_pipeline_locked(
                 )
 
                 if not pending_ips:
-                    log(f"   => 💡 [{name}] 전송할 대상 기기가 없습니다.")
+                    log(t("pipeline.no_pending_devices", site=name))
                     continue
 
                 if len(pending_ips) < len(target_ips):
                     names = [ip_to_name.get(ip, ip) for ip in pending_ips]
-                    log(f"   => 📡 미전송 기기만 전송: {', '.join(names)}")
+                    log(t("pipeline.pending_devices_only", names=", ".join(names)))
 
-                log(f"📚 [{name}] EPUB 문서 제작 중...")
+                log(t("pipeline.building_epub", site=name))
                 epub_path = epub_builder.build(name, new_articles, generate_cover=generate_cover)
-                log(f"   => 파일 생성: {os.path.basename(epub_path)}")
+                log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
 
                 upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
                 for ip, ok in upload_results.items():
@@ -207,8 +212,14 @@ def run_sync_pipeline_locked(
                     if not ok:
                         err = getattr(uploader, "last_errors", {}).get(ip)
                         if err:
-                            detail = f" — {err}"
-                    log(f"   => {status} [{ip_to_name.get(ip, ip)}] ({ip}) 전송{detail}")
+                            detail = t("pipeline.upload_detail", error=err)
+                    log(t(
+                        "pipeline.upload_result",
+                        status=status,
+                        device=ip_to_name.get(ip, ip),
+                        ip=ip,
+                        detail=detail,
+                    ))
 
                 any_ok = upload_any_ok(upload_results)
                 all_ok = upload_all_ok(upload_results, pending_ips)
@@ -224,32 +235,29 @@ def run_sync_pipeline_locked(
                     if batch:
                         db.mark_synced_many(batch)
                     if all_ok:
-                        log(f"🎉 [{name}] 동기화 완료 및 전송 성공!")
+                        log(t("pipeline.site_sync_ok", site=name))
                         success_count += 1
                     else:
                         failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
-                        log(
-                            f"⚠️ [{name}] 일부 기기 전송 실패: {', '.join(failed)} "
-                            f"(성공 기기만 이력 기록, 실패 기기는 다음 동기화에서 재시도)"
-                        )
+                        log(t("pipeline.site_partial", site=name, names=", ".join(failed)))
                         partial_count += 1
                 else:
-                    log(f"❌ [{name}] 전송 실패! 기기가 켜져 있고 Wi-Fi 상태인지 확인하세요.")
+                    log(t("pipeline.site_upload_fail", site=name))
 
         except SyncHistoryDbError as e:
             service.logger.error(str(e))
-            log(f"❌ [{name}] DB 오류로 중단: {e}")
+            log(t("pipeline.db_error", site=name, error=e))
             service._last_pipeline_result = {"status": "db_error", "success": False, "message": str(e)}
-            ToastNotifier.show_toast("X3 WebSync DB 오류", str(e), is_error=True)
+            ToastNotifier.show_toast(t("toast.db_error_title"), str(e), is_error=True)
             return False
         except Exception as e:
             site_errors += 1
-            service.logger.exception(f"[{name}] 처리 중 오류: {e}")
-            log(f"❌ [{name}] 처리 중 오류 발생: {e}")
+            service.logger.exception(t("pipeline.site_error_log", site=name, error=e))
+            log(t("pipeline.site_error", site=name, error=e))
 
     # 일간 합본 처리 진행 (epub_merge_mode == "daily_digest" 일 경우)
     if epub_merge_mode == "daily_digest" and digest_articles:
-        log("\n=== 📚 일간 합본(Daily Digest) 빌드 및 전송 시작 ===")
+        log(t("pipeline.digest.start"))
         digest_attempted = True
         try:
             # 모든 축적된 기사의 URL 목록
@@ -268,9 +276,13 @@ def run_sync_pipeline_locked(
             )
 
             if pending_ips:
-                log(f"📚 합본 문서 제작 중... (총 {len(digest_articles)}개 사이트, {len(all_new_urls)}개 기사)")
+                log(t(
+                    "pipeline.digest.building",
+                    sites=len(digest_articles),
+                    articles=len(all_new_urls),
+                ))
                 epub_path = epub_builder.build_digest(digest_articles, generate_cover=generate_cover)
-                log(f"   => 파일 생성: {os.path.basename(epub_path)}")
+                log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
 
                 upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
                 for ip, ok in upload_results.items():
@@ -279,8 +291,14 @@ def run_sync_pipeline_locked(
                     if not ok:
                         err = getattr(uploader, "last_errors", {}).get(ip)
                         if err:
-                            detail = f" — {err}"
-                    log(f"   => {status} [{ip_to_name.get(ip, ip)}] ({ip}) 전송{detail}")
+                            detail = t("pipeline.upload_detail", error=err)
+                    log(t(
+                        "pipeline.upload_result",
+                        status=status,
+                        device=ip_to_name.get(ip, ip),
+                        ip=ip,
+                        detail=detail,
+                    ))
 
                 any_ok = upload_any_ok(upload_results)
                 all_ok = upload_all_ok(upload_results, pending_ips)
@@ -295,22 +313,22 @@ def run_sync_pipeline_locked(
                     if batch:
                         db.mark_synced_many(batch)
                     if all_ok:
-                        log("🎉 일간 합본 동기화 완료 및 전송 성공!")
+                        log(t("pipeline.digest.ok"))
                         digest_success = True
                     else:
                         failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
-                        log(f"⚠️ 일간 합본 일부 기기 전송 실패: {', '.join(failed)}")
+                        log(t("pipeline.digest.partial", names=", ".join(failed)))
                         digest_partial = True
                 else:
-                    log("❌ 일간 합본 전송 실패! 기기 상태를 확인하세요.")
+                    log(t("pipeline.digest.upload_fail"))
             else:
                 # target_ips 는 위에서 비어 있지 않음 → pending 없음 = 이미 전 기기 전송 완료
-                log("💡 합본 대상 기사가 이미 모든 기기에 전송되어 합본 생성을 건너뜁니다.")
+                log(t("pipeline.digest.already_sent"))
                 digest_success = True
 
         except Exception as e:
-            service.logger.exception(f"일간 합본 처리 중 오류: {e}")
-            log(f"❌ 일간 합본 처리 중 오류 발생: {e}")
+            service.logger.exception(t("pipeline.digest.error_log", error=e))
+            log(t("pipeline.digest.error", error=e))
             site_errors += 1
 
     if progress_callback:
@@ -330,41 +348,38 @@ def run_sync_pipeline_locked(
         }
         if overall_ok:
             ToastNotifier.show_toast(
-                "X3 WebSync 동기화 완료",
-                f"{len(digest_articles)}개 사이트 소식이 일간 합본으로 무선 전송되었습니다."
+                t("toast.done_title"),
+                t("toast.digest_done", n=len(digest_articles)),
             )
         elif digest_partial:
             ToastNotifier.show_toast(
-                "X3 WebSync 부분 완료",
-                "일간 합본이 일부 기기에만 전송되었습니다. 로그를 확인하세요.",
+                t("toast.partial_title"),
+                t("toast.digest_partial"),
                 is_error=True,
             )
         else:
             ToastNotifier.show_toast(
-                "X3 WebSync 동기화 실패",
-                "일간 합본 전송 과정에 오류가 발생했습니다. (기기 연결 상태 확인 요망)",
+                t("toast.fail_sync_title"),
+                t("toast.digest_fail"),
                 is_error=True,
             )
         return overall_ok
 
     if actual_work_sites == 0:
         if site_errors > 0:
-            log(f"\n📊 작업 결과 요약: {site_errors}개 사이트에서 오류 발생. 로그를 확인하세요.")
+            log(t("pipeline.summary.errors", n=site_errors))
             ToastNotifier.show_toast(
-                "X3 WebSync 동기화 실패",
-                f"{site_errors}개 사이트 처리 중 오류가 발생했습니다.",
+                t("toast.fail_sync_title"),
+                t("toast.sites_error", n=site_errors),
                 is_error=True,
             )
             service._last_pipeline_result = {"status": "errors", "success": False, "site_errors": site_errors}
             return False
         if empty_fetch_sites == total_sites:
-            log(
-                f"\n📊 작업 결과 요약: 활성 사이트 {total_sites}개 모두 수집 결과가 비었습니다. "
-                "스크래퍼 설정·네트워크·의존성 패키지를 확인하세요."
-            )
+            log(t("pipeline.summary.empty_fetch", n=total_sites))
             ToastNotifier.show_toast(
-                "X3 WebSync 동기화 실패",
-                "모든 사이트에서 기사를 수집하지 못했습니다. 로그를 확인하세요.",
+                t("toast.fail_sync_title"),
+                t("toast.empty_fetch"),
                 is_error=True,
             )
             service._last_pipeline_result = {
@@ -373,16 +388,16 @@ def run_sync_pipeline_locked(
                 "empty_fetch_sites": empty_fetch_sites,
             }
             return False
-        log("\n📊 작업 결과 요약: 모든 등록 사이트에 전송할 신규 포스트가 없습니다. (기기 전송 생략)")
+        log(t("pipeline.summary.no_new"))
         ToastNotifier.show_toast(
-            "X3 WebSync 상태",
-            "모든 뉴스 사이트/블로그에 새로 업로드된 신규 기사가 없어 전송을 생략했습니다."
+            t("toast.status_title"),
+            t("toast.no_new"),
         )
         service._last_pipeline_result = {"status": "no_new", "success": True}
         return True
 
-    log(f"\n📊 작업 결과 요약: {success_count} / {actual_work_sites} 개 사이트 전체 전송 완료" +
-        (f", {partial_count}개 부분 성공" if partial_count else ""))
+    log(t("pipeline.summary.done", ok=success_count, total=actual_work_sites) +
+        (t("pipeline.summary.partial_suffix", n=partial_count) if partial_count else ""))
 
     overall_ok = success_count == actual_work_sites and site_errors == 0
     service._last_pipeline_result = {
@@ -397,20 +412,20 @@ def run_sync_pipeline_locked(
 
     if success_count > 0 and overall_ok:
         ToastNotifier.show_toast(
-            "X3 WebSync 동기화 완료",
-            f"신규 업데이트된 {success_count}개 사이트 소식이 무선 전송되었습니다."
+            t("toast.done_title"),
+            t("toast.sites_done", n=success_count),
         )
     elif partial_count > 0:
         ToastNotifier.show_toast(
-            "X3 WebSync 부분 완료",
-            f"{partial_count}개 사이트가 일부 기기에만 전송되었습니다. 로그를 확인하세요.",
+            t("toast.partial_title"),
+            t("toast.partial", n=partial_count),
             is_error=True,
         )
     else:
         ToastNotifier.show_toast(
-            "X3 WebSync 동기화 실패",
-            "신규 포스트 전송 과정에 오류가 발생했습니다. (기기 연결 상태 확인 요망)",
-            is_error=True
+            t("toast.fail_sync_title"),
+            t("toast.sync_fail"),
+            is_error=True,
         )
 
     return overall_ok

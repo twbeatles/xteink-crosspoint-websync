@@ -12,6 +12,7 @@ except ImportError:
     Retry = None  # urllib3 미설치 시 폴백
 
 from websync.core.article import ensure_article_url
+from websync.i18n import t
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -61,18 +62,19 @@ def fetch_url(url: str, headers: dict | None = None, timeout: int = 15) -> reque
     http(s)만 허용하며 본문은 FETCH_MAX_BYTES 를 넘으면 실패합니다.
     """
     if not is_allowed_fetch_url(url):
-        raise ValueError(f"http(s) URL만 요청할 수 있습니다: {(url or '')[:80]}")
+        raise ValueError(t("scraper.https_only", url=(url or "")[:80]))
     merged = dict(HEADERS)
     if headers:
         merged.update(headers)
     resp = _session.get(url, headers=merged, timeout=timeout, stream=True)
     cl = resp.headers.get("Content-Length")
+    size_err = t("scraper.size_limit", limit=FETCH_MAX_BYTES)
     try:
         if cl is not None and int(cl) > FETCH_MAX_BYTES:
             resp.close()
-            raise ValueError(f"응답 크기가 제한({FETCH_MAX_BYTES} bytes)을 초과합니다")
+            raise ValueError(size_err)
     except (TypeError, ValueError) as e:
-        if "제한" in str(e):
+        if str(e) == size_err:
             raise
     body = bytearray()
     try:
@@ -82,7 +84,7 @@ def fetch_url(url: str, headers: dict | None = None, timeout: int = 15) -> reque
             body.extend(chunk)
             if len(body) > FETCH_MAX_BYTES:
                 resp.close()
-                raise ValueError(f"응답 크기가 제한({FETCH_MAX_BYTES} bytes)을 초과합니다")
+                raise ValueError(t("scraper.size_limit", limit=FETCH_MAX_BYTES))
     except Exception:
         resp.close()
         raise

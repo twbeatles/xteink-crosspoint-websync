@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 
 from websync.core.logger import get_logger
 from websync.scrapers.base import BaseScraper, ensure_article_url, fetch_url, maybe_strip_images
+from websync.i18n import t
 
 
 class BrunchScraper(BaseScraper):
@@ -41,7 +42,9 @@ class BrunchScraper(BaseScraper):
                 post_url = f"https://brunch.co.kr/@{profile_id}/{no}"
                 content = self._fetch_brunch_content(post_url, site_config)
                 if content:
-                    title = self._fetch_title(post_url) or f"브런치 @{profile_id}/{no}"
+                    title = self._fetch_title(post_url) or t(
+                        "brunch.fallback_title", id=profile_id, no=no
+                    )
                     articles.append({
                         "title": title,
                         "content": content,
@@ -51,14 +54,12 @@ class BrunchScraper(BaseScraper):
                     skipped += 1
                 self.last_fetch_stats = {"skipped": skipped}
                 if not articles:
-                    raise Exception("브런치 단일 글 본문 수집 실패")
+                    raise Exception(t("brunch.single_failed"))
                 return articles
 
             profile_id = self._extract_profile_id(url)
             if not profile_id:
-                raise Exception(
-                    "브런치 작가 URL 형식이 아닙니다. 예: https://brunch.co.kr/@authorid"
-                )
+                raise Exception(t("brunch.bad_url"))
 
             entries = self._fetch_list_via_api(profile_id, limit)
             if not entries:
@@ -66,7 +67,7 @@ class BrunchScraper(BaseScraper):
                 entries = self._fetch_list_via_html(url, limit)
 
             if not entries:
-                raise Exception("브런치 글 목록을 가져오지 못했습니다.")
+                raise Exception(t("brunch.no_list"))
 
             for title, post_url in entries[:limit]:
                 content = self._fetch_brunch_content(post_url, site_config)
@@ -78,12 +79,19 @@ class BrunchScraper(BaseScraper):
 
             self.last_fetch_stats = {"skipped": skipped}
             if entries and not articles:
-                raise Exception(f"목록 {len(entries)}건 중 본문 수집 성공 0건")
+                raise Exception(t("brunch.zero_body", n=len(entries)))
         except Exception as e:
             msg = str(e)
-            if "본문 수집 성공 0건" in msg or "브런치 수집 실패" in msg or "브런치 글 목록" in msg or "브런치 작가" in msg or "브런치 단일" in msg:
+            own = (
+                t("scraper.zero_body"),
+                t("brunch.failed", error=""),
+                t("brunch.no_list"),
+                t("brunch.bad_url"),
+                t("brunch.single_failed"),
+            )
+            if any(s and s in msg for s in own):
                 raise
-            raise Exception(f"브런치 수집 실패: {e}") from e
+            raise Exception(t("brunch.failed", error=e)) from e
         return articles
 
     def _extract_profile_id(self, url: str) -> str | None:
@@ -103,13 +111,13 @@ class BrunchScraper(BaseScraper):
             resp.raise_for_status()
             payload = resp.json()
         except Exception as e:
-            self.logger.warning(f"브런치 API 목록 실패 (@{profile_id}): {e}")
+            self.logger.warning(t("brunch.api_list_failed", id=profile_id, error=e))
             return []
 
         if payload.get("code") not in (200, "200", None):
             # code 200 = OK
             if payload.get("desc") != "OK":
-                self.logger.warning(f"브런치 API 비정상 응답: {payload.get('desc')}")
+                self.logger.warning(t("brunch.api_bad", desc=payload.get("desc")))
                 return []
 
         data = payload.get("data") or {}
@@ -125,7 +133,9 @@ class BrunchScraper(BaseScraper):
             no = item.get("no")
             if no is None:
                 continue
-            title = (item.get("title") or item.get("contentSummary") or "").strip() or f"브런치 글 {no}"
+            title = (item.get("title") or item.get("contentSummary") or "").strip() or t(
+                "brunch.fallback_item", no=no
+            )
             post_url = f"https://brunch.co.kr/@{profile_id}/{no}"
             results.append((title, post_url))
         return results
@@ -137,7 +147,7 @@ class BrunchScraper(BaseScraper):
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "lxml")
         except Exception as e:
-            self.logger.warning(f"브런치 HTML 목록 실패: {e}")
+            self.logger.warning(t("brunch.html_list_failed", error=e))
             return []
 
         links = soup.select("a.link_post")
@@ -179,11 +189,11 @@ class BrunchScraper(BaseScraper):
             for sel in (".cover_title", "h1.tit_subject", "h1", "title"):
                 el = soup.select_one(sel)
                 if el and el.get_text(strip=True):
-                    t = el.get_text(strip=True)
-                    if sel == "title" and "브런치" in t:
+                    text = el.get_text(strip=True)
+                    if sel == "title" and "브런치" in text:
                         # "제목 | 브런치" 형태
-                        return t.split("|")[0].strip() or t
-                    return t
+                        return text.split("|")[0].strip() or text
+                    return text
         except Exception:
             pass
         return ""
@@ -214,5 +224,5 @@ class BrunchScraper(BaseScraper):
                 return ""
             return str(content_tag)
         except Exception as e:
-            self.logger.warning(f"BrunchScraper 포스트 수집 실패 ({url}): {e}")
+            self.logger.warning(t("brunch.post_failed", url=url, error=e))
             return ""

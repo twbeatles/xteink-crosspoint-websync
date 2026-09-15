@@ -32,7 +32,8 @@ def load_theme_css(
                 css_text = f.read()
         except Exception as e:
             if logger:
-                logger.warning(f"커스텀 CSS 파일 로드 실패 ({epub_custom_css}): {e}")
+                from websync.i18n import t
+                logger.warning(t("epub.css_custom_failed", path=epub_custom_css, error=e))
     elif epub_theme and epub_theme != "default":
         theme_path = os.path.join(themes_dir(), f"{epub_theme}.css")
         try:
@@ -40,7 +41,8 @@ def load_theme_css(
                 css_text = f.read()
         except Exception as e:
             if logger:
-                logger.warning(f"프리셋 테마 CSS 파일 로드 실패 ({theme_path}): {e}")
+                from websync.i18n import t
+                logger.warning(t("epub.css_theme_failed", path=theme_path, error=e))
 
     if css_text:
         css_text = css_text.replace("{{font_family}}", str(font_family))
