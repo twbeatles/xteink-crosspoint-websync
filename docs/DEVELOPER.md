@@ -10,7 +10,7 @@
 ## 1. 모듈 구성
 
 ```
-xteink-x3-websync/
+xteink-crosspoint-websync/
 ├── x3_websync.py              # 진입점 (CLI/GUI, 단일 인스턴스 락)
 ├── websync/                  # 메인 패키지
 │   ├── core/                 # paths, article, logger, process_lock

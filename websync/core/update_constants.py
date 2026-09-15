@@ -6,7 +6,7 @@ import os
 # GitHub 원격 매니페스트 URL
 UPDATE_MANIFEST_URL: str = os.environ.get(
     "X3_UPDATE_MANIFEST_URL",
-    "https://raw.githubusercontent.com/twbeatles/xteink-x3-websync/main/updates/latest.json",
+    "https://raw.githubusercontent.com/twbeatles/xteink-crosspoint-websync/main/updates/latest.json",
 )
 
 # Ed25519 공개키 기본값 (Base64)
@@ -19,7 +19,7 @@ UPDATE_PUBLIC_KEY_B64: str = os.environ.get(
 )
 
 # GitHub 릴리즈 페이지 URL
-UPDATE_RELEASES_URL: str = "https://github.com/twbeatles/xteink-x3-websync/releases/latest"
+UPDATE_RELEASES_URL: str = "https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest"
 
 # 안전 제한 상수
 UPDATE_MANIFEST_MAX_BYTES: int = 256 * 1024          # 256 KB

@@ -32,16 +32,17 @@ def _urlopen(request, timeout=3):
     else:
         url, method, data, headers = request, "GET", None, {}
     headers.setdefault("Connection", "close")
+    import time
     for attempt in range(6):
         try:
             with requests.Session() as session:
                 session.trust_env = False
-                response = session.request(method, url, data=data, headers=headers, timeout=timeout)
+                response = session.request(method, url, data=data or b"", headers=headers, timeout=timeout)
             break
         except requests.RequestException:
             if attempt == 5:
                 raise
-            time.sleep(0.05 * (attempt + 1))
+            time.sleep(0.1 * (attempt + 1))
     if response.status_code >= 400:
         raise urllib.error.HTTPError(
             url, response.status_code, response.reason, response.headers, io.BytesIO(response.content)
@@ -276,6 +277,8 @@ def test_api_cancel_requires_auth_and_invokes_callback():
         with pytest.raises(urllib.error.HTTPError) as exc:
             _urlopen(urllib.request.Request(url, method="POST"), timeout=3)
         assert exc.value.code == 401
+        import time
+        time.sleep(0.1)
 
         req = urllib.request.Request(url, method="POST", headers={"Authorization": "Bearer tok123"})
         with _urlopen(req, timeout=3) as resp:

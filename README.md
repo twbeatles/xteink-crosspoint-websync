@@ -1,324 +1,251 @@
-# Xteink X3 WebSync Manager
+# XTEINK WebSync — Web & RSS to EPUB Wireless Sync for CrossPoint Reader
 
-> **Xteink X3 (CrossPoint 펌웨어)** e-ink 전자책 리더기를 위한 **올인원 뉴스·블로그 수집 및 무선 동기화 매니저**입니다.  
-> 매일 아침 자주 읽는 웹 콘텐츠를 e-ink에 최적화된 고품질 EPUB으로 자동 생성하여 Wi-Fi로 전송해 드립니다.
+[![Release](https://img.shields.io/github/v/release/twbeatles/xteink-crosspoint-websync?color=blue&label=Release)](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
+[![Firmware](https://img.shields.io/badge/Firmware-CrossPoint%20Reader-orange.svg)]()
+[![Target](https://img.shields.io/badge/Devices-XTEINK%20X3%20%7C%20X4-brightgreen.svg)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](README.md)
-[![Python](https://img.shields.io/badge/python-3.10%2B-brightgreen)](README.md)
-[![License](https://img.shields.io/badge/license-MIT-green)](README.md)
-
----
-
-## 📖 목차
-1. [주요 특징](#-주요-특징)
-2. [지원하는 주요 콘텐츠 소스](#-지원하는-주요-콘텐츠-소스)
-3. [시작하기 (설치 및 준비)](#-시작하기-설치-및-준비)
-4. [사용 방법 완벽 가이드](#-사용-방법-완벽-가이드)
-   - [1단계: X3 기기 연결 및 다중 기기 설정](#1단계-x3-기기-연결-및-다중-기기-설정)
-   - [2단계: 사이트 등록 및 CSS 선택자 마법사](#2단계-사이트-등록-및-css-선택자-마법사)
-   - [3단계: 뉴스 동기화 (전체 실행 & 뉴스 프리뷰)](#3단계-뉴스-동기화-전체-실행--뉴스-프리뷰)
-   - [4단계: 매일 아침 자동 동기화 (스케줄러)](#4단계-매일-아침-자동-동기화-스케줄러)
-   - [5단계: Calibre 서재 & 로컬 파일 무선 전송](#5단계-calibre-서재--로컬-파일-무선-전송)
-   - [6단계: 기기 파일 탐색 및 오래된 EPUB 정리](#6단계-기기-파일-탐색-및-오래된-epub-정리)
-   - [7단계: 여러 PC 간 설정·이력 공유 (OneDrive / Google Drive)](#7단계-여러-pc-간-설정이력-공유-onedrive--google-drive)
-   - [8단계: 가독성 스타일 및 고급 부가 기능](#8단계-가독성-스타일-및-고급-부가-기능)
-5. [CLI & 백그라운드 명령어](#-cli--백그라운드-명령어)
-6. [데이터 저장 구조](#-데이터-저장-구조)
-7. [자주 묻는 질문 & 문제 해결 (FAQ)](#-자주-묻는-질문--문제-해결-faq)
-8. [상세 문서 링크](#-상세-문서-링크)
+[🇰🇷 한국어 안내 (Korean)](README.ko.md) · [📥 Download Latest Release](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest) · [📖 User Guide](docs/USER_GUIDE.md) · [🛠️ Developer Guide](docs/DEVELOPER.md)
 
 ---
 
-## ✨ 주요 특징
+**XTEINK WebSync** is an all-in-one desktop companion designed for **XTEINK X3 and X4** e-ink readers running **CrossPoint firmware**. It transforms RSS/Atom feeds, tech blogs, web articles, newsletters, and YouTube captions into beautifully formatted, e-ink-optimized **EPUB** books, delivering them wirelessly over **Wi-Fi** without requiring a physical USB cable.
 
-* 📰 **다양한 플랫폼 원클릭 수집**: 네이버 블로그, Velog, 브런치, 티스토리, 기술 블로그 RSS, 유튜브 자막 등을 지원합니다.
-* 🪄 **내장 CSS 선택자 도우미**: 복잡한 설정 없이 URL만 넣으면 구조를 분석해 최적의 선택자를 자동으로 찾아줍니다.
-* 📶 **스마트 무선 전송 (CrossPoint 연동)**: 케이블 연결 없이 Wi-Fi를 통해 기기로 즉시 전송합니다.
-* 🔄 **기기별 지능형 중복 방지**: 이미 기기로 전송한 기사는 SQLite DB로 기록하여 새 글만 골라 전송합니다. (다중 기기 개별 관리 지원)
-* 📚 **Calibre 서재 연동 & 폴더 감시**: PC Calibre 서재의 책을 바로 보내거나, 지정 폴더에 새 전자책이 들어오면 자동으로 전송합니다.
-* 📁 **기기 내부 SD 카드 파일 관리**: 기기 내 파일 탐색, 삭제, 이동, 이름 변경 및 오래된 뉴스 EPUB 일괄 정리가 가능합니다.
-* ☁️ **공유 데이터 폴더**: OneDrive, Google Drive 등 클라우드 폴더를 연동하면 PC를 옮겨 다녀도 구독 목록과 전송 이력이 그대로 유지됩니다.
-* 🛡️ **안전한 원클릭 자동 업데이트**: Ed25519 전자 서명 검증 및 실패 시 자동 롤백을 지원하는 안전한 자체 업데이트 기능을 제공합니다.
+With built-in SQLite incremental tracking, it automatically eliminates duplicate articles so you only receive fresh content. It also seamlessly connects with your **Calibre** library or local ebook collection (EPUB, PDF, MOBI, TXT), letting you transfer books to your CrossPoint reader with a single click.
 
----
+```mermaid
+flowchart LR
+    subgraph Sources["Diverse Content Sources"]
+        RSS["RSS / Atom Feeds"]
+        Blogs["Tech Blogs (Velog, Naver, Tistory, etc.)"]
+        Web["General Web Articles (Smart CSS)"]
+        YT["YouTube Captions"]
+        Calibre["Calibre Library & Local Files"]
+    end
 
-## 🌐 지원하는 주요 콘텐츠 소스
+    subgraph App["XTEINK WebSync Manager"]
+        Scrape["Scraping & HTML Sanitization"]
+        Builder["E-ink EPUB Builder\n(Themes / Daily Digest / Fonts)"]
+        DB[("SQLite History DB\n(Zero Duplicate Delivery)")]
+        Upload["CrossPoint Wi-Fi Sync Engine"]
+        
+        Scrape --> Builder
+        Builder --> Upload
+        Calibre --> Upload
+        Upload <--> DB
+    end
 
-| 수집 유형 (`type`) | 설명 및 활용 예시 | URL 예시 |
-| :--- | :--- | :--- |
-| **`rss`** | RSS / Atom 피드 (가장 안정적, 기술 블로그 등) | `https://toss.tech/rss.xml` |
-| **`velog`** | Velog 개발/기술 블로그 | `https://velog.io/@velopert` |
-| **`naver`** | 네이버 블로그 (스마트에디터 One/구버전 본문 정제) | `https://blog.naver.com/아이디` |
-| **`tistory`** | 티스토리 블로그 (요약 피드 우회 및 본문 직접 수집) | `https://jojoldu.tistory.com` |
-| **`brunch`** | 카카오 브런치 작가 글 | `https://brunch.co.kr/@작가ID` |
-| **`newneek`** | 뉴닉 글 (사이트맵 + `__NEXT_DATA__`) | `https://newneek.co/@newneek` |
-| **`substack`** | Substack 뉴스레터 | `https://example.substack.com` |
-| **`naver_cafe`** | 네이버 **공개** 카페 게시판 (로그인 불필요 글) | `https://cafe.naver.com/카페ID` |
-| **`naver_post`** | 네이버 포스트 — **서비스 종료**, 명확한 오류 안내 | — |
-| **`soonsal`** | 순살브리핑 뉴스레터 아카이브 | `https://soonsal.com/newsletters/` |
-| **`moneyletter`** | 어피티 머니레터 아카이브 | 머니레터 아카이브 URL |
-| **`youtube`** | 유튜브 채널 RSS의 최근 영상 한국어 자막 텍스트 변환 | `https://www.youtube.com/feeds/videos.xml?channel_id=UC...` |
-| **`css`** | 일반 웹페이지 HTML 크롤링 (선택자 도우미 지원) | 일반 웹사이트 목록 페이지 URL |
+    subgraph Device["E-ink Device"]
+        XTEINK["XTEINK X3 / X4\n(CrossPoint Reader)"]
+    end
 
-> 💡 **참고**: 로그인 필수, 유료 결제(페이월) 또는 자바스크립트로만 렌더링되는 SPA 페이지는 수집이 제한될 수 있습니다.
-
----
-
-## 🚀 시작하기 (설치 및 준비)
-
-### 1. 사전 준비물
-1. **PC**: Windows 10/11 권장 (macOS, Linux에서도 Python으로 실행 가능)
-2. **Xteink X3 기기**: CrossPoint 펌웨어가 설치되어 있고, **PC와 동일한 Wi-Fi(공유기)** 에 연결되어 있어야 합니다.
-3. **기기 주소**: 기기 화면에 표시되는 IP 주소 (예: `192.168.0.25`) 또는 `crosspoint.local`
+    Upload -->|"Wi-Fi (HTTP API)"| XTEINK
+```
 
 ---
 
-### 2. 실행 방법
+## 📌 Supported Devices & Environment
 
-#### 방법 A. Windows 독립 실행 파일 (EXE) — 권장
-1. 최신 [GitHub Releases](https://github.com/twbeatles/xteink-x3-websync/releases)에서 `x3_websync.exe`를 다운로드합니다.
-2. 원하는 폴더에 넣고 더블클릭하여 실행합니다.
-3. 실행된 폴더에 설정(`config.json`), 결과물(`output/`), 로그(`logs/`), 이력(`sync_history.db`)이 자동으로 생성됩니다.
+| Item | Details & Specifications |
+| :--- | :--- |
+| **Confirmed Devices** | **XTEINK X3**, **XTEINK X4** running CrossPoint firmware |
+| **Other Hardware** | CrossPoint-compatible hardware exposing the `File Transfer` or `Calibre Wireless` HTTP API |
+| **Connection** | Same local Wi-Fi network (`crosspoint.local` or reader's LAN IP address) |
+| **Desktop App (Recommended)** | Portable standalone Windows executable (`.exe`, no installation required) |
+| **Source Execution** | Python 3.10+ on Windows, macOS, or Linux |
 
-> 릴리스의 기본 경량 EXE에는 Pillow 표지, YouTube 자막, Google 번역, Calibre 폴더 감시용 선택 패키지가 포함되지 않을 수 있습니다. 이 기능은 아래 Python 소스 실행 방식으로 `requirements-optional.txt`까지 설치해 사용하세요.
+> ⚠️ **Connection Note**: Ensure your XTEINK X3/X4 reader is powered on, connected to the same local Wi-Fi router as your PC, and set to **File Transfer** or **Calibre Wireless** mode before initiating sync or file management.
 
-#### 방법 B. Python 소스 코드로 실행
-Python 3.10 이상 환경에서 실행할 수 있습니다.
+---
+
+## 🚀 Quick Start
+
+### Method 1: Windows Standalone Executable (Recommended for Most Users)
+
+A zero-install, single portable executable for Windows users.
+
+1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.1.1.exe` from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
+2. **Connect Device**: Launch the executable. In the **News Sync** tab, enter your reader's IP address (e.g., `192.168.0.25`) or `crosspoint.local` into the **X3 Address** field, then click **[Check Connection]**.
+3. **Add Sites & Sync**: Click **[Add Site]** to pick from recommended presets (tech blogs, newsletters) or enter your favorite RSS feed URL. Then click **[Run Full Scraping & Sync to X3 Immediately]** at the bottom.
+
+> 💡 **Info**: Configuration (`config.json`), history database (`sync_history.db`), generated books (`output/`), and logs (`logs/`) are automatically stored in the same folder as the executable.
+
+### Method 2: Run from Python Source (Developers & Advanced Users)
+
+Ideal for macOS/Linux users or those wanting to customize and contribute to the code.
 
 ```bash
-# 1. 저장소 복제 및 이동
-git clone https://github.com/twbeatles/xteink-x3-websync.git
-cd xteink-x3-websync
+# 1. Clone the repository
+git clone https://github.com/twbeatles/xteink-crosspoint-websync.git
+cd xteink-crosspoint-websync
 
-# 2. 필수 패키지 설치
+# 2. Create and activate a virtual environment
+python -m venv .venv
+# On Windows:
+.venv\Scripts\activate
+# On macOS/Linux:
+source .venv/bin/activate
+
+# 3. Install core dependencies
 pip install -r requirements.txt
 
-# 3. (선택) 부가 기능 패키지 설치 (표지 생성, YouTube 자막, 번역, 폴더 감시)
+# 4. (Optional) Install packages for cover generation, YouTube captions, translation & watchdog
 pip install -r requirements-optional.txt
 
-# 4. GUI 프로그램 실행
+# 5. Start the GUI application
 python x3_websync.py
 ```
 
----
+### 💻 Useful CLI Commands
 
-## 🖥️ 사용 방법 완벽 가이드
-
-프로그램은 **상단 5개의 탭**과 **하단 동기화 컨트롤 및 상태 로그 바**로 구성되어 있습니다.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ [ 뉴스 동기화 ] [ Calibre 서재 ] [ 동기화 이력 ] [ 📁 기기 파일 ] [ 고급 & 서버 설정 ] │
-├────────────────────────────────────────────────────────────────────────┤
-│                                                                        │
-│                        (각 탭별 상세 설정 및 작업 영역)                   │
-│                                                                        │
-├────────────────────────────────────────────────────────────────────────┤
-│ [⚡ 즉시 전체 뉴스 동기화 실행]  [⏹ 취소]  [👁 뉴스 프리뷰 (선택 동기화)]     │
-│ [진행률 표시바] [상태 및 실시간 로그 창]                                    │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### 1단계: X3 기기 연결 및 다중 기기 설정
-
-1. **[뉴스 동기화]** 탭 상단의 **X3 기기 IP / 호스트** 입력란에 기기 주소를 입력합니다.
-   * 기본값: `crosspoint.local` 또는 공유기에서 할당된 IP(예: `192.168.0.25`)
-2. 우측 **[연결 확인]** 버튼을 클릭하여 `연결 성공` 메시지가 뜨는지 확인합니다.
-3. **여러 대의 기기를 사용 중인 경우**:
-   * 하단 **[추가 X3 기기]** 목록에서 **[기기 추가]** 버튼을 눌러 거실용, 침실용 등 다중 기기 IP를 등록할 수 있습니다.
-   * 동기화 시 등록된 모든 기기로 한 번에 전송됩니다.
-
----
-
-### 2단계: 사이트 등록 및 CSS 선택자 마법사
-
-1. **[뉴스 동기화]** 탭에서 **[사이트 추가]** 버튼을 클릭합니다.
-2. **추천 프리셋 활용**:
-   * 대화상자 상단의 **추천 프리셋** 드롭다운에서 *Velog, 티스토리, 브런치, 토스/카카오 기술 블로그 RSS* 등을 선택하면 이름, 수집 유형, URL이 자동으로 입력됩니다.
-3. **일반 웹페이지 등록 (CSS 선택자 도우미 활용)**:
-   * 전용 스크래퍼가 없는 웹페이지는 **수집 유형을 `css`** 로 지정하고 **[선택자 도우미]** 버튼을 누릅니다.
-   * **[페이지 분석]**: 페이지를 스캔하여 RSS 피드 존재 여부 및 최적 구조를 파악합니다.
-   * **[최적 설정 적용]**: RSS가 감지되면 RSS로 전환하고, 아닐 경우 아이템/제목/링크/본문 선택자를 자동으로 완성합니다.
-   * **[선택자 테스트] & [수집 미리보기]**: 실제 수집될 글 제목과 본문 샘플을 미리 확인하고 저장할 수 있습니다.
-4. 등록 후 사이트 목록에서 **활성(체크박스)** 상태인지 확인합니다.
-
----
-
-### 3단계: 뉴스 동기화 (전체 실행 & 뉴스 프리뷰)
-
-#### A. 즉시 전체 동기화
-* 메인 화면 하단의 **[⚡ 즉시 전체 뉴스 스크래핑 및 X3 동기화 실행]** 버튼을 누릅니다.
-* 활성화된 모든 사이트에서 새 글을 긁어모아 EPUB으로 빌드하고, X3 기기로 무선 전송합니다.
-* 중간에 멈추고 싶다면 **[⏹ 취소]** 버튼을 누르면 현재 처리 중인 사이트 완료 후 안전하게 중단됩니다.
-
-#### B. 뉴스 프리뷰 (선택 동기화)
-* 하단의 **[👁 뉴스 프리뷰 (선택 동기화)]** 버튼을 누릅니다.
-* 오늘 올라온 새 글 목록을 미리 확인하고, **원하는 기사만 체크하여 기기로 전송**할 수 있습니다.
-
-> 💡 **중복 방지 메커니즘**: 전송이 완료된 기사는 SQLite DB에 기록되므로, 다음에 전체 동기화를 실행해도 이미 읽은 글은 자동으로 건너뜁니다.
-
----
-
-### 4단계: 매일 아침 자동 동기화 (스케줄러)
-
-PC를 켜두는 환경이라면 매일 아침 지정한 시간에 자동으로 뉴스를 받아볼 수 있습니다.
-
-1. **[뉴스 동기화]** 탭 중간의 **[자동 스케줄 설정]** 영역으로 이동합니다.
-2. 원하는 시간(예: 매일 `07:00`)을 설정하고 **[스케줄 등록]** 버튼을 누릅니다.
-3. Windows 작업 스케줄러(또는 macOS launchd/Linux crontab)에 백그라운드 작업이 자동 등록됩니다.
-4. 이제 매일 아침 기기만 켜면 새 뉴스가 기기 안에 들어와 있습니다!
-
----
-
-### 5단계: Calibre 서재 & 로컬 파일 무선 전송
-
-#### A. Calibre 서재 책 무선 전송
-1. **[Calibre 서재]** 탭으로 이동합니다.
-2. PC에 설치된 Calibre의 `calibredb.exe` 경로를 지정하고 **[연결 확인 & 서재 로드]** 를 누릅니다.
-3. 서재 목록에서 원하는 도서를 선택(다중 선택 가능)한 후 **[선택 도서 X3 즉시 전송]** 을 누르면 Wi-Fi를 통해 기기로 즉시 복사됩니다.
-
-#### B. Calibre 다운로드 폴더 자동 감시 (Watchdog)
-* **[고급 & 서버 설정]** 탭 → **Calibre 폴더 감시**에서 감시할 폴더 경로를 지정하고 활성화합니다.
-* 해당 폴더에 새로운 EPUB/PDF 파일이 저장되는 즉시 자동으로 감지하여 X3 기기로 전송합니다.
-
-#### C. 로컬 파일 직접 전송
-* **[뉴스 동기화]** 탭 하단의 **로컬 파일 X3 직접 전송**에서 PC에 있는 EPUB, PDF, MOBI, TXT 파일을 선택하여 바로 보낼 수 있습니다.
-
----
-
-### 6단계: 기기 파일 탐색 및 오래된 EPUB 정리
-
-X3 기기를 **File Transfer 모드**로 전환한 후 **[📁 기기 파일]** 탭을 이용하면 기기를 PC에 직접 연결한 것처럼 관리할 수 있습니다.
-
-* **SD 카드 파일 탐색**: 기기 내부의 디렉터리 구조와 파일 목록을 확인합니다.
-* **파일 관리**: 기기 내 파일 삭제, 이름 변경, 폴더 이동, PC로 다운로드 및 PC에서 기기로 새 파일 업로드를 지원합니다.
-* **오래된 뉴스 EPUB 자동 정리**:
-  * **[오래된 EPUB 정리]** 버튼을 누르면 설정된 보관 일수(기본: 14일)를 지난 뉴스 EPUB 파일들을 자동으로 검색하여 일괄 삭제할 수 있습니다.
-
----
-
-### 7단계: 여러 PC 간 설정·이력 공유 (OneDrive / Google Drive)
-
-집 PC와 회사 노트북 등 여러 기기를 사용하는 경우, 클라우드 동기화 폴더를 지정하여 사이트 구독 목록과 전송 이력을 병합할 수 있습니다. 각 PC의 OneDrive/Google Drive 클라이언트가 최신 파일을 내려받은 뒤 앱 동기화를 실행해야 합니다.
-
-1. **[고급 & 서버 설정]** 탭 → **공유 데이터 폴더** 섹션으로 이동합니다.
-2. OneDrive, Google Drive, Dropbox 등 동기화되는 폴더 경로(예: `D:\OneDrive\XteinkWebSync`)를 지정합니다.
-3. **[공유 데이터 폴더 사용]** 을 활성화합니다.
-4. 클라우드 파일 반영 후 어느 PC에서 동기화하든 이미 받은 글은 다른 PC에서도 중복으로 수집되지 않습니다. 사이트나 이력을 삭제한 내용도 삭제 표식으로 전달됩니다.
-
----
-
-### 8단계: 가독성 스타일 및 고급 부가 기능
-
-**[고급 & 서버 설정]** 탭에서 제공하는 다양한 커스터마이징 기능입니다.
-
-* 🎨 **화면 UI 테마 & 표시 언어 & 가독성 폰트**:
-  * `System`(OS 설정 추종), `Dark`(다크 모드), `Light`(라이트 모드) 지원
-  * **표시 언어**: 자동(OS UI 언어) / 한국어 / English. 변경 후 앱을 다시 시작하면 적용됩니다.
-  * 전 화면에 **맑은 고딕(Malgun Gothic)** 기반의 또렷하고 큰 폰트 적용
-* 📖 **EPUB 스타일 & 일간 합본**:
-  * 폰트 패밀리(명조/고딕), 폰트 크기, 줄 간격 미세 조정
-  * **사이트별 개별 EPUB** 생성 또는 하루 치 뉴스를 한 권으로 묶는 **일간 합본 EPUB** 선택
-  * EPUB 표지 자동 생성 (`Pillow` 설치 시)
-* 🌐 **OPDS 카탈로그 & 웹 대시보드 서버**:
-  * **OPDS 서버**: 기기의 OPDS 브라우저에서 PC의 EPUB 목록을 직접 탐색하고 다운로드
-  * **웹 대시보드**: 모바일이나 다른 PC의 웹 브라우저에서 동기화 실행 및 로그 확인
-* 🤖 **AI 요약 & 자동 번역**:
-  * OpenAI 또는 Ollama 로컬 LLM을 통한 기사 핵심 요약 생성
-  * Google 번역 / LibreTranslate 연동으로 외국어 기사 자동 번역 수집
-* 🛡️ **안전한 원클릭 자동 업데이트**:
-  * **소프트웨어 업데이트** 영역에서 [최신 버전 확인]을 클릭하여 최신 릴리즈로 안전하게 업그레이드 (Ed25519 디지털 서명 무결성 검증 및 롤백 지원)
-
----
-
-## 💻 CLI & 백그라운드 명령어
-
-GUI 화면 없이 스케줄러나 명령줄에서 즉시 작업을 실행할 수 있습니다.
+Run headless background sync tasks or verify system health from your terminal:
 
 ```bash
-# 1. 설정된 사이트 즉시 백그라운드 동기화 (Windows 작업 스케줄러 연동용)
+# Execute full scrape and wireless sync in headless mode (perfect for task schedulers)
 python x3_websync.py --sync
 
-# 2. 최신 버전 업데이트 확인
+# Check for updates from GitHub Releases
 python x3_websync.py --check-update
 
-# 3. 프로그램 버전 확인
+# Display installed version information
 python x3_websync.py --version
 
-# 4. 핵심 모듈 무결성 스모크 체크
+# Run core-module integrity and smoke check
 python x3_websync.py --smoke
 ```
 
 ---
 
-## 📂 데이터 저장 구조
+## ✨ Detailed Features
 
-프로그램 실행 폴더 내에 데이터가 안전하게 보관됩니다:
+### 1. 13 Content Scrapers & Visual CSS Selector Assistant
+Collect text from virtually any web source reliably:
+- **Standard Feeds**: Full support for RSS 2.0 and Atom feeds.
+- **Dedicated Platform Scrapers**:
+  - `Velog` (Tech & developer blogs)
+  - `Naver Blog` (Clean article scraping from mobile/desktop layouts)
+  - `Tistory` (Korean publishing platform)
+  - `Brunch` (Curated essays and articles)
+  - `NEWNEEK` (Current events & trend newsletter)
+  - `Soonsal` & `Uppity Moneyletter` (Finance and economy briefings)
+  - `Substack` (Global newsletters)
+  - `Naver Cafe` (Public community board posts)
+  - `Naver Post` (service ended — the app reports this clearly)
+  - `YouTube Captions` (Extracts Korean official/auto-generated transcripts from recent channel uploads)
+- **Visual CSS Selector Assistant**:
+  - Automatically inspects any arbitrary website's HTML DOM tree.
+  - Detects existing RSS feeds and recommends the best scraper type.
+  - Offers interactive point-and-click selection for article item containers, titles, links, and body content with live preview testing.
+
+### 2. E-ink Optimized EPUB Builder
+Engineered specifically for superior readability on monochrome electronic ink screens:
+- **Tailored E-ink Themes**: Choose between `default`, `serif_classic`, `sans_modern`, and `dark_eink` typography themes.
+- **Custom Styling**: Support for user custom CSS, custom fonts, adjustable font size, and line height settings.
+- **Daily Compilation (Daily Digest)**: Choose between individual EPUB files per subscription or combine all newly scraped articles from the day into a unified **Daily Digest EPUB**.
+- **Content Sanitization & Cover Generator**: Automatically strips distracting ads, social sharing widgets, tracking scripts, and invalid markup. Generates elegant, minimal cover images.
+
+### 3. Smart Wireless Sync & Zero Duplicates
+- **Wi-Fi Direct Upload**: Delivers EPUBs straight to the reader via CrossPoint's HTTP file management API.
+- **Incremental Deduplication**: Tracks synced article URLs and hashes in an embedded SQLite database (`sync_history.db`). Only delivers genuinely new articles, conserving battery and storage.
+- **News Preview (Selective Sync)**: Review freshly fetched articles in a preview modal before syncing. Selectively check only the stories you wish to read today.
+- **Multi-Device Support**: Configure multiple XTEINK X3/X4 readers to distribute reading lists across multiple devices simultaneously.
+
+### 4. Calibre Library Integration & Direct File Transfer
+- **Calibre Database Integration**: Interacts directly with your PC's Calibre database (`calibredb`) to search, browse, and wirelessly send library books to your reader.
+- **Direct Local File Upload**: Send existing `EPUB`, `PDF`, `MOBI`, and `TXT` files straight to the device without USB cables.
+- **Calibre Watchdog Directory**: Automatically detects newly saved or moved ebook files in a designated folder and uploads them immediately.
+
+### 5. On-Device SD Card File Manager
+Manage files on the XTEINK reader directly from your desktop when in `File Transfer` mode:
+- **SD Card Browser**: Explore folders, inspect file sizes, and review stored books on the device.
+- **File Operations**: Upload new files, download books back to PC, rename, move between directories, and delete files.
+- **Automated Old News Cleanup**: Batch scan and remove outdated daily news EPUBs older than a configurable number of days.
+
+### 6. Automated Scheduler & Cloud Shared Data Folder
+- **Scheduled Background Delivery**: Integrates with Windows Task Scheduler (or cron/launchd) to wake up and wirelessly sync reading materials at a set time (e.g., 7:00 AM daily).
+- **Cloud Shared Data Folder (OneDrive / Google Drive / Dropbox)**:
+  - Synchronize subscription configurations (`sites.json`) and delivery history (`synced_posts.json`) via a cloud storage directory.
+  - Switch between desktop and laptop without receiving duplicate articles or losing feed settings.
+
+### 7. Advanced Services & Extensibility
+- **Built-in OPDS Catalog Server**: Serves generated EPUBs as a standardized OPDS feed so you can browse and download books directly from OPDS-compatible reader apps.
+- **Display language**: Follows the OS UI language (`auto`) or lock to Korean / English in **Advanced**. Restart the app after changing it.
+- **Remote Web Dashboard**: Control sync operations, cancel tasks, and monitor live streaming logs from any smartphone, tablet, or secondary PC on the same Wi-Fi network.
+- **AI Summary & Translation**:
+  - Summarize long articles into concise bullet points using OpenAI or local Ollama models.
+  - Automatically translate foreign articles into your native language using LibreTranslate or googletrans.
+- **Secure In-App Updates**: Check releases on GitHub with a single click. Validates releases using Ed25519 digital signatures and SHA-256 integrity hashes with automatic rollback protection.
+
+---
+
+## 🖥️ Application UI Overview
+
+The desktop interface is organized into **5 dedicated tabs** with a persistent bottom control bar:
 
 ```
-xteink-x3-websync/
-├── x3_websync.exe           # 메인 실행 파일
-├── config.json              # 사용자 설정 파일 (기기 IP, 사이트 목록, 스케줄 등)
-├── sync_history.db          # SQLite 동기화 이력 DB (중복 전송 방지)
-├── output/                  # 생성된 EPUB 전자책 임시/보관 폴더
-├── logs/                    # 일자별 실행 로그 파일 (sync_YYYY-MM-DD.log)
-└── x3_websync_pipeline.lock # 다중 실행 방지용 프로세스 락 파일
+┌────────────────────────────────────────────────────────────────────────┐
+│  [News Sync]   [Calibre Library]   [History]   [Device Files]   [Advanced]   │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  • News Sync       : Device IP, Subscribed sites & presets, Scheduler │
+│  • Calibre Library : Search PC Calibre books and upload wirelessly     │
+│  • History         : View sent articles, delete entries to re-sync     │
+│  • Device Files    : Browse XTEINK SD card, upload/download, cleanup   │
+│  • Advanced        : EPUB themes, OPDS, Web Dashboard, AI/Cloud sync   │
+│                                                                        │
+├────────────────────────────────────────────────────────────────────────┤
+│  [Run Full Scraping & Sync Immediately]     [News Preview]     [Cancel]│
+│  Progress: [████████████████░░░░░░] 75% - Naver blog sync complete    │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-> 📌 **백업 팁**: 다른 PC로 설정을 옮길 때는 `config.json`과 `sync_history.db`를 복사하거나, **공유 데이터 폴더** 기능을 사용하는 것을 권장합니다.
+---
+
+## 📂 File Storage & Privacy
+
+All user data is stored locally in the application directory:
+
+| Path | Purpose | Backup Recommended |
+| :--- | :--- | :---: |
+| `config.json` | Stores device addresses, subscribed feeds, schedules, and preferences | **Essential** |
+| `sync_history.db` | SQLite database tracking delivered article URLs to prevent duplicates | **Recommended** |
+| `output/` | Directory containing generated EPUB ebooks | Optional |
+| `logs/` | Daily execution and error logs (`sync_YYYY-MM-DD.log`) | For diagnostics |
+| `x3_websync_pipeline.lock` | Process lock file preventing concurrent GUI and CLI executions | Managed automatically |
+
+> 🔒 **Privacy & Security**: Sensitive credentials such as AI API keys and dashboard auth tokens are masked (`****`) in the UI. When utilizing Cloud Shared Data sync, private keys, device IPs, and local paths are strictly excluded and kept local to your machine.
 
 ---
 
-## ❓ 자주 묻는 질문 & 문제 해결 (FAQ)
+## ❓ Frequently Asked Questions (FAQ)
 
-<details>
-<summary><b>Q1. 기기 [연결 확인] 시 실패 메시지가 뜹니다.</b></summary>
+### Q1. "Check Connection" fails to detect my reader.
+- Ensure both your PC and XTEINK reader are connected to the **same Wi-Fi router / subnet**.
+- Verify that your reader is currently in **File Transfer** or **Calibre Wireless** mode.
+- If mDNS name resolution (`crosspoint.local`) is unsupported by your router, find the reader's numeric IP address (e.g., `192.168.0.50`) in your router or device Wi-Fi menu and enter it directly.
 
-* PC와 X3 기기가 **동일한 Wi-Fi 네트워크**에 연결되어 있는지 확인해 주세요.
-* X3 기기의 전원이 켜져 있고 Wi-Fi가 활성화되어 있는지 확인하세요.
-* `crosspoint.local` 접속이 불안정한 경우, 기기 설정에서 확인한 실제 IP 주소(예: `192.168.0.25`)를 직접 입력해 보세요.
-</details>
+### Q2. Sync finishes, but reports "No new articles found".
+- Check that your subscribed sites are checked as **Active**.
+- Articles already sent in previous syncs are automatically filtered out. If you wish to re-deliver an article, open the **[History]** tab, delete the entry, and run sync again.
 
-<details>
-<summary><b>Q2. 이미 보낸 특정 기사를 다시 기기로 보내고 싶습니다.</b></summary>
+### Q3. YouTube caption scraping or cover generation fails in the Windows EXE.
+- The standalone Windows EXE is optimized for lightweight execution and excludes heavy optional dependencies like `youtube-transcript-api` and `Pillow`. To enable these capabilities, run from Python source with `pip install -r requirements-optional.txt`.
 
-* 상단 **[동기화 이력]** 탭으로 이동합니다.
-* 검색 또는 목록에서 다시 전송하려는 기사를 찾아 **[선택 삭제]** 버튼을 누른 후, 공유 데이터 내보내기가 끝난 다음 다시 동기화를 실행하면 됩니다. 재전송 성공 시 삭제 표식은 자동으로 정리됩니다.
-</details>
-
-<details>
-<summary><b>Q3. 동기화를 돌렸는데 "수집된 새 글이 없습니다"라고 나옵니다.</b></summary>
-
-* [뉴스 동기화] 탭에서 해당 사이트의 **활성 체크박스**가 켜져 있는지 확인하세요.
-* 사이트에 등록된 글들이 이미 [동기화 이력]에 등록되어 있는지 확인하세요.
-* 해당 웹사이트에 실제로 새로운 글이 발행되었는지 확인하세요.
-</details>
-
-<details>
-<summary><b>Q4. 매일 자동 동기화(스케줄)가 동작하지 않는 것 같습니다.</b></summary>
-
-* [뉴스 동기화] 탭의 자동 스케줄 설정에서 시간이 올바르게 **[스케줄 등록]** 되어 있는지 확인하세요.
-* `logs/` 폴더 내의 로그 파일을 열어 해당 시간에 스케줄러가 실행되었는지 확인할 수 있습니다.
-</details>
+### Q4. How do I automate sync every morning?
+- In the **News Sync** tab under **Auto Schedule Settings**, select your desired daily delivery time (e.g., `07:00`) and click **[Register Schedule]**. The app will configure a native OS background task (Windows Task Scheduler) to automatically run `--sync` every morning.
 
 ---
 
-## 📚 상세 문서 링크
+## 📚 Documentation & Resources
 
-더 깊이 있는 정보나 개발 관련 내용은 아래 문서들을 참고해 주세요.
-
-* 📘 [**사용자 상세 가이드 (USER_GUIDE.md)**](docs/USER_GUIDE.md): 각 화면 탭별 세부 옵션 및 상세 사용 설명서
-* 🛠️ [**개발자 가이드 (DEVELOPER.md)**](docs/DEVELOPER.md): 아키텍처 구조, 모듈 역할, 테스트 실행 및 PyInstaller 빌드 방법
-* 🔍 [**프로젝트 감사 보고서 (PROJECT_AUDIT.md)**](PROJECT_AUDIT.md): 코드베이스 품질 및 안정성 감사 내역
-* 💡 [**기능 제안 및 로드맵 (FEATURE_PROPOSALS.md)**](docs/FEATURE_PROPOSALS.md): 향후 기능 아이디어
+- [📖 Detailed User Guide (docs/USER_GUIDE.md)](docs/USER_GUIDE.md) — Comprehensive walkthrough of each screen, selector assistant, and network configuration.
+- [🛠️ Developer Guide (docs/DEVELOPER.md)](docs/DEVELOPER.md) — Architecture diagrams, module responsibilities, PyInstaller build steps, and test suites.
+- [🔍 Project Audit Report (PROJECT_AUDIT.md)](PROJECT_AUDIT.md) — Deep-dive audit on code health, performance, and security.
 
 ---
 
-## 📄 라이선스 및 이용 안내
-
-* 본 프로그램은 오픈소스 라이선스 하에 자유롭게 사용할 수 있습니다.
-* 뉴스 및 블로그 콘텐츠 수집 시 해당 사이트의 이용약관 및 저작권 규정을 준수해 주시기 바랍니다.
-* 로그인 기반 비공개 콘텐츠 및 유료 결제 기사는 수집 대상이 아닙니다.
-
+## 📄 License
+ 
+This project is licensed under the [MIT License](LICENSE) — see the [LICENSE](LICENSE) file for details.

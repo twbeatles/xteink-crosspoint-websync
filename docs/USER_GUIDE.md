@@ -1,6 +1,6 @@
-# Xteink X3 WebSync Manager — 사용 설명서
+# XTEINK X3/X4 WebSync Manager — 사용 설명서
 
-뉴스·블로그·RSS 등을 모아 **e-ink 리더기(Xteink X3 / CrossPoint)** 에 최적화된 EPUB으로 만들고, Wi-Fi로 무선 전송하는 PC용 프로그램입니다.
+뉴스·블로그·RSS 등을 모아 **CrossPoint 펌웨어의 XTEINK X3/X4**에 최적화된 EPUB으로 만들고, Wi-Fi로 무선 전송하는 PC용 프로그램입니다. 앱은 CrossPoint의 File Transfer 또는 Calibre Wireless HTTP API를 사용합니다. 다른 CrossPoint 하드웨어는 같은 API를 제공하면 사용할 수 있지만, 이 프로젝트에서 모델별 검증은 하지 않았습니다.
 
 | 문서 | 대상 |
 |------|------|
@@ -15,7 +15,7 @@
 | 기능 | 설명 |
 |------|------|
 | 뉴스·블로그 수집 | 등록한 사이트의 새 글을 가져와 EPUB으로 만듦 |
-| 무선 전송 | PC와 같은 Wi-Fi의 X3 기기로 바로 전송 |
+| 무선 전송 | PC와 같은 Wi-Fi의 X3/X4 기기로 바로 전송 |
 | 중복 방지 | 이미 보낸 글은 다시 보내지 않음 (기기별 이력) |
 | Calibre 연동 | PC 서재의 책을 골라 기기로 전송 |
 | 예약 실행 | 매일 정해진 시간에 자동 동기화 |
@@ -27,7 +27,7 @@
 ## 2. 준비물
 
 1. **PC** — Windows 권장 (macOS/Linux에서도 소스 실행 가능)
-2. **X3 기기** — CrossPoint 펌웨어, **PC와 같은 Wi-Fi** 에 연결
+2. **X3 또는 X4 기기** — CrossPoint 펌웨어, **PC와 같은 Wi-Fi** 에 연결
 3. **기기 IP 또는 호스트** — 예: `192.168.0.25` 또는 `crosspoint.local`
 4. (선택) **Calibre** — 서재 연동을 쓸 때만 설치
 
