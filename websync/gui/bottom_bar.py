@@ -7,6 +7,7 @@ import customtkinter as ctk
 from websync.gui.widgets import (
     CardFrame, COLOR_ACCENT, COLOR_CARD_BG, COLOR_FG, COLOR_SECONDARY_FG, get_font
 )
+from websync.i18n import t
 
 
 class BottomBar(ctk.CTkFrame):
@@ -27,7 +28,7 @@ class BottomBar(ctk.CTkFrame):
 
         self.sync_now_btn = ctk.CTkButton(
             btn_row,
-            text="🚀 즉시 전체 뉴스 스크래핑 및 X3 동기화 실행",
+            text=t("gui.bottom.sync_now"),
             font=get_font(15, "bold"),
             fg_color=COLOR_ACCENT[0],
             hover_color=COLOR_ACCENT[1],
@@ -39,7 +40,7 @@ class BottomBar(ctk.CTkFrame):
 
         self.cancel_sync_btn = ctk.CTkButton(
             btn_row,
-            text="⏹ 취소",
+            text=t("gui.bottom.cancel"),
             font=get_font(13, "bold"),
             fg_color=("#dc3545", "#ea868f"),
             hover_color=("#bb2d3b", "#d16b74"),
@@ -53,7 +54,7 @@ class BottomBar(ctk.CTkFrame):
 
         self.preview_btn = ctk.CTkButton(
             btn_row,
-            text="🔍 뉴스 프리뷰 (선택 동기화)",
+            text=t("gui.bottom.preview"),
             font=get_font(13, "bold"),
             fg_color=("#e9ecef", "#343a40"),
             text_color=COLOR_FG,
@@ -77,7 +78,7 @@ class BottomBar(ctk.CTkFrame):
         self.progress_bar.pack(fill="x", pady=(0, 6))
 
         # 로그 출력 구역 (CardFrame + CTkTextbox)
-        log_card = CardFrame(self, title="📋 상태 및 동기화 로그")
+        log_card = CardFrame(self, title=t("gui.bottom.log_title"))
         log_card.pack(fill="both", expand=True)
 
         self.log_txt = ctk.CTkTextbox(

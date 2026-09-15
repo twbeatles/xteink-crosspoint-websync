@@ -32,6 +32,7 @@ from websync.gui.app_core.layout import AppLayoutMixin
 from websync.gui.app_core.helpers import AppHelpersMixin
 from websync.gui.app_core.config_sync import AppConfigSyncMixin
 from websync.gui.app_core.sync_control import AppSyncControlMixin
+from websync.i18n import t
 
 
 class SyncAppGui(
@@ -115,8 +116,7 @@ class SyncAppGui(
                     def notify():
                         try:
                             self._log_message(
-                                f"🚀 [업데이트] 새 버전 v{manifest.version}이 출시되었습니다! "
-                                f"(고급 설정 탭 → 소프트웨어 업데이트에서 확인)"
+                                t("gui.app.update_available_log", version=manifest.version)
                             )
                         except Exception:
                             pass
@@ -171,11 +171,11 @@ class SyncAppGui(
                         pass
                     msg = result.get("message") or ""
                     if msg and (result.get("sites_changed") or result.get("history_changed")):
-                        self._log_message(f"☁ 시작 시 공유 데이터 가져오기: {msg}")
+                        self._log_message(t("gui.app.backup_pull_log", msg=msg))
 
                 self.root.after(0, done)
             except Exception as e:
-                self.root.after(0, lambda: self._log_message(f"☁ 시작 시 공유 데이터 가져오기 실패: {e}"))
+                self.root.after(0, lambda: self._log_message(t("gui.app.backup_pull_fail", error=e)))
 
         threading.Thread(target=task, daemon=True).start()
 

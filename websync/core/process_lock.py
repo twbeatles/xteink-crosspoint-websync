@@ -8,6 +8,8 @@ import io
 from typing import Optional
 
 
+from websync.i18n import t
+
 DEFAULT_PIPELINE_LOCK_NAME = "x3_websync_pipeline.lock"
 
 
@@ -133,7 +135,7 @@ class ProcessFileLock:
 
     def __enter__(self):
         if not self.acquire(blocking=True, timeout=30.0):
-            raise TimeoutError(f"프로세스 락 획득 실패: {self.lock_path}")
+            raise TimeoutError(t("lock.timeout", path=self.lock_path))
         return self
 
     def __exit__(self, exc_type, exc, tb):

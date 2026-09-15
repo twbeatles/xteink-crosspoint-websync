@@ -36,6 +36,7 @@ def test_deep_merge_adds_nested_keys():
         assert cfg["sites"][0].get("include_images") is False
         assert "api_token" in cfg.get("web_dashboard", {})
         assert "calibre_library_path" in cfg
+        assert cfg.get("ui_language") == "auto"
 
 
 def test_atomic_save_writes_valid_json():
@@ -180,3 +181,36 @@ def test_import_sites_rmw_preserves_other_fields():
         # 중복 임포트 시 추가 없음
         added2 = cm.import_sites(export_path)
         assert added2 == []
+
+
+def test_patch_fields_keeps_sites_written_by_other_writer():
+    """낡은 메모리 전체 저장 대신 필드만 패치하면 다른 프로세스가 넣은 sites 가 유지된다."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "config.json")
+        gui = ConfigManager(path)
+        cfg = gui.load_config()
+        gui.save_config(cfg)
+
+        other = ConfigManager(path)
+
+        def add_site(c):
+            sites = c.setdefault("sites", [])
+            sites.append(
+                {
+                    "name": "B",
+                    "type": "rss",
+                    "url": "https://b.test/feed",
+                    "limit": 1,
+                    "enabled": True,
+                }
+            )
+
+        other.update_config(add_site)
+
+        saved = gui.patch_fields(appearance_mode="Dark", ui_language="en")
+        assert saved["appearance_mode"] == "Dark"
+        assert saved["ui_language"] == "en"
+        assert any(s.get("url") == "https://b.test/feed" for s in saved["sites"])
+        loaded = gui.load_config()
+        assert loaded["appearance_mode"] == "Dark"
+        assert any(s.get("url") == "https://b.test/feed" for s in loaded["sites"])

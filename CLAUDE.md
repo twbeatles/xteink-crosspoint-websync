@@ -34,8 +34,13 @@ xteink-x3-websync/
 │   │   ├── update_installer.py# 스트리밍 다운로드, 교체/롤백, 헬퍼 프로세스
 │   │   ├── update_service.py  # 비동기 업데이트 확인/다운로드 조율 서비스
 │   │   └── logger.py          # 날짜별 로그 파일
+│   ├── i18n/
+│   │   ├── __init__.py        # t(), init_i18n, init_from_config
+│   │   ├── detect.py          # OS UI 언어 (auto → ko/en)
+│   │   ├── catalog.py         # JSON flatten 로드 (frozen _MEIPASS 포함)
+│   │   └── locales/           # ko.json / en.json
 │   ├── config/
-│   │   └── manager.py         # config.json CRUD — threading.Lock, deep merge
+│   │   └── manager.py         # config.json CRUD — threading.Lock, deep merge, patch_fields
 │   ├── db/
 │   │   └── history.py         # SQLite 동기화 이력 — timeout=10.0
 │   ├── scrapers/
@@ -128,7 +133,7 @@ xteink-x3-websync/
 | 보안 패치 | `NullWriter` 클래스로 pythonw.exe stdout=None 방어 |
 | 다중 실행 방지 | GUI: Windows named mutex + 락 파일 / Unix flock |
 | `--sync` 모드 | GUI 락 없이 기동 — `threading.Lock` + **프로세스 파일 락**(`PROJECT_ROOT/x3_websync_pipeline.lock`)으로 직렬화 |
-| `--smoke` | 핵심 모듈 import 검증. 성공 0 / 실패 1 (업데이트 롤백 스모크) |
+| `--smoke` | 핵심 모듈 import + i18n 카탈로그 적재 검증. 성공 0 / 실패 1 (업데이트 롤백 스모크) |
 | 주의 | GUI 락은 `finally`에서 항상 해제됨 |
 
 **호출 관계**:
@@ -152,13 +157,14 @@ main()
 | 동시성 보호 | `threading.Lock()` + config 경로별 `ProcessFileLock` |
 | 내부 메서드 | `_save_config_unlocked()` — writer별 고유 tmp+bak+replace, `ConfigLoadError` |
 | 스키마 버전 | `config_version` (현재 3), 결손 키 자동 보강 |
-| RMW 안전 | `_config_revision` CAS + `update_config(mutator)` / `ConfigConflictError` |
+| RMW 안전 | `_config_revision` CAS + `update_config(mutator)` / `patch_fields(**kwargs)` / `ConfigConflictError` |
 
 **설정 스키마** (`config.json`):
 ```json
 {
   "config_version": 3,
   "_config_revision": 0,
+  "ui_language": "auto",
   "x3_ip": "crosspoint.local",
   "x3_devices": [{"name": "침실", "ip": "192.168.1.20"}],
   "output_dir": "./output",
@@ -222,6 +228,7 @@ main()
 | 재전송 | `upload_to_targets(..., only_ips=pending)` — **미전송 기기만** 업로드 |
 | 결과 반환 | `bool` — True: 신규 없음·전체 성공 / False: 오류·부분 실패·이미 실행 중·취소 |
 | 취소 | `request_cancel()` — 사이트 경계에서 `status=cancelled` |
+| 종료 | `shutdown_pipeline(timeout)` — cancel 후 워커 join, GUI `_on_close`에서 호출 |
 | 상태 API | `get_last_pipeline_result()` — 웹 대시보드 `/api/status` 연동 |
 
 **파이프라인 흐름**:

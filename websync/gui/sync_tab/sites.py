@@ -23,6 +23,7 @@ from websync.gui.sync_tab.selector_wizard import (
     ROLE_CONTENT,
     ROLE_REMOVE,
 )
+from websync.i18n import t
 
 
 class SyncSitesMixin:
@@ -39,7 +40,7 @@ class SyncSitesMixin:
     def _toggle_site_enabled(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("경고", "대상을 선택해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.sync.select_target"))
             return
         config = self.service.config
         idx = int(selected[0])
@@ -54,9 +55,9 @@ class SyncSitesMixin:
     def _delete_site(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("경고", "삭제할 대상을 선택해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.sync.select_to_delete"))
             return
-        if not messagebox.askyesno("확인", "선택한 사이트를 삭제하시겠습니까?"):
+        if not messagebox.askyesno(t("dialog.confirm"), t("gui.sync.confirm_delete")):
             return
         from websync.backup.format import merge_site_tombstones, now_iso
         from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
@@ -76,15 +77,15 @@ class SyncSitesMixin:
         self.service.schedule_backup_push()
 
     def _add_site_popup(self):
-        self._open_site_dialog("사이트 등록", None)
+        self._open_site_dialog(t("gui.sync.dialog_add_title"), None)
 
     def _edit_site_popup(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("경고", "수정할 대상을 선택해 주세요.")
+            messagebox.showwarning(t("dialog.warning"), t("gui.sync.select_to_edit"))
             return
         idx = int(selected[0])
-        self._open_site_dialog("사이트 수정", idx, self.service.config["sites"][idx])
+        self._open_site_dialog(t("gui.sync.dialog_edit_title"), idx, self.service.config["sites"][idx])
 
     def _open_site_dialog(self, title: str, idx: int = None, site_data: dict = None):
         dialog = tk.Toplevel(self.app.root)
@@ -100,7 +101,7 @@ class SyncSitesMixin:
         form.pack(fill="both", expand=True, padx=20, pady=20)
 
         # 한국 추천 프리셋
-        ttk.Label(form, text="추천 프리셋:").grid(row=0, column=0, sticky="w", pady=8)
+        ttk.Label(form, text=t("gui.sync.preset_label")).grid(row=0, column=0, sticky="w", pady=8)
         preset_cb = ttk.Combobox(
             form,
             values=preset_labels(),
@@ -108,19 +109,19 @@ class SyncSitesMixin:
             width=38,
         )
         preset_cb.grid(row=0, column=1, sticky="w", pady=8)
-        preset_cb.set("(직접 입력)")
+        preset_cb.set(t("gui.sync.presets.direct"))
         ttk.Label(
             form,
-            text="선택 시 이름·유형·URL이 채워집니다 (수정 가능)",
+            text=t("gui.sync.preset_hint"),
             font=("Malgun Gothic", 11),
             foreground=HINT_COLOR,
         ).grid(row=1, column=1, sticky="w")
 
-        ttk.Label(form, text="사이트 이름:").grid(row=2, column=0, sticky="w", pady=8)
+        ttk.Label(form, text=t("gui.sync.site_name_label")).grid(row=2, column=0, sticky="w", pady=8)
         name_entry = ttk.Entry(form, width=40)
         name_entry.grid(row=2, column=1, sticky="w", pady=8)
 
-        ttk.Label(form, text="타입 (유형):").grid(row=3, column=0, sticky="w", pady=8)
+        ttk.Label(form, text=t("gui.sync.site_type_label")).grid(row=3, column=0, sticky="w", pady=8)
         type_cb = ttk.Combobox(
             form,
             values=list(SCRAPER_TYPES),
@@ -130,45 +131,45 @@ class SyncSitesMixin:
         type_cb.grid(row=3, column=1, sticky="w", pady=8)
         type_cb.set("css")
 
-        ttk.Label(form, text="수집 주소(URL):").grid(row=4, column=0, sticky="w", pady=8)
+        ttk.Label(form, text=t("gui.sync.site_url_label")).grid(row=4, column=0, sticky="w", pady=8)
         url_entry = ttk.Entry(form, width=40)
         url_entry.grid(row=4, column=1, sticky="w", pady=8)
 
-        css_frame = ttk.LabelFrame(form, text=" CSS 선택자 설정 (CSS 타입 전용) ")
+        css_frame = ttk.LabelFrame(form, text=t("gui.sync.css_frame"))
         css_frame.grid(row=5, column=0, columnspan=2, sticky="we", pady=10, ipady=5)
 
-        ttk.Label(css_frame, text="아이템 컨테이너:").grid(row=0, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(css_frame, text=t("gui.sync.item_container")).grid(row=0, column=0, sticky="w", padx=10, pady=5)
         item_entry = ttk.Entry(css_frame, width=28)
         item_entry.grid(row=0, column=1, sticky="w", pady=5)
         item_entry.insert(0, ".post-item")
 
-        ttk.Label(css_frame, text="제목 선택자:").grid(row=1, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(css_frame, text=t("gui.sync.title_selector")).grid(row=1, column=0, sticky="w", padx=10, pady=5)
         title_entry = ttk.Entry(css_frame, width=28)
         title_entry.grid(row=1, column=1, sticky="w", pady=5)
         title_entry.insert(0, ".post-title")
 
-        ttk.Label(css_frame, text="링크 선택자:").grid(row=2, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(css_frame, text=t("gui.sync.link_selector")).grid(row=2, column=0, sticky="w", padx=10, pady=5)
         link_entry = ttk.Entry(css_frame, width=28)
         link_entry.grid(row=2, column=1, sticky="w", pady=5)
         link_entry.insert(0, "a[href]")
 
-        ttk.Label(css_frame, text="본문 선택자:").grid(row=3, column=0, sticky="w", padx=10, pady=5)
+        ttk.Label(css_frame, text=t("gui.sync.content_selector")).grid(row=3, column=0, sticky="w", padx=10, pady=5)
         content_entry = ttk.Entry(css_frame, width=28)
         content_entry.grid(row=3, column=1, sticky="w", pady=5)
         content_entry.insert(0, ".post-content")
 
         ttk.Label(
             css_frame,
-            text="제목·링크·본문은 아이템 내부 기준 (상대 선택자)",
+            text=t("gui.sync.relative_hint"),
             font=("Malgun Gothic", 10),
             foreground=HINT_COLOR,
         ).grid(row=4, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 4))
 
-        ttk.Label(form, text="불필요 요소 제거 CSS:").grid(row=6, column=0, sticky="w", pady=8)
+        ttk.Label(form, text=t("gui.sync.remove_css")).grid(row=6, column=0, sticky="w", pady=8)
         remove_entry = ttk.Entry(form, width=40)
         remove_entry.grid(row=6, column=1, sticky="w", pady=8)
 
-        ttk.Label(form, text="최대 수집 개수:").grid(row=7, column=0, sticky="w", pady=8)
+        ttk.Label(form, text=t("gui.sync.max_count")).grid(row=7, column=0, sticky="w", pady=8)
         limit_entry = ttk.Entry(form, width=10)
         limit_entry.grid(row=7, column=1, sticky="w", pady=8)
         limit_entry.insert(0, "5")
@@ -177,18 +178,18 @@ class SyncSitesMixin:
         opt_frame = ttk.Frame(form)
         opt_frame.grid(row=8, column=0, columnspan=2, sticky="we", pady=5)
         include_img_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opt_frame, text="이미지 포함", variable=include_img_var).pack(side="left", padx=5)
+        ttk.Checkbutton(opt_frame, text=t("gui.sync.include_images"), variable=include_img_var).pack(side="left", padx=5)
         fetch_detail_var = tk.BooleanVar(value=False)
         detail_cb = ttk.Checkbutton(
-            opt_frame, text="상세 페이지 본문 (CSS)", variable=fetch_detail_var
+            opt_frame, text=t("gui.sync.fetch_detail"), variable=fetch_detail_var
         )
         detail_cb.pack(side="left", padx=5)
 
-        ttk.Label(opt_frame, text="번역:").pack(side="left", padx=(15, 3))
+        ttk.Label(opt_frame, text=t("gui.sync.translate")).pack(side="left", padx=(15, 3))
         translate_cb = ttk.Combobox(opt_frame, values=["", "ko", "en", "ja", "zh-cn", "zh-tw"], width=6)
         translate_cb.pack(side="left")
         translate_cb.set("")
-        ttk.Label(opt_frame, text="(빈값=번역안함)", font=("Malgun Gothic", 11), foreground=HINT_COLOR).pack(side="left", padx=3)
+        ttk.Label(opt_frame, text=t("gui.sync.translate_hint"), font=("Malgun Gothic", 11), foreground=HINT_COLOR).pack(side="left", padx=3)
 
         def _fill_entry(entry: ttk.Entry, value: str) -> None:
             entry.configure(state="normal")
@@ -267,18 +268,18 @@ class SyncSitesMixin:
             on_type_change()
 
         def on_type_change(event=None):
-            t = type_cb.get()
-            state = "disabled" if t in SPECIALIZED_TYPES else "normal"
+            site_type = type_cb.get()
+            state = "disabled" if site_type in SPECIALIZED_TYPES else "normal"
             for w in (item_entry, title_entry, link_entry, content_entry, remove_entry):
                 if hasattr(w, "configure"):
                     w.configure(state=state)
                 elif hasattr(w, "config"):
                     w.config(state=state)
             if hasattr(detail_cb, "configure"):
-                detail_cb.configure(state="normal" if t == "css" else "disabled")
+                detail_cb.configure(state="normal" if site_type == "css" else "disabled")
             elif hasattr(detail_cb, "config"):
-                detail_cb.config(state="normal" if t == "css" else "disabled")
-            if t != "css":
+                detail_cb.config(state="normal" if site_type == "css" else "disabled")
+            if site_type != "css":
                 fetch_detail_var.set(False)
 
         def on_preset_change(event=None):
@@ -286,7 +287,7 @@ class SyncSitesMixin:
             if not preset:
                 return
             # 직접 입력은 폼 유지
-            if preset.get("label") == "(직접 입력)" or not preset.get("url"):
+            if preset.get("label") == t("gui.sync.presets.direct") or not preset.get("url"):
                 return
             name_entry.delete(0, tk.END)
             name_entry.insert(0, preset.get("name") or "")
@@ -345,18 +346,18 @@ class SyncSitesMixin:
             name = name_entry.get().strip()
             url = url_entry.get().strip()
             if not name or not url:
-                messagebox.showerror("오류", "이름과 수집 주소는 필수값입니다.", parent=dialog)
+                messagebox.showerror(t("dialog.error"), t("gui.sync.name_url_required"), parent=dialog)
                 return
             if not (url.startswith("http://") or url.startswith("https://")):
-                messagebox.showerror("오류", "수집 주소는 http:// 또는 https://로 시작해야 합니다.", parent=dialog)
+                messagebox.showerror(t("dialog.error"), t("gui.sync.url_http_required"), parent=dialog)
                 return
             try:
                 limit = int(limit_entry.get().strip())
             except ValueError:
-                messagebox.showerror("오류", "수집 개수는 숫자여야 합니다.", parent=dialog)
+                messagebox.showerror(t("dialog.error"), t("gui.sync.limit_must_be_number"), parent=dialog)
                 return
             if not (1 <= limit <= 100):
-                messagebox.showerror("오류", "수집 개수는 1~100 사이여야 합니다.", parent=dialog)
+                messagebox.showerror(t("dialog.error"), t("gui.sync.limit_range"), parent=dialog)
                 return
             config = self.service.config
             new_site = {
@@ -375,23 +376,22 @@ class SyncSitesMixin:
                 content_sel = content_entry.get().strip()
                 if not item_sel:
                     messagebox.showerror(
-                        "오류",
-                        "CSS 타입은 아이템 컨테이너 선택자가 필수입니다.",
+                        t("dialog.error"),
+                        t("gui.sync.css_item_required"),
                         parent=dialog,
                     )
                     return
                 if not title_sel:
                     messagebox.showerror(
-                        "오류",
-                        "CSS 타입은 제목 선택자가 필수입니다.",
+                        t("dialog.error"),
+                        t("gui.sync.css_title_required"),
                         parent=dialog,
                     )
                     return
                 if not content_sel and not fetch_detail_var.get():
                     if not messagebox.askyesno(
-                        "본문 선택자 확인",
-                        "본문 선택자가 비어 있고 상세 페이지 본문도 꺼져 있습니다.\n"
-                        "목록 카드 전체가 본문이 될 수 있습니다.\n\n그래도 저장할까요?",
+                        t("gui.sync.content_confirm_title"),
+                        t("gui.sync.content_confirm"),
                         parent=dialog,
                     ):
                         return
@@ -399,18 +399,18 @@ class SyncSitesMixin:
                 from websync.config.validator import _css_selector_syntax_error
 
                 for label, sel in (
-                    ("아이템", item_sel),
-                    ("제목", title_sel),
-                    ("링크", link_entry.get().strip() or "a[href]"),
-                    ("본문", content_sel),
+                    (t("gui.selector.role.item"), item_sel),
+                    (t("gui.selector.role.title"), title_sel),
+                    (t("gui.selector.role.link"), link_entry.get().strip() or "a[href]"),
+                    (t("gui.selector.role.content"), content_sel),
                 ):
                     if not sel:
                         continue
                     err = _css_selector_syntax_error(sel)
                     if err:
                         messagebox.showerror(
-                            "오류",
-                            f"{label} 선택자: {err}",
+                            t("dialog.error"),
+                            t("gui.sync.selector_error", label=label, error=err),
                             parent=dialog,
                         )
                         return
@@ -444,8 +444,8 @@ class SyncSitesMixin:
 
         dlg_btn_frame = ttk.Frame(dialog)
         dlg_btn_frame.pack(side="bottom", fill="x", pady=10)
-        ttk.Button(dlg_btn_frame, text="저장", command=save_site).pack(side="right", padx=10)
-        ttk.Button(dlg_btn_frame, text="취소", command=dialog.destroy).pack(side="right", padx=10)
+        ttk.Button(dlg_btn_frame, text=t("gui.sync.save"), command=save_site).pack(side="right", padx=10)
+        ttk.Button(dlg_btn_frame, text=t("gui.sync.cancel"), command=dialog.destroy).pack(side="right", padx=10)
 
     # ------------------------------------------------------------------
     # M5: Import / Export 구현부
@@ -457,7 +457,7 @@ class SyncSitesMixin:
         indices = [int(i) for i in selected] if selected else None
         
         file_path = filedialog.asksaveasfilename(
-            title="사이트 설정 내보내기",
+            title=t("gui.sync.export_title"),
             defaultextension=".json",
             filetypes=[("JSON", "*.json")]
         )
@@ -466,13 +466,13 @@ class SyncSitesMixin:
         
         try:
             self.config_manager.export_sites(file_path, indices)
-            messagebox.showinfo("완료", "선택된 사이트 설정이 성공적으로 내보내졌습니다.")
+            messagebox.showinfo(t("dialog.info"), t("gui.sync.export_ok"))
         except Exception as e:
-            messagebox.showerror("오류", f"설정 내보내기 중 오류 발생: {e}")
+            messagebox.showerror(t("dialog.error"), t("gui.sync.export_failed", error=e))
 
     def _import_sites_action(self):
         file_path = filedialog.askopenfilename(
-            title="사이트 설정 가져오기",
+            title=t("gui.sync.import_title"),
             filetypes=[("JSON", "*.json")]
         )
         if not file_path:
@@ -487,11 +487,14 @@ class SyncSitesMixin:
                 self._refresh_site_tree()
                 self.service.schedule_backup_push()
                 names = ", ".join([s.get("name", "") for s in added_sites])
-                messagebox.showinfo("완료", f"새로운 사이트 {len(added_sites)}개가 추가되었습니다:\n{names}")
+                messagebox.showinfo(
+                    t("dialog.info"),
+                    t("gui.sync.import_ok", count=len(added_sites), names=names),
+                )
             else:
-                messagebox.showinfo("완료", "가져올 새로운 사이트 설정이 없습니다. (중복 검출)")
+                messagebox.showinfo(t("dialog.info"), t("gui.sync.import_none"))
         except Exception as e:
-            messagebox.showerror("오류", f"설정 가져오기 중 오류 발생: {e}")
+            messagebox.showerror(t("dialog.error"), t("gui.sync.import_failed", error=e))
 
     # ------------------------------------------------------------------
     # H1: 프리뷰 & 선택적 동기화 구현부

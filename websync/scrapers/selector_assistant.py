@@ -22,6 +22,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup, Tag
 
 from websync.scrapers.base import fetch_url
+from websync.i18n import t
 
 # 해시·프레임워크 임시 class 는 선택자 생성에서 제외
 _UNSTABLE_CLASS = re.compile(
@@ -175,7 +176,7 @@ def parse_html(html: str, base_url: str = "") -> BeautifulSoup:
 def fetch_html(url: str, timeout: int = 15) -> tuple[str, str, BeautifulSoup]:
     """URL에서 HTML을 가져와 (html, final_url, soup) 반환."""
     if not url or not (url.startswith("http://") or url.startswith("https://")):
-        raise ValueError("URL은 http:// 또는 https:// 로 시작해야 합니다.")
+        raise ValueError(t("selector.url_scheme"))
     resp = fetch_url(url, timeout=timeout)
     resp.raise_for_status()
     if resp.encoding == "ISO-8859-1":
@@ -295,12 +296,12 @@ def evaluate_selector(
     """CSS 선택자 매칭 개수와 샘플 텍스트 반환."""
     sel = (selector or "").strip()
     if not sel:
-        return SelectorTestResult(count=0, error="선택자가 비어 있습니다.")
+        return SelectorTestResult(count=0, error=t("selector.empty"))
     target = root if root is not None else soup
     try:
         matches = target.select(sel)
     except Exception as e:
-        return SelectorTestResult(count=0, error=f"선택자 문법 오류: {e}")
+        return SelectorTestResult(count=0, error=t("selector.syntax", error=e))
     samples: list[SelectorSample] = []
     for m in matches[:limit]:
         if not isinstance(m, Tag):
@@ -793,7 +794,7 @@ def _suggest_relative_title_link(
                 "count": len(best_ms),
                 "sample": _text_preview(best_ms[0]),
                 "relative_to": best_sel,
-                "note": "아이템 자체가 링크 — 제목=요소 텍스트",
+                "note": t("selector.item_is_link"),
             }
         )
         links_out.append(
@@ -1034,7 +1035,7 @@ def suggest_selectors(soup: BeautifulSoup, max_per_role: int = 5) -> dict[str, A
                             "selector": sel,
                             "score": 5.0,
                             "count": 0,
-                            "sample": "(상세 페이지에서 사용)",
+                            "sample": t("selector.for_detail"),
                             "for_detail": True,
                         }
                     )
@@ -1068,7 +1069,7 @@ def build_recommended_site_config(
             "include_images": False,
             "translate_to": "",
             "fetch_detail_page": False,
-            "_recommend_note": f"전용 스크래퍼 '{analysis.platform}' 권장",
+            "_recommend_note": t("selector.recommend_platform", platform=analysis.platform),
         }
 
     # RSS 우선
@@ -1089,7 +1090,7 @@ def build_recommended_site_config(
             "include_images": False,
             "translate_to": "",
             "fetch_detail_page": False,
-            "_recommend_note": "RSS/Atom 피드 권장 (가장 안정적)",
+            "_recommend_note": t("selector.recommend_rss"),
         }
 
     sug = analysis.suggestions or {}
@@ -1126,7 +1127,7 @@ def build_recommended_site_config(
         "translate_to": "",
         "fetch_detail_page": fetch_detail,
         "_recommend_note": (
-            "목록 페이지 — 상세 페이지 본문 수집 권장" if fetch_detail else "CSS 선택자 수집"
+            t("selector.recommend_detail") if fetch_detail else t("selector.recommend_css")
         ),
     }
     if notes:
@@ -1141,13 +1142,13 @@ def _finalize_analysis(analysis: PageAnalysis) -> PageAnalysis:
     sug = analysis.suggestions or {}
 
     if _is_unstable_css_site(analysis.base_url or analysis.url):
-        notes.append("Medium 등은 CSS class가 자주 바뀝니다. RSS 피드를 권장합니다.")
+        notes.append(t("selector.note_medium"))
 
     if platform:
-        notes.append(f"알려진 플랫폼 — 전용 타입 '{platform}' 사용을 권장합니다.")
+        notes.append(t("selector.note_platform", platform=platform))
         mode = "platform"
     elif feeds:
-        notes.append("RSS/Atom 피드가 발견되었습니다. type=rss 가 가장 안정적입니다.")
+        notes.append(t("selector.note_rss"))
         mode = "rss"
     else:
         mode = "css"
@@ -1155,14 +1156,10 @@ def _finalize_analysis(analysis: PageAnalysis) -> PageAnalysis:
     meta = sug.get("meta") or {}
     fetch_detail = bool(meta.get("fetch_detail_recommended"))
     if mode == "css" and fetch_detail:
-        notes.append("목록에 본문이 짧습니다. 「상세 페이지 본문」 옵션을 켜세요.")
+        notes.append(t("selector.note_short_body"))
 
     if mode == "css" and not (sug.get("item")):
-        notes.append(
-            "글 목록을 자동으로 찾지 못했습니다. "
-            "SPA(자바스크립트 렌더링)이거나 구조가 특수한 페이지일 수 있습니다. "
-            "RSS 유무를 확인하거나 DOM 트리에서 직접 선택하세요."
-        )
+        notes.append(t("selector.note_no_items"))
 
     analysis.recommend_mode = mode
     analysis.fetch_detail_recommended = fetch_detail
@@ -1182,7 +1179,7 @@ def analyze_page(
     try:
         html, final_url, soup = fetch_html(url, timeout=timeout)
     except Exception as e:
-        return PageAnalysis(url=url, base_url=url, error=f"페이지 로드 실패: {e}")
+        return PageAnalysis(url=url, base_url=url, error=t("selector.load_failed", error=e))
 
     page_title = ""
     if soup.title and soup.title.string:
@@ -1191,10 +1188,7 @@ def analyze_page(
     # 짧은 SPA 셸 감지
     notes_pre: list[str] = []
     if len(html) < 8000 and not soup.select("article, .post, .post-item, h2 a"):
-        notes_pre.append(
-            "HTML이 매우 짧습니다. 자바스크립트 전용(SPA) 페이지일 수 있어 "
-            "CSS 수집이 어려울 수 있습니다. RSS를 찾아보세요."
-        )
+        notes_pre.append(t("selector.note_spa"))
 
     feeds = discover_feeds(
         soup,
@@ -1205,9 +1199,7 @@ def analyze_page(
         max_probes=5,
     )
     if is_private_or_local_url(final_url):
-        notes_pre.append(
-            "내부/사설 네트워크 URL로 보입니다. 의도한 주소인지 확인하세요."
-        )
+        notes_pre.append(t("selector.note_private"))
     analysis = PageAnalysis(
         url=url,
         base_url=final_url,

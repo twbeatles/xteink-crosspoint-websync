@@ -26,6 +26,7 @@ from websync.gui.tab_history import HistoryTab
 from websync.gui.tab_device_files import DeviceFilesTab
 from websync.gui.tab_settings import SettingsTab
 from websync.gui.bottom_bar import BottomBar
+from websync.i18n import t
 
 
 class AppHelpersMixin:
@@ -107,14 +108,14 @@ class AppHelpersMixin:
 
     def _summarize_upload_results(self, results: dict) -> tuple[bool, bool, str]:
         if not results:
-            return False, False, "등록된 기기 없음"
+            return False, False, t("gui.app.no_devices")
         ok_labels = [f"{self._ip_display_name(ip)}({ip})" for ip, ok in results.items() if ok]
         fail_labels = [f"{self._ip_display_name(ip)}({ip})" for ip, ok in results.items() if not ok]
         parts = []
         if ok_labels:
-            parts.append(f"성공: {', '.join(ok_labels)}")
+            parts.append(t("gui.app.upload_ok", labels=", ".join(ok_labels)))
         if fail_labels:
-            parts.append(f"실패: {', '.join(fail_labels)}")
+            parts.append(t("gui.app.upload_fail", labels=", ".join(fail_labels)))
         return all(results.values()), bool(ok_labels), " | ".join(parts)
 
     def _safe_save_config(self, config: dict, *, parent=None, reload: bool = False) -> bool:
@@ -125,9 +126,9 @@ class AppHelpersMixin:
             errors = self.service.config_manager.get_validation_errors(config)
             fatal = [e for e in errors if self._is_fatal_config_error(e)]
             if fatal:
-                msg = "설정 검증 실패:\n" + "\n".join(f"• {e}" for e in fatal[:8])
-                messagebox.showerror("설정 검증 실패", msg, parent=parent)
-                self._log_message(f"❌ 설정 검증 실패: {fatal[0]}")
+                msg = t("gui.app.validation_fail_body", errors="\n".join(f"• {e}" for e in fatal[:8]))
+                messagebox.showerror(t("gui.app.validation_fail_title"), msg, parent=parent)
+                self._log_message(t("gui.app.log_validation_fail", error=fatal[0]))
                 return False
 
             working = config
@@ -148,7 +149,7 @@ class AppHelpersMixin:
                         config.update(working)
                     if attempt > 0:
                         self._log_message(
-                            "☁ 설정 충돌을 병합해 저장했습니다 (백업/다른 작업과 동기화)."
+                            t("gui.app.conflict_merged")
                         )
                     last_conflict = None
                     break
@@ -175,38 +176,54 @@ class AppHelpersMixin:
             return True
         except ConfigConflictError as e:
             messagebox.showerror(
-                "설정 저장 실패",
-                "다른 작업과 설정 충돌이 반복되어 저장하지 못했습니다.\n"
-                "잠시 후 다시 시도해 주세요.",
+                t("gui.app.save_fail_title"),
+                t("gui.app.save_conflict_body"),
                 parent=parent,
             )
-            self._log_message(f"❌ 설정 충돌 재시도 한도 초과: {e}")
+            self._log_message(t("gui.app.log_conflict_exceeded", error=e))
             return False
         except ConfigSaveError as e:
-            messagebox.showerror("설정 저장 실패", str(e), parent=parent)
-            self._log_message(f"❌ 설정 저장 실패: {e}")
+            messagebox.showerror(t("gui.app.save_fail_title"), str(e), parent=parent)
+            self._log_message(t("gui.app.log_save_fail", error=e))
             return False
         except Exception as e:
-            messagebox.showerror("설정 저장 실패", str(e), parent=parent)
-            self._log_message(f"❌ 설정 저장 실패: {e}")
+            messagebox.showerror(t("gui.app.save_fail_title"), str(e), parent=parent)
+            self._log_message(t("gui.app.log_save_fail", error=e))
             return False
+
+    _FATAL_VALIDATOR_KEYS = (
+        "validator.url_empty",
+        "validator.url_scheme",
+        "validator.invalid_type",
+        "validator.port_range",
+        "validator.port_not_int",
+        "validator.merge_mode",
+        "validator.theme",
+        "validator.limit_range",
+        "validator.limit_not_int",
+        "validator.font_size_range",
+        "validator.font_size_not_int",
+        "validator.line_height_range",
+        "validator.line_height_not_float",
+        "validator.ui_language",
+    )
 
     @staticmethod
     def _is_fatal_config_error(err: str) -> bool:
         """저장을 막을 검증 오류 (경고성 제외)."""
-        fatal_markers = (
-            "URL은 http://",
-            "URL이 비어",
-            "타입이 유효하지 않습니다",
-            "포트 범위",
-            "유효한 정수여야",
-            "epub_merge_mode",
-            "epub_theme",
-            "limit:",
-            "font_size:",
-            "line_height:",
-        )
-        return any(m in err for m in fatal_markers)
+        from websync.i18n.catalog import load_catalog
+
+        if any(m in err for m in (
+            "epub_merge_mode", "epub_theme", "limit:", "font_size:", "line_height:", "ui_language",
+        )):
+            return True
+        for catalog in (load_catalog("ko"), load_catalog("en")):
+            for key in AppHelpersMixin._FATAL_VALIDATOR_KEYS:
+                msg = catalog.get(key, "")
+                prefix = msg.split("{")[0].strip()
+                if prefix and prefix in err:
+                    return True
+        return False
 
     @staticmethod
     def _merge_config_on_conflict(disk: dict, memory: dict) -> dict:

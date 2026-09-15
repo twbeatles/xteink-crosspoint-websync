@@ -2,6 +2,8 @@ import os
 import json
 import subprocess
 
+from websync.i18n import t
+
 class CalibreManager:
     """calibredb.exe 명령어를 래핑하여 Calibre 도서 정보를 조회하고 경로를 추적하는 클래스"""
     def __init__(
@@ -39,7 +41,7 @@ class CalibreManager:
                 return json.loads(result.stdout)
             return []
         except Exception as e:
-            print(f"❌ Calibre 서재 조회 실패: {e}")
+            print(t("calibre.list_failed", error=e))
             return []
 
     def get_book_file_path(self, book_id: int) -> str:
@@ -65,5 +67,5 @@ class CalibreManager:
                     return list(paths.values())[0]
             return ""
         except Exception as e:
-            print(f"❌ Calibre 책 경로 조회 실패: {e}")
+            print(t("calibre.path_failed", error=e))
             return ""

@@ -13,6 +13,7 @@ from websync.pipeline.upload_results import (
     upload_all_ok,
     upload_any_ok,
 )
+from websync.i18n import t
 
 
 def sync_selected_articles(
@@ -35,7 +36,7 @@ def sync_selected_articles(
             print(msg)
 
     if not selected_articles:
-        log("⚠️ 전송할 선택 기사가 없습니다.")
+        log(t("pipeline.selected.none"))
         return False
 
     # 락 헬퍼 통일 (N7) — preview와 동일하게 service 헬퍼 사용
@@ -62,7 +63,7 @@ def sync_selected_articles(
         epub_merge_mode = config.get("epub_merge_mode", "per_site")
 
         if not target_ips:
-            log("⚠️ 등록된 전송 기기가 없습니다. X3 주소 또는 추가 기기를 설정해 주세요.")
+            log(t("pipeline.no_targets"))
             service._last_pipeline_result = {"status": "no_targets", "success": False}
             return False
 
@@ -79,20 +80,20 @@ def sync_selected_articles(
         # site_name 별로 기사 그룹화
         articles_by_site = {}
         for art in selected_articles:
-            site_name = art.get("site_name", "기타")
+            site_name = art.get("site_name", t("pipeline.selected.other_site"))
             articles_by_site.setdefault(site_name, []).append(art)
 
         # 사이트별 번역 적용 (run_sync_pipeline과 일관성 유지)
         for site_name, arts in articles_by_site.items():
             translate_to = site_translate_map.get(site_name, "")
             if translate_to and translator.is_available_for_site(translate_to):
-                log(f"🌐 [{site_name}] '{translate_to}' 언어로 번역 중...")
+                log(t("pipeline.selected.translate", site=site_name, lang=translate_to))
                 for art in arts:
                     art["content"] = translator.translate_html(art["content"], target_lang=translate_to)
 
         # AI 요약 후처리 적용
         if summarizer.is_available():
-            log("🤖 AI 요약 생성 중...")
+            log(t("pipeline.selected.summarize"))
             for site_name, arts in articles_by_site.items():
                 for art in arts:
                     if "summary_html" not in art:
@@ -103,7 +104,7 @@ def sync_selected_articles(
         actual_work = len(articles_by_site)
 
         if epub_merge_mode == "daily_digest":
-            log("\n=== 📚 선택 기사 일간 합본 빌드 및 전송 ===")
+            log(t("pipeline.selected.digest_start"))
             all_urls = []
             for site_name, arts in articles_by_site.items():
                 for art in arts:
@@ -119,7 +120,7 @@ def sync_selected_articles(
 
             if pending_ips:
                 epub_path = epub_builder.build_digest(articles_by_site, generate_cover=generate_cover)
-                log(f"   => 파일 생성: {os.path.basename(epub_path)}")
+                log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
 
                 upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
                 any_ok = upload_any_ok(upload_results)
@@ -135,16 +136,16 @@ def sync_selected_articles(
                     if batch:
                         db.mark_synced_many(batch)
                     if all_ok:
-                        log("🎉 전송 완료!")
+                        log(t("pipeline.selected.upload_ok"))
                         success_count = actual_work
                     else:
                         failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
-                        log(f"⚠️ 일부 전송 실패: {', '.join(failed)}")
+                        log(t("pipeline.selected.partial", names=", ".join(failed)))
                         partial_count = 1
                 else:
-                    log("❌ 전송 실패!")
+                    log(t("pipeline.selected.upload_fail"))
             else:
-                log("💡 이미 모든 기기가 전송되었습니다.")
+                log(t("pipeline.selected.already_sent_all"))
                 success_count = actual_work
         else:
             # 사이트별 빌드
@@ -161,11 +162,11 @@ def sync_selected_articles(
                 )
 
                 if not pending_ips:
-                    log(f"💡 [{site_name}] 이미 전송 완료되어 건너뜁니다.")
+                    log(t("pipeline.selected.already_sent_site", site=site_name))
                     success_count += 1
                     continue
 
-                log(f"📚 [{site_name}] 문서 제작 및 전송 중...")
+                log(t("pipeline.selected.building", site=site_name))
                 epub_path = epub_builder.build(site_name, arts, generate_cover=generate_cover)
                 upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
 
@@ -183,14 +184,14 @@ def sync_selected_articles(
                     if batch:
                         db.mark_synced_many(batch)
                     if all_ok:
-                        log(f"🎉 [{site_name}] 전송 성공!")
+                        log(t("pipeline.selected.site_ok", site=site_name))
                         success_count += 1
                     else:
                         failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
-                        log(f"⚠️ [{site_name}] 일부 실패: {', '.join(failed)}")
+                        log(t("pipeline.selected.site_partial", site=site_name, names=", ".join(failed)))
                         partial_count += 1
                 else:
-                    log(f"❌ [{site_name}] 전송 실패!")
+                    log(t("pipeline.selected.site_fail", site=site_name))
 
         if progress_callback:
             progress_callback(actual_work, actual_work)
@@ -207,7 +208,7 @@ def sync_selected_articles(
         try:
             service.maybe_backup_push(log_callback=log_callback)
         except Exception as e:
-            service.logger.warning(f"[backup] 선택 동기화 후 내보내기 실패: {e}")
+            service.logger.warning(t("pipeline.selected.backup_push_fail", error=e))
         return overall_ok
     finally:
         service._release_pipeline_locks()

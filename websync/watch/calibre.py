@@ -4,6 +4,8 @@ import time
 import threading
 from typing import Callable, Optional
 
+from websync.i18n import t
+
 DEBOUNCE_SECONDS = 2.0
 STABLE_SIZE_CHECKS = 2
 STABLE_CHECK_INTERVAL = 0.5
@@ -102,13 +104,13 @@ class CalibreWatcher:
             try:
                 self.on_new_file(path)
             except Exception as e:
-                print(f"⚠️ Watch 콜백 오류 ({path}): {e}")
+                print(t("watch.callback_error", path=path, error=e))
 
     def start(self) -> bool:
         if self._running:
             return True
         if not os.path.isdir(self.watch_dir):
-            print(f"⚠️ 감시 폴더가 없습니다: {self.watch_dir}")
+            print(t("watch.no_folder", path=self.watch_dir))
             return False
         try:
             from watchdog.observers import Observer
@@ -142,10 +144,10 @@ class CalibreWatcher:
             self._running = True
             return True
         except ImportError:
-            print("❌ watchdog 패키지가 없습니다. pip install watchdog 를 실행하세요.")
+            print(t("watch.no_watchdog"))
             return False
         except Exception as e:
-            print(f"❌ 파일 감시 시작 실패: {e}")
+            print(t("watch.start_failed", error=e))
             return False
 
     def stop(self):

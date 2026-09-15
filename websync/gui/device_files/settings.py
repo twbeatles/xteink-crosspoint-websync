@@ -22,6 +22,7 @@ from websync.upload.device_client import (
     filter_old_sync_epubs,
 )
 from websync.upload.uploader import X3Uploader, normalize_upload_remote_dir
+from websync.i18n import t
 
 
 class DeviceFilesSettingsMixin:
@@ -61,8 +62,11 @@ class DeviceFilesSettingsMixin:
         self.upload_path_var.set(df["default_upload_path"])
         if self.app._safe_save_config(config, reload=True):
             self.app._log_message(
-                f"💾 기기 파일 설정 저장: 업로드={df['default_upload_path']}, "
-                f"정리일={df['cleanup_older_days']}"
+                t(
+                    "gui.device.log_settings_saved",
+                    upload=df["default_upload_path"],
+                    days=df["cleanup_older_days"],
+                )
             )
 
     # ------------------------------------------------------------------

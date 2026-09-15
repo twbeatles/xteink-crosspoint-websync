@@ -19,6 +19,7 @@ from websync.upload.device_client import (
     filter_old_sync_epubs,
 )
 from websync.upload.uploader import X3Uploader, normalize_upload_remote_dir
+from websync.i18n import t
 
 
 class DeviceFilesBrowserMixin:
@@ -33,7 +34,7 @@ class DeviceFilesBrowserMixin:
         """설정에 등록된 기기 콤보 갱신."""
         client = self._make_client()
         targets = client._build_target_list()
-        self._device_choices = [(f"{t['name']} ({t['ip']})", t["ip"]) for t in targets]
+        self._device_choices = [(f"{tgt['name']} ({tgt['ip']})", tgt["ip"]) for tgt in targets]
         labels = [label for label, _ in self._device_choices]
         prev_ip = self._selected_ip()
         if hasattr(self.device_cb, "configure"):
@@ -43,7 +44,7 @@ class DeviceFilesBrowserMixin:
 
         if not labels:
             self.device_cb.set("")
-            self.status_label.configure(text="등록된 기기 없음", text_color=COLOR_DANGER[0])
+            self.status_label.configure(text=t("gui.device.no_devices"), text_color=COLOR_DANGER[0])
             return
         idx = 0
         if prev_ip:
@@ -88,7 +89,7 @@ class DeviceFilesBrowserMixin:
         ip = self._selected_ip()
         if not ip:
             messagebox.showwarning(
-                "경고", "등록된 기기가 없습니다. 뉴스 동기화 탭에서 주소를 설정하세요."
+                t("dialog.warning"), t("gui.device.no_devices_warn")
             )
             return
 
@@ -96,8 +97,8 @@ class DeviceFilesBrowserMixin:
         self._current_path = path
         self.path_var.set(path)
         self._set_busy(True)
-        self.status_label.configure(text="불러오는 중…", text_color=COLOR_WARNING[0])
-        self.app._log_message(f"📁 [{ip}] 파일 목록 요청: {path}")
+        self.status_label.configure(text=t("gui.device.loading"), text_color=COLOR_WARNING[0])
+        self.app._log_message(t("gui.device.log_list_request", ip=ip, path=path))
 
         def task():
             client = self._make_client()
@@ -111,7 +112,7 @@ class DeviceFilesBrowserMixin:
                     status_text = X3DeviceClient.format_status_summary(st)
                     status_ok = True
                 except DeviceClientError as e:
-                    status_text = f"상태 조회 실패 — {e}"
+                    status_text = t("gui.device.status_fail", error=e)
                 items = client.list_files(path, ip=ip)
             except DeviceClientError as e:
                 err = str(e)
@@ -135,16 +136,14 @@ class DeviceFilesBrowserMixin:
     ) -> None:
         self._set_busy(False)
         if err:
-            self.status_label.configure(text="연결 실패", text_color=COLOR_DANGER[0])
+            self.status_label.configure(text=t("gui.device.connect_fail"), text_color=COLOR_DANGER[0])
             self._all_items = []
             self._fill_tree([])
             self.summary_label.configure(text="")
-            self.app._log_message(f"❌ [{ip}] 파일 목록 실패: {err}")
+            self.app._log_message(t("gui.device.log_list_fail", ip=ip, err=err))
             messagebox.showerror(
-                "파일 목록 실패",
-                f"기기({ip})에서 목록을 가져오지 못했습니다.\n\n"
-                f"{err}\n\n"
-                "기기가 File Transfer 모드인지, 같은 Wi-Fi인지 확인해 주세요.",
+                t("gui.device.list_fail_title"),
+                t("gui.device.list_fail_body", ip=ip, err=err),
             )
             return
 
@@ -156,9 +155,9 @@ class DeviceFilesBrowserMixin:
             self.status_label.configure(text=status_text, text_color=COLOR_SUCCESS[0])
         else:
             self.status_label.configure(
-                text=status_text or "연결됨(상태 미지원)", text_color=COLOR_WARNING[0]
+                text=status_text or t("gui.device.connected_no_status"), text_color=COLOR_WARNING[0]
             )
-        self.app._log_message(f"✅ [{ip}] {path} — {len(items)}개 항목")
+        self.app._log_message(t("gui.device.log_list_ok", ip=ip, path=path, count=len(items)))
 
     def _apply_filter_to_tree(self) -> None:
         q = (self.filter_var.get() or "").strip().lower()
@@ -176,7 +175,7 @@ class DeviceFilesBrowserMixin:
         dir_count = sum(1 for i in filtered if i.get("isDirectory"))
         total_size = sum(int(i.get("size") or 0) for i in filtered if not i.get("isDirectory"))
         self.summary_label.configure(
-            text=f"폴더 {dir_count} · 파일 {file_count} · {format_file_size(total_size)}"
+            text=t("gui.device.summary", dirs=dir_count, files=file_count, size=format_file_size(total_size))
         )
 
     def _fill_tree(self, items: list[dict]) -> None:
@@ -187,13 +186,13 @@ class DeviceFilesBrowserMixin:
             iid = str(idx)
             self._items_by_iid[iid] = item
             if item.get("isDirectory"):
-                kind = "📁 폴더"
+                kind = t("gui.device.kind_folder")
                 size_s = "-"
             elif item.get("isEpub"):
-                kind = "📕 EPUB"
+                kind = t("gui.device.kind_epub")
                 size_s = format_file_size(item.get("size"))
             else:
-                kind = "📄 파일"
+                kind = t("gui.device.kind_file")
                 size_s = format_file_size(item.get("size"))
             self.file_tree.insert(
                 "", "end", iid=iid, values=(kind, item.get("name", ""), size_s)
@@ -240,4 +239,3 @@ class DeviceFilesBrowserMixin:
     # ------------------------------------------------------------------
     # 삭제 / 폴더 / 이름변경 / 이동
     # ------------------------------------------------------------------
-

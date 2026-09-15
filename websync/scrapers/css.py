@@ -2,6 +2,7 @@
 from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, ensure_article_url, fetch_url
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
+from websync.i18n import t
 
 
 def _reparse_fragment(elem):
@@ -43,7 +44,7 @@ class CssSelectorScraper(BaseScraper):
         url = site_config.get("url")
         item_selector = (site_config.get("item_selector") or "").strip()
         if not item_selector:
-            raise Exception("아이템 선택자(item_selector)가 비어 있습니다.")
+            raise Exception(t("css.empty_item_selector"))
         title_selector = site_config.get("title_selector", ".post-title")
         content_selector = site_config.get("content_selector", ".post-content")
         # 미지정 시 기존 동작 유지 (첫 a[href])
@@ -58,7 +59,7 @@ class CssSelectorScraper(BaseScraper):
             response = fetch_url(url, headers=headers, timeout=15)
             response.raise_for_status()
         except Exception as e:
-            raise Exception(f"HTTP 접속 실패: {e}") from e
+            raise Exception(t("css.http_failed", error=e)) from e
 
         if response.encoding == "ISO-8859-1":
             response.encoding = response.apparent_encoding
@@ -67,10 +68,10 @@ class CssSelectorScraper(BaseScraper):
         try:
             posts = soup.select(item_selector)[:limit]
         except Exception as e:
-            raise Exception(f"아이템 선택자 문법 오류: {e}") from e
+            raise Exception(t("css.item_selector_syntax", error=e)) from e
 
         if not posts:
-            raise Exception("아이템 선택자(Item Selector)에 매칭되는 요소를 찾지 못했습니다.")
+            raise Exception(t("css.no_items"))
 
         articles = []
         skipped = 0
@@ -81,7 +82,7 @@ class CssSelectorScraper(BaseScraper):
                 title = self._extract_title(post, title_selector)
                 if not title:
                     skipped += 1
-                    print(f"⚠️ {idx+1}번째 글 제목 요소를 찾지 못했습니다. 건너뜁니다.")
+                    print(t("css.title_missing", n=idx + 1))
                     continue
 
                 art_url = self._extract_link(post, link_selector, url)
@@ -95,7 +96,7 @@ class CssSelectorScraper(BaseScraper):
                     )
                     if content_elem is None:
                         skipped += 1
-                        print(f"⚠️ 상세 페이지 본문 실패, 목록 본문으로 폴백하지 않고 스킵: {title}")
+                        print(t("css.detail_skip", title=title))
                         continue
                     if used_detail_fallback:
                         detail_fallback += 1
@@ -105,13 +106,11 @@ class CssSelectorScraper(BaseScraper):
                     )
                     if content_elem is None:
                         skipped += 1
-                        print(f"⚠️ {idx+1}번째 글 본문 요소를 찾지 못했습니다. 건너뜁니다.")
+                        print(t("css.content_missing", n=idx + 1))
                         continue
                     if used_list_fallback:
                         content_fallback += 1
-                        print(
-                            f"⚠️ {idx+1}번째 글: 본문 선택자 미매칭 → 목록 아이템 전체를 본문으로 사용"
-                        )
+                        print(t("css.list_fallback", n=idx + 1))
 
                 content_html = str(content_elem)
                 art_url = ensure_article_url(art_url, url, title)
@@ -123,7 +122,7 @@ class CssSelectorScraper(BaseScraper):
                 articles.append(art)
             except Exception as e:
                 skipped += 1
-                print(f"⚠️ 글 수집 중 세부 오류 패스: {e}")
+                print(t("css.item_error", error=e))
                 continue
 
         self.last_fetch_stats = {
@@ -133,9 +132,7 @@ class CssSelectorScraper(BaseScraper):
             "detail_fallback_count": detail_fallback,
         }
         if posts and not articles:
-            raise Exception(
-                f"목록 {len(posts)}건 중 본문 수집 성공 0건 (선택자·상세 페이지 설정을 확인하세요)"
-            )
+            raise Exception(t("css.zero_body", n=len(posts)))
         return articles
 
     @staticmethod
@@ -284,5 +281,5 @@ class CssSelectorScraper(BaseScraper):
             maybe_strip_images(content_elem, site_config)
             return content_elem, used_fallback
         except Exception as e:
-            print(f"⚠️ 상세 페이지 수집 실패 ({art_url}): {e}")
+            print(t("css.detail_failed", url=art_url, error=e))
             return None, False

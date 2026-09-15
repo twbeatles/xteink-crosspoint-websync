@@ -51,7 +51,12 @@
 | **`naver`** | 네이버 블로그 (스마트에디터 One/구버전 본문 정제) | `https://blog.naver.com/아이디` |
 | **`tistory`** | 티스토리 블로그 (요약 피드 우회 및 본문 직접 수집) | `https://jojoldu.tistory.com` |
 | **`brunch`** | 카카오 브런치 작가 글 | `https://brunch.co.kr/@작가ID` |
+| **`newneek`** | 뉴닉 글 (사이트맵 + `__NEXT_DATA__`) | `https://newneek.co/@newneek` |
+| **`substack`** | Substack 뉴스레터 | `https://example.substack.com` |
 | **`naver_cafe`** | 네이버 **공개** 카페 게시판 (로그인 불필요 글) | `https://cafe.naver.com/카페ID` |
+| **`naver_post`** | 네이버 포스트 — **서비스 종료**, 명확한 오류 안내 | — |
+| **`soonsal`** | 순살브리핑 뉴스레터 아카이브 | `https://soonsal.com/newsletters/` |
+| **`moneyletter`** | 어피티 머니레터 아카이브 | 머니레터 아카이브 URL |
 | **`youtube`** | 유튜브 채널 RSS의 최근 영상 한국어 자막 텍스트 변환 | `https://www.youtube.com/feeds/videos.xml?channel_id=UC...` |
 | **`css`** | 일반 웹페이지 HTML 크롤링 (선택자 도우미 지원) | 일반 웹사이트 목록 페이지 URL |
 
@@ -209,8 +214,9 @@ X3 기기를 **File Transfer 모드**로 전환한 후 **[📁 기기 파일]** 
 
 **[고급 & 서버 설정]** 탭에서 제공하는 다양한 커스터마이징 기능입니다.
 
-* 🎨 **화면 UI 테마 & 가독성 폰트**:
+* 🎨 **화면 UI 테마 & 표시 언어 & 가독성 폰트**:
   * `System`(OS 설정 추종), `Dark`(다크 모드), `Light`(라이트 모드) 지원
+  * **표시 언어**: 자동(OS UI 언어) / 한국어 / English. 변경 후 앱을 다시 시작하면 적용됩니다.
   * 전 화면에 **맑은 고딕(Malgun Gothic)** 기반의 또렷하고 큰 폰트 적용
 * 📖 **EPUB 스타일 & 일간 합본**:
   * 폰트 패밀리(명조/고딕), 폰트 크기, 줄 간격 미세 조정

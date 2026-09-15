@@ -1,6 +1,7 @@
 """SubstackScraper"""
 from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url
 from bs4 import BeautifulSoup
+from websync.i18n import t
 
 class SubstackScraper(BaseScraper):
     """Substack 뉴스레터 전용 스크래퍼 - RSS 전문을 수신 후 Substack 고유 요소 클렌징"""
@@ -35,5 +36,5 @@ class SubstackScraper(BaseScraper):
                 link = ensure_article_url(link, url, title)
                 articles.append({"title": title, "content": clean_content, "url": link})
         except Exception as e:
-            raise Exception(f"Substack 수집 실패: {e}") from e
+            raise Exception(t("substack.failed", error=e)) from e
         return articles

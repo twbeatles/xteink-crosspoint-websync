@@ -14,6 +14,7 @@ from websync.scrapers.moneyletter import MoneyLetterScraper
 from websync.scrapers.velog import VelogScraper
 from websync.scrapers.newneek import NewneekScraper
 from websync.scrapers.types import SCRAPER_TYPES
+from websync.i18n import t
 
 
 class ScraperFactory:
@@ -39,7 +40,7 @@ class ScraperFactory:
     def get_scraper(cls, scraper_type: str) -> BaseScraper:
         scraper = cls._scrapers.get(scraper_type.lower())
         if not scraper:
-            raise ValueError(f"지원하지 않는 스크래퍼 타입: {scraper_type}")
+            raise ValueError(t("factory.unsupported", type=scraper_type))
         return scraper
 
     @classmethod

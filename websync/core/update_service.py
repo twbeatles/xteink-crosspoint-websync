@@ -31,6 +31,7 @@ from websync.core.update_manifest import (
     download_release_manifest,
     verify_release_manifest,
 )
+from websync.i18n import t
 
 
 class UpdateService:
@@ -56,20 +57,20 @@ class UpdateService:
         새 버전이 없거나 확인 중 오류 발생 시 None을 반환하거나 예외를 발생시킵니다.
         """
         try:
-            self.logger.info(f"업데이트 확인 요청: {self.manifest_url}")
+            self.logger.info(t("update.checking", url=self.manifest_url))
             manifest_bytes = download_release_manifest(self.manifest_url)
             manifest = verify_release_manifest(
                 manifest_bytes,
                 public_key=self.public_key,
                 current_version=self.current_version,
             )
-            self.logger.info(f"새 업데이트 발견: v{manifest.version}")
+            self.logger.info(t("update.found", version=manifest.version))
             return manifest
         except NoUpdateAvailableError:
-            self.logger.info(f"현재 버전(v{self.current_version})이 최신 버전입니다.")
+            self.logger.info(t("update.up_to_date", version=self.current_version))
             return None
         except Exception as exc:
-            self.logger.warning(f"업데이트 확인 실패: {exc}")
+            self.logger.warning(t("update.check_failed", error=exc))
             raise
 
     def check_last_result(self) -> dict[str, object] | None:
@@ -101,7 +102,7 @@ class UpdateService:
             cancel_event=cancel_event,
         )
         if staged_path is None or not staged_path.is_file():
-            raise RuntimeError("스테이징 파일 준비 실패")
+            raise RuntimeError(t("update.stage_failed"))
 
         return staged_path
 
@@ -125,12 +126,9 @@ class UpdateService:
                 expected_size=manifest.artifact_size,
                 result_file=result_file,
             )
-            self.logger.info("업데이터 헬퍼 기동 완료. 본 프로세스를 종료합니다.")
+            self.logger.info(t("update.helper_started"))
             sys.exit(0)
         else:
             # 개발 환경에서는 직접 교체 대신 에러를 발생시켜 GUI/호출자가 처리하도록 함
-            self.logger.info(f"개발 환경(non-frozen)에서는 바이너리 교체를 생략합니다: {staged_path}")
-            raise RuntimeError(
-                f"개발 모드(소스 코드 실행)에서는 바이너리 자동 교체가 지원되지 않습니다.\n"
-                f"다운로드된 파일: {staged_path}"
-            )
+            self.logger.info(t("update.dev_skip", path=staged_path))
+            raise RuntimeError(t("update.dev_unsupported", path=staged_path))

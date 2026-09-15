@@ -13,12 +13,13 @@ from websync.gui.widgets import (
 )
 from websync.upload.uploader import X3Uploader, normalize_device_host
 from websync.config.exceptions import ConfigSaveError, ConfigLoadError
+from websync.i18n import t
 
 
 class SyncPreviewMixin:
     def open_preview_window(self):
         """프리뷰 실행 후 결과를 새 윈도우에 체크박스와 함께 표시합니다."""
-        self.app._log_message("\n🔍 프리뷰 스크래핑을 실행합니다...")
+        self.app._log_message(t("gui.preview.log_start"))
         self.app._set_sync_ui_busy(True)
         self.app.bottom_bar.progress_bar["value"] = 0
 
@@ -27,34 +28,39 @@ class SyncPreviewMixin:
             prog_cb = self.app._make_progress_callback()
             self._preview_data = self.service.preview_articles(log_callback=log_cb, progress_callback=prog_cb)
             
-            self.master.after(0, self._show_preview_results)
+            try:
+                self.master.after(0, self._show_preview_results)
+            except tk.TclError:
+                return
 
-        threading.Thread(target=run, daemon=True).start()
+        worker = threading.Thread(target=run, daemon=True)
+        self.service.attach_pipeline_thread(worker)
+        worker.start()
 
     def _show_preview_results(self):
         self.app._set_sync_ui_busy(False)
         self.app.bottom_bar.progress_bar["value"] = 0
-        self.app._log_message("🔍 프리뷰 스크래핑이 완료되었습니다.\n")
+        self.app._log_message(t("gui.preview.log_done"))
 
         if not self._preview_data:
-            messagebox.showinfo("프리뷰 결과", "수집된 새로운 기사가 없습니다.")
+            messagebox.showinfo(t("gui.preview.result_title"), t("gui.preview.no_articles"))
             return
 
         dialog = tk.Toplevel(self.app.root)
-        dialog.title("기사 프리뷰 및 선택 전송")
+        dialog.title(t("gui.preview.window_title"))
         dialog.geometry("700x500")
         setup_dialog(dialog, self.app.root, 700, 500)
 
         # 안내
-        lbl = ttk.Label(dialog, text="수집된 신규 기사 중 전송할 기사를 선택한 뒤 아래 버튼을 누르세요.")
+        lbl = ttk.Label(dialog, text=t("gui.preview.hint"))
         lbl.pack(fill="x", padx=15, pady=10)
 
         # 테이블
         columns = ("selected", "site", "title", "url")
         tree = create_scrolled_tree(dialog, columns, height=12)
-        tree.heading("selected", text="선택")
-        tree.heading("site", text="사이트")
-        tree.heading("title", text="기사 제목")
+        tree.heading("selected", text=t("gui.preview.col_select"))
+        tree.heading("site", text=t("gui.preview.col_site"))
+        tree.heading("title", text=t("gui.preview.col_title"))
         tree.heading("url", text="URL")
         
         tree.column("selected", width=50, anchor="center")
@@ -98,7 +104,7 @@ class SyncPreviewMixin:
         def run_selected_sync():
             selected_arts = [self._preview_data[i] for i, checked in checked_state.items() if checked]
             if not selected_arts:
-                messagebox.showwarning("선택 누락", "전송할 기사를 최소 하나 이상 선택해 주세요.", parent=dialog)
+                messagebox.showwarning(t("gui.preview.none_selected_title"), t("gui.preview.none_selected"), parent=dialog)
                 return
             
             dialog.destroy()
@@ -107,24 +113,29 @@ class SyncPreviewMixin:
         btn_bar = ttk.Frame(dialog)
         btn_bar.pack(fill="x", side="bottom", pady=10, padx=15)
         
-        ttk.Button(btn_bar, text="전체 선택/해제", command=toggle_all).pack(side="left")
-        ttk.Button(btn_bar, text="취소", command=dialog.destroy).pack(side="right", padx=5)
-        ttk.Button(btn_bar, text="★ 선택 기사 기기로 전송", command=run_selected_sync).pack(side="right")
+        ttk.Button(btn_bar, text=t("gui.preview.toggle_all"), command=toggle_all).pack(side="left")
+        ttk.Button(btn_bar, text=t("gui.sync.cancel"), command=dialog.destroy).pack(side="right", padx=5)
+        ttk.Button(btn_bar, text=t("gui.preview.send_selected"), command=run_selected_sync).pack(side="right")
 
     def _run_selected_sync_task(self, selected_articles):
         if self.service.is_pipeline_running():
-            messagebox.showwarning("실행 제한", "현재 다른 동기화 작업이 실행 중입니다. 완료 후 다시 시도해 주세요.")
+            messagebox.showwarning(t("gui.preview.busy_title"), t("gui.preview.busy"))
             return
 
         self.app._set_sync_ui_busy(True)
         self.app.bottom_bar.progress_bar["value"] = 0
-        self.app._log_message(f"\n=== 선택 기사 {len(selected_articles)}건 동기화 실행 ===")
+        self.app._log_message(t("gui.preview.log_selected", count=len(selected_articles)))
 
         def task():
             log_cb = self.app._make_log_callback()
             prog_cb = self.app._make_progress_callback()
             self.service.sync_selected_articles(selected_articles, log_callback=log_cb, progress_callback=prog_cb)
-            self.master.after(0, self.app._sync_finished_ui)
+            try:
+                self.master.after(0, self.app._sync_finished_ui)
+            except tk.TclError:
+                return
 
-        threading.Thread(target=task, daemon=True).start()
+        worker = threading.Thread(target=task, daemon=True)
+        self.service.attach_pipeline_thread(worker)
+        worker.start()
 

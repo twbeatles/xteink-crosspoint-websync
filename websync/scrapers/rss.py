@@ -13,6 +13,7 @@ from websync.scrapers.base import (
     fetch_url,
     maybe_strip_images,
 )
+from websync.i18n import t
 
 
 def _decode_feed_xml(response) -> str:
@@ -50,7 +51,7 @@ class RssScraper(BaseScraper):
             response = fetch_url(url, timeout=15)
             response.raise_for_status()
         except Exception as e:
-            raise Exception(f"RSS XML 다운로드 실패: {e}") from e
+            raise Exception(t("rss.download_failed", error=e)) from e
 
         xml_text = _decode_feed_xml(response)
         # lxml-xml 이 있으면 사용, 없으면 xml
@@ -64,7 +65,7 @@ class RssScraper(BaseScraper):
             items = soup.find_all("entry")[:limit]
 
         if not items:
-            raise Exception("XML 내에서 item 또는 entry 요소를 찾을 수 없습니다.")
+            raise Exception(t("rss.no_items"))
 
         articles = []
         for item in items:
@@ -105,12 +106,11 @@ class RssScraper(BaseScraper):
                         parts.append(f"<p>{html_lib.escape(text)}</p>")
                     if art_url:
                         safe = html_lib.escape(art_url, quote=True)
-                        parts.append(f'<p><a href="{safe}">원문 링크</a></p>')
+                        parts.append(
+                            f'<p><a href="{safe}">{t("rss.original_link")}</a></p>'
+                        )
                         parts.append(f"<p>{html_lib.escape(art_url)}</p>")
-                    parts.append(
-                        "<p>(RSS 피드에 본문 전문이 없어 제목·요약·링크 위주로 포함합니다. "
-                        "전문이 필요하면 전용 스크래퍼나 상세 수집을 사용하세요.)</p>"
-                    )
+                    parts.append(f"<p>{t('rss.summary_only')}</p>")
                     content_html = "".join(parts)
                 else:
                     content_html = str(content_soup)
@@ -118,7 +118,7 @@ class RssScraper(BaseScraper):
                 art_url = ensure_article_url(art_url, url, title)
                 articles.append({"title": title, "content": content_html, "url": art_url})
             except Exception as e:
-                print(f"⚠️ RSS 아이템 분석 중 오류 패스: {e}")
+                print(t("rss.item_error", error=e))
                 continue
 
         return articles

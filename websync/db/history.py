@@ -4,6 +4,7 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime
 from websync.core.paths import PROJECT_ROOT, resolve_path
+from websync.i18n import t
 
 LEGACY_DEVICE_IP = "*"
 HISTORY_MODE_PER_DEVICE = "per_device"
@@ -74,7 +75,7 @@ class SyncHistoryDb:
             except SyncHistoryDbError:
                 raise
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 초기화 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.init_failed", error=e)) from e
 
     @staticmethod
     def _create_v2_table(conn: sqlite3.Connection):
@@ -130,7 +131,7 @@ class SyncHistoryDb:
                     )
                     return cursor.fetchone() is not None
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 조회 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.query_failed", error=e)) from e
 
     def is_synced_for_any_key(self, url: str, keys: list[str]) -> bool:
         """여러 이력 키(안정 id / IP / 예전 호스트) 중 하나라도 있으면 True."""
@@ -226,7 +227,7 @@ class SyncHistoryDb:
                     cursor.execute("SELECT 1 FROM synced_posts WHERE url = ? LIMIT 1", (url,))
                     return cursor.fetchone() is not None
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 조회 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.query_failed", error=e)) from e
 
     def mark_synced(self, url: str, site_name: str, title: str, device_ip: str):
         """특정 기기에 대한 전송 완료 이력을 저장합니다."""
@@ -278,7 +279,7 @@ class SyncHistoryDb:
                     conn.commit()
                     return len(rows)
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 기록 저장 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.write_failed", error=e)) from e
 
     def remap_legacy_star_to_device(self, device_ip: str) -> int:
         """레거시 device_ip='*' 행을 지정 기기 IP로 이관합니다. Returns: 갱신 건수."""
@@ -317,7 +318,7 @@ class SyncHistoryDb:
                     conn.commit()
                     return changed
             except Exception as e:
-                raise SyncHistoryDbError(f"레거시 이력 이관 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.legacy_failed", error=e)) from e
 
     def get_history(self, limit: int = 200) -> list:
         """동기화 이력을 최신순으로 반환 (URL 기준 집계)."""
@@ -337,7 +338,7 @@ class SyncHistoryDb:
                     )
                     return cursor.fetchall()
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 이력 조회 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.history_query_failed", error=e)) from e
 
     def delete_entry(self, url: str):
         """특정 URL의 모든 기기 동기화 이력 삭제 (재전송 허용)."""
@@ -358,7 +359,7 @@ class SyncHistoryDb:
                     cursor.execute("DELETE FROM synced_posts WHERE url = ?", (url,))
                     conn.commit()
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 이력 삭제 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.delete_failed", error=e)) from e
 
     def clear_all(self):
         """모든 동기화 이력 초기화"""
@@ -377,7 +378,7 @@ class SyncHistoryDb:
                     cursor.execute("DELETE FROM synced_posts")
                     conn.commit()
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 전체 초기화 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.clear_failed", error=e)) from e
 
     def get_count(self) -> int:
         """고유 URL 이력 건수 반환"""
@@ -389,7 +390,7 @@ class SyncHistoryDb:
                     row = cursor.fetchone()
                     return row[0] if row else 0
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 건수 조회 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.count_failed", error=e)) from e
 
     def export_all_posts(self) -> list[dict]:
         """전체 전송 이력을 dict 목록으로 반환 (백업/클라우드 동기화용)."""
@@ -416,7 +417,7 @@ class SyncHistoryDb:
                         for row in rows
                     ]
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 이력 내보내기 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.export_failed", error=e)) from e
 
     def export_deleted_posts(self) -> list[dict]:
         """클라우드 동기화에서 삭제를 전파할 tombstone 목록을 반환합니다."""
@@ -434,7 +435,7 @@ class SyncHistoryDb:
                         for row in rows
                     ]
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 삭제 이력 내보내기 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.export_deleted_failed", error=e)) from e
 
     def import_deleted_posts(self, deleted_posts: list[dict]) -> int:
         """원격 tombstone을 병합하고 그보다 오래된 전송 이력을 제거합니다."""
@@ -477,7 +478,7 @@ class SyncHistoryDb:
                             )
                     return changed
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 삭제 이력 가져오기 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.import_deleted_failed", error=e)) from e
 
     @staticmethod
     def _time_key(value: str) -> str:
@@ -586,4 +587,4 @@ class SyncHistoryDb:
                     conn.commit()
                     return changed
             except Exception as e:
-                raise SyncHistoryDbError(f"DB 이력 가져오기 실패: {e}") from e
+                raise SyncHistoryDbError(t("db.import_failed", error=e)) from e

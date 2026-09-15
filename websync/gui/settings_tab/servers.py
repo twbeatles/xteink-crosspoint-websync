@@ -15,6 +15,7 @@ from websync.core.logger import get_log_dir
 from websync.servers.opds import OPDSServer
 from websync.servers.web_dashboard import WebDashboard
 from websync.watch.calibre import CalibreWatcher
+from websync.i18n import t
 
 
 class SettingsServersMixin:
@@ -22,8 +23,8 @@ class SettingsServersMixin:
         if self.app._opds_server and self.app._opds_server.is_running:
             self.app._opds_server.stop()
             self.app._opds_server = None
-            self.opds_start_btn.configure(text="▶ 서버 시작")
-            self.opds_status_label.configure(text="중지됨", text_color=RED_COLOR)
+            self.opds_start_btn.configure(text=t("gui.settings.server_start"))
+            self.opds_status_label.configure(text=t("gui.settings.stopped"), text_color=RED_COLOR)
             self.opds_url_label.configure(text="")
         else:
             try:
@@ -44,21 +45,21 @@ class SettingsServersMixin:
                 require_auth=allow_lan,
             )
             if self.app._opds_server.start():
-                self.opds_start_btn.configure(text="■ 서버 중지")
-                self.opds_status_label.configure(text="실행 중 ✅", text_color=GREEN_COLOR)
+                self.opds_start_btn.configure(text=t("gui.settings.server_stop"))
+                self.opds_status_label.configure(text=t("gui.settings.running"), text_color=GREEN_COLOR)
                 url = self.app._opds_server.get_url()
                 self.opds_url_label.configure(text=url)
-                self.app._log_message(f"📡 OPDS 서버 시작: {url}")
+                self.app._log_message(t("gui.settings.opds.log_start", url=url))
                 self._refresh_opds_key_display()
             else:
-                messagebox.showerror("오류", f"OPDS 서버 시작 실패. 포트 {port}이 이미 사용 중일 수 있습니다.")
+                messagebox.showerror(t("dialog.error"), t("gui.settings.opds.start_fail", port=port))
 
     def _toggle_web(self):
         if self.app._web_dashboard and self.app._web_dashboard.is_running:
             self.app._web_dashboard.stop()
             self.app._web_dashboard = None
-            self.web_start_btn.configure(text="▶ 서버 시작")
-            self.web_status_label.configure(text="중지됨", text_color=RED_COLOR)
+            self.web_start_btn.configure(text=t("gui.settings.server_start"))
+            self.web_status_label.configure(text=t("gui.settings.stopped"), text_color=RED_COLOR)
             self.web_url_label.configure(text="")
         else:
             try:
@@ -94,19 +95,18 @@ class SettingsServersMixin:
             )
             if self.web_allow_lan_var.get():
                 if not messagebox.askyesno(
-                    "LAN 공개 경고",
-                    "LAN 공개 모드는 HTTP 평문으로 API 토큰이 전송됩니다.\n"
-                    "신뢰할 수 있는 네트워크에서만 계속하시겠습니까?",
+                    t("gui.settings.web.lan_warn_title"),
+                    t("gui.settings.web.lan_warn"),
                     icon="warning",
                 ):
                     return
             if self.app._web_dashboard.start():
-                self.web_start_btn.configure(text="■ 서버 중지")
-                self.web_status_label.configure(text="실행 중 ✅", text_color=GREEN_COLOR)
+                self.web_start_btn.configure(text=t("gui.settings.server_stop"))
+                self.web_status_label.configure(text=t("gui.settings.running"), text_color=GREEN_COLOR)
                 url = self.app._web_dashboard.get_url()
                 self.web_url_label.configure(text=url)
-                self.app._log_message(f"🌐 웹 대시보드 시작: {url}")
+                self.app._log_message(t("gui.settings.web.log_start", url=url))
                 self._refresh_web_token_display()
             else:
-                messagebox.showerror("오류", f"웹 대시보드 시작 실패. 포트 {port}이 이미 사용 중일 수 있습니다.")
+                messagebox.showerror(t("dialog.error"), t("gui.settings.web.start_fail", port=port))
 

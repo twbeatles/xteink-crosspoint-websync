@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+from websync.i18n import t
+
 
 class ToastNotifier:
     """플랫폼별 데스크톱 알림 (Windows PowerShell / macOS osascript / Linux notify-send)"""
@@ -37,8 +39,8 @@ class ToastNotifier:
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
         except Exception as e:
-            print(f"⚠️ 시스템 알림 표시 실패: {e}")
-            print(f"[알림] {title}: {text}")
+            print(t("notify.show_fail", error=e))
+            print(t("notify.fallback", title=title, text=text))
 
     @staticmethod
     def _show_macos(title: str, text: str):
@@ -52,7 +54,7 @@ class ToastNotifier:
                 stderr=subprocess.DEVNULL,
             )
         except Exception:
-            print(f"[알림] {title}: {text}")
+            print(t("notify.fallback", title=title, text=text))
 
     @staticmethod
     def _show_linux(title: str, text: str):
@@ -63,7 +65,7 @@ class ToastNotifier:
                 stderr=subprocess.DEVNULL,
             )
         except FileNotFoundError:
-            print(f"[알림] {title}: {text}")
+            print(t("notify.fallback", title=title, text=text))
         except Exception as e:
-            print(f"⚠️ 시스템 알림 표시 실패: {e}")
-            print(f"[알림] {title}: {text}")
+            print(t("notify.show_fail", error=e))
+            print(t("notify.fallback", title=title, text=text))

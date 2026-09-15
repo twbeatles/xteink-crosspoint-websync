@@ -15,6 +15,7 @@ from websync.servers.dashboard.session import (
     token_matches,
 )
 from websync.servers.dashboard.templates_loader import login_html, dashboard_html
+from websync.i18n import t
 
 if TYPE_CHECKING:
     from websync.servers.dashboard.http_server import DashboardHTTPServer
@@ -126,7 +127,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if self.path == "/api/login":
             token = self._ctx.api_token
             if not token:
-                self._send_json(503, {"error": "API 토큰이 설정되지 않았습니다."})
+                self._send_json(503, {"error": t("dashboard.no_token")})
                 return
             auth = self.headers.get("Authorization", "")
             token_ok = auth.startswith("Bearer ") and token_matches(auth[7:].strip(), token)
@@ -139,7 +140,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 except Exception:
                     token_ok = False
             if not token_ok:
-                self._send_json(401, {"error": "잘못된 API 토큰입니다."})
+                self._send_json(401, {"error": t("dashboard.bad_token")})
                 return
             session_val = session_value(token)
             cookie_flags = (
@@ -163,16 +164,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             busy_cb = self._ctx.pipeline_busy_callback
             if busy_cb and busy_cb():
-                self._send_json(409, {"ok": False, "message": "⚠️ 동기화가 이미 실행 중입니다."})
+                self._send_json(409, {"ok": False, "message": t("dashboard.already_running")})
                 return
             sync_cb = self._ctx.sync_callback
             if not sync_cb:
-                self._send_json(503, {"ok": False, "message": "동기화 콜백이 설정되지 않았습니다."})
+                self._send_json(503, {"ok": False, "message": t("dashboard.no_sync_cb")})
                 return
 
             # 기동 직전 재확인 (TOCTOU 완화)
             if busy_cb and busy_cb():
-                self._send_json(409, {"ok": False, "message": "⚠️ 동기화가 이미 실행 중입니다."})
+                self._send_json(409, {"ok": False, "message": t("dashboard.already_running")})
                 return
 
             # sync_callback 계약:
@@ -185,7 +186,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send_json(
                     500,
-                    {"ok": False, "message": f"❌ 동기화 기동 실패: {e}"},
+                    {"ok": False, "message": t("dashboard.start_failed", error=e)},
                 )
                 return
 
@@ -195,7 +196,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     {
                         "ok": False,
                         "started": False,
-                        "message": "⚠️ 동기화가 이미 실행 중이거나 기동할 수 없습니다.",
+                        "message": t("dashboard.cannot_start"),
                     },
                 )
                 return
@@ -205,7 +206,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "started": True,
-                    "message": "✅ 동기화가 백그라운드에서 시작됩니다.",
+                    "message": t("dashboard.started"),
                 },
             )
         elif self.path == "/api/cancel":
@@ -213,13 +214,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             cancel_cb = self._ctx.cancel_callback
             if not cancel_cb:
-                self._send_json(503, {"ok": False, "message": "취소 콜백이 설정되지 않았습니다."})
+                self._send_json(503, {"ok": False, "message": t("dashboard.no_cancel_cb")})
                 return
             try:
                 cancel_cb()
             except Exception as e:
-                self._send_json(500, {"ok": False, "message": f"취소 요청 실패: {e}"})
+                self._send_json(500, {"ok": False, "message": t("dashboard.cancel_failed", error=e)})
                 return
-            self._send_json(200, {"ok": True, "message": "⏹ 동기화 취소가 요청되었습니다."})
+            self._send_json(200, {"ok": True, "message": t("dashboard.cancel_requested")})
         else:
             self.send_error(404)

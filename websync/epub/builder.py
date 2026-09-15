@@ -11,6 +11,7 @@ from websync.core.logger import get_logger
 from websync.epub.cover import make_cover_image
 from websync.epub.css import build_default_css, load_theme_css, resolve_css
 from websync.epub.sanitize import sanitize_body_html
+from websync.i18n import t
 
 
 class EpubBuilder:
@@ -160,7 +161,7 @@ class EpubBuilder:
 
         total_articles = sum(len(arts) for arts in articles_by_site.values())
         if total_articles == 0:
-            raise ValueError("합본할 기사가 없습니다")
+            raise ValueError(t("epub.digest.empty"))
 
         filename = f"Daily_Digest_{today}.epub"
         epub_path = os.path.join(self.output_dir, filename)
@@ -176,7 +177,7 @@ class EpubBuilder:
         book.add_metadata(
             "DC",
             "description",
-            f"{len(articles_by_site)}개 사이트 {total_articles}개 기사 합본",
+            t("epub.digest.description", sites=len(articles_by_site), articles=total_articles),
         )
 
         if generate_cover:
@@ -204,7 +205,7 @@ class EpubBuilder:
             section_chapters = []
             for art in articles:
                 chapter_num += 1
-                title = art.get("title", f"기사 {chapter_num}")
+                title = art.get("title", t("epub.digest.untitled", n=chapter_num))
                 safe_title = html.escape(title, quote=True)
                 body_html = self._sanitize_body_html(art.get("content", ""))
                 summary_html = art.get("summary_html", "")

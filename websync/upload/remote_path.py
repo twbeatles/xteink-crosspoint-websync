@@ -1,6 +1,8 @@
 """기기 SD 원격 경로 유틸 (정규화·결합·크기 표시)."""
 from __future__ import annotations
 
+from websync.i18n import t
+
 
 def normalize_remote_path(path: str | None) -> str:
     """원격 경로를 `/` 또는 `/a/b` 형태로 정규화. `..` 세그먼트 제거."""
@@ -30,7 +32,7 @@ def join_remote_path(parent: str, name: str) -> str:
     parent_n = normalize_remote_path(parent)
     name = (name or "").strip().replace("\\", "/").strip("/")
     if not name or name in (".", "..") or "/" in name:
-        raise ValueError(f"잘못된 파일/폴더 이름: {name!r}")
+        raise ValueError(t("device.bad_name", name=repr(name)))
     if parent_n == "/":
         return f"/{name}"
     return f"{parent_n}/{name}"

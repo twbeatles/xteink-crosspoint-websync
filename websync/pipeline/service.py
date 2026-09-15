@@ -1,4 +1,5 @@
 import threading
+import time
 from typing import Callable, Optional
 
 from websync.epub.builder import EpubBuilder
@@ -12,6 +13,7 @@ from websync.pipeline.article_keys import article_sync_key
 from websync.pipeline.sync_pipeline import run_sync_pipeline_locked
 from websync.pipeline.preview import preview_articles as run_preview_articles
 from websync.pipeline.selected_sync import sync_selected_articles as run_sync_selected_articles
+from websync.i18n import t
 
 
 class SyncService:
@@ -30,6 +32,7 @@ class SyncService:
         self._cancel_event = threading.Event()
         self._backup_push_timer: threading.Timer | None = None
         self._backup_timer_lock = threading.Lock()
+        self._pipeline_thread: threading.Thread | None = None
         self._apply_config_to_components()
         # dist 등과 함께 둔 synced_posts.json / *설정백업*.json 이어받기
         self._import_local_sidecars_once()
@@ -47,7 +50,7 @@ class SyncService:
                 for msg in result.get("messages") or []:
                     self.logger.info(f"[portable] {msg}")
         except Exception as e:
-            self.logger.warning(f"[portable] 로컬 사이드카 JSON 가져오기 건너뜀: {e}")
+            self.logger.warning(t("pipeline.backup.sidecar_skip", error=e))
 
     def _apply_config_to_components(self):
         self.epub_builder = EpubBuilder(
@@ -78,6 +81,21 @@ class SyncService:
         """실행 중인 파이프라인에 취소 요청 (사이트 경계에서 중단)."""
         self._cancel_event.set()
 
+    def attach_pipeline_thread(self, thread: threading.Thread) -> None:
+        """GUI 등 외부에서 기동한 파이프라인 스레드를 종료 대기에 등록합니다."""
+        self._pipeline_thread = thread
+
+    def shutdown_pipeline(self, timeout: float = 5.0) -> bool:
+        """취소를 요청하고 워커·락이 풀릴 때까지 최대 timeout 초 대기합니다."""
+        self.request_cancel()
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        thread = self._pipeline_thread
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
+        while self.is_pipeline_running() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        return not self.is_pipeline_running()
+
     def clear_cancel(self) -> None:
         self._cancel_event.clear()
 
@@ -106,16 +124,16 @@ class SyncService:
         self._reload_config()
         bs = self._backup_cfg()
         if not force and not (bs.get("enabled") and bs.get("auto_import_on_start", True)):
-            return {"ok": True, "skipped": True, "message": "자동 가져오기 비활성"}
+            return {"ok": True, "skipped": True, "message": t("pipeline.backup.auto_import_off")}
         if not self.backup_sync.is_configured() and not force:
-            return {"ok": True, "skipped": True, "message": "공유 데이터 폴더 미설정"}
+            return {"ok": True, "skipped": True, "message": t("pipeline.backup.folder_unset")}
         result = self.backup_sync.pull(force=force)
         self._reload_config()
         msg = result.get("message") or ""
         if msg and not result.get("skipped"):
             self.logger.info(f"[portable] pull: {msg}")
             if log_callback:
-                log_callback(f"☁ 공유 데이터 가져오기: {msg}")
+                log_callback(t("pipeline.backup.pull_log", msg=msg))
         return result
 
     def maybe_backup_push(
@@ -128,16 +146,16 @@ class SyncService:
         self._reload_config()
         bs = self._backup_cfg()
         if not force and not (bs.get("enabled") and bs.get("auto_export", True)):
-            return {"ok": True, "skipped": True, "message": "자동 내보내기 비활성"}
+            return {"ok": True, "skipped": True, "message": t("pipeline.backup.auto_export_off")}
         if not self.backup_sync.is_configured() and not force:
-            return {"ok": True, "skipped": True, "message": "공유 데이터 폴더 미설정"}
+            return {"ok": True, "skipped": True, "message": t("pipeline.backup.folder_unset")}
         result = self.backup_sync.push(force=force)
         self._reload_config()
         msg = result.get("message") or ""
         if msg and not result.get("skipped"):
             self.logger.info(f"[portable] push: {msg}")
             if log_callback:
-                log_callback(f"☁ 공유 데이터 내보내기: {msg}")
+                log_callback(t("pipeline.backup.push_log", msg=msg))
         return result
 
     def schedule_backup_push(self, delay: float = 1.5) -> None:
@@ -152,7 +170,7 @@ class SyncService:
             try:
                 self.maybe_backup_push()
             except Exception as e:
-                self.logger.warning(f"[portable] 예약 내보내기 실패: {e}")
+                self.logger.warning(t("pipeline.backup.schedule_fail", error=e))
 
         with self._backup_timer_lock:
             if self._backup_push_timer is not None:
@@ -177,7 +195,7 @@ class SyncService:
                 try:
                     self.maybe_backup_push(force=True)
                 except Exception as e:
-                    self.logger.warning(f"[portable] flush 백업 내보내기 실패: {e}")
+                    self.logger.warning(t("pipeline.backup.flush_fail", error=e))
 
     def run_backup_sync_now(
         self,
@@ -190,14 +208,14 @@ class SyncService:
         pull = result.get("pull") or {}
         push = result.get("push") or {}
         if pull.get("message"):
-            msg_parts.append(f"가져오기: {pull['message']}")
+            msg_parts.append(t("pipeline.backup.pull_part", msg=pull["message"]))
         if push.get("message"):
-            msg_parts.append(f"내보내기: {push['message']}")
+            msg_parts.append(t("pipeline.backup.push_part", msg=push["message"]))
         msg = " | ".join(msg_parts) if msg_parts else result.get("message", "")
         if msg:
             self.logger.info(f"[portable] sync_now: {msg}")
             if log_callback:
-                log_callback(f"☁ 공유 데이터 동기화: {msg}")
+                log_callback(t("pipeline.backup.sync_log", msg=msg))
         return result
 
     @staticmethod
@@ -210,7 +228,7 @@ class SyncService:
     ) -> bool:
         """파이프라인 스레드·프로세스 락을 비차단 획득. 실패 시 False."""
         if not self._pipeline_lock.acquire(blocking=False):
-            msg = "⚠️ 동기화가 이미 실행 중입니다. 완료 후 다시 시도해 주세요."
+            msg = t("pipeline.lock.already_running")
             self.logger.warning(msg)
             if log_callback:
                 log_callback(msg)
@@ -220,7 +238,7 @@ class SyncService:
 
         if not self._process_lock.acquire(blocking=False):
             self._pipeline_lock.release()
-            msg = "⚠️ 다른 프로세스에서 동기화가 실행 중입니다. 완료 후 다시 시도해 주세요."
+            msg = t("pipeline.lock.other_process")
             self.logger.warning(msg)
             if log_callback:
                 log_callback(msg)
@@ -263,16 +281,18 @@ class SyncService:
             try:
                 self._run_pipeline_body(log_callback, progress_callback)
             except Exception as e:
-                self.logger.exception(f"백그라운드 동기화 실패: {e}")
+                self.logger.exception(t("pipeline.bg_sync_fail_log", error=e))
                 if log_callback:
                     try:
-                        log_callback(f"❌ 백그라운드 동기화 실패: {e}")
+                        log_callback(t("pipeline.bg_sync_fail", error=e))
                     except Exception:
                         pass
             finally:
                 self._release_pipeline_locks()
 
-        threading.Thread(target=_run, daemon=True).start()
+        thread = threading.Thread(target=_run, daemon=True)
+        self._pipeline_thread = thread
+        thread.start()
         return True
 
     def run_sync_pipeline(

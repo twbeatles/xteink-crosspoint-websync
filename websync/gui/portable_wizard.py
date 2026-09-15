@@ -12,6 +12,7 @@ from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
 from websync.gui.widgets import (
     CardFrame, COLOR_CARD_BG, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT, get_font, setup_dialog
 )
+from websync.i18n import t
 
 if TYPE_CHECKING:
     from websync.pipeline.service import SyncService
@@ -44,7 +45,7 @@ class PortableDataWizard:
         self.result: str | None = None  # local | connect | create | None
 
         self.dialog = ctk.CTkToplevel(parent)
-        self.dialog.title("공유 데이터 폴더 설정")
+        self.dialog.title(t("gui.wizard.title"))
         self.dialog.transient(parent)
         setup_dialog(self.dialog, parent, 580, 420)
         self.dialog.protocol("WM_DELETE_WINDOW", self._on_local_only)
@@ -54,16 +55,14 @@ class PortableDataWizard:
 
         ctk.CTkLabel(
             outer,
-            text="PC를 바꿔도 사이트 목록과 전송 이력을 유지할까요?",
+            text=t("gui.wizard.question"),
             font=get_font(15, "bold"),
             text_color=COLOR_FG,
         ).pack(anchor="w", pady=(0, 8))
 
         ctk.CTkLabel(
             outer,
-            text="OneDrive·Google Drive 등 동기화되는 폴더를 지정하면\n"
-                 "구독 사이트와 ‘이미 보낸 글’ 이력이 여러 PC에서 공유됩니다.\n"
-                 "동기화 시 새 글만 전송할 수 있습니다.",
+            text=t("gui.wizard.body"),
             font=get_font(12),
             text_color=COLOR_SECONDARY_FG,
             justify="left",
@@ -74,7 +73,7 @@ class PortableDataWizard:
 
         ctk.CTkButton(
             btn_card,
-            text="기존 공유 폴더 연결…",
+            text=t("gui.wizard.connect"),
             font=get_font(13, "bold"),
             fg_color=COLOR_ACCENT[0],
             hover_color=COLOR_ACCENT[1],
@@ -84,7 +83,7 @@ class PortableDataWizard:
 
         ctk.CTkButton(
             btn_card,
-            text="새 공유 폴더 만들기…",
+            text=t("gui.wizard.create"),
             font=get_font(13),
             height=38,
             command=self._create_new,
@@ -92,7 +91,7 @@ class PortableDataWizard:
 
         ctk.CTkButton(
             btn_card,
-            text="이 PC만 사용 (나중에 설정)",
+            text=t("gui.wizard.local_only"),
             font=get_font(13),
             fg_color=("#e9ecef", "#343a40"),
             text_color=COLOR_FG,
@@ -102,7 +101,7 @@ class PortableDataWizard:
 
         ctk.CTkLabel(
             outer,
-            text="나중에 고급 설정 → 공유 데이터 폴더에서도 변경할 수 있습니다.",
+            text=t("gui.wizard.hint"),
             font=get_font(12),
             text_color=COLOR_SECONDARY_FG,
         ).pack(anchor="w", pady=(12, 0))
@@ -124,15 +123,16 @@ class PortableDataWizard:
                 pass
 
     def _mark_wizard_done(self, **portable_updates) -> bool:
-        config = self.service.config
         updates = {"wizard_completed": True, **portable_updates}
-        apply_portable_cfg(config, updates)
+
+        def mutate(cfg: dict) -> None:
+            apply_portable_cfg(cfg, updates)
+
         try:
-            self.service.config_manager.save_config(config)
-            self.service._reload_config()
+            self.service.config = self.service.config_manager.update_config(mutate)
             return True
         except Exception as e:
-            messagebox.showerror("저장 실패", str(e), parent=self.dialog)
+            messagebox.showerror(t("gui.wizard.save_fail"), str(e), parent=self.dialog)
             return False
 
     def _on_local_only(self) -> None:
@@ -143,7 +143,7 @@ class PortableDataWizard:
     def _connect_existing(self) -> None:
         path = filedialog.askdirectory(
             parent=self.dialog,
-            title="기존 공유 데이터 폴더 선택",
+            title=t("gui.wizard.select_existing"),
         )
         if not path:
             return
@@ -151,9 +151,8 @@ class PortableDataWizard:
         manifest = os.path.join(path, MANIFEST_FILENAME)
         if not (os.path.isfile(sites) or os.path.isfile(manifest)):
             if not messagebox.askyesno(
-                "폴더 확인",
-                f"선택한 폴더에 {SITES_FILENAME} / {manifest} 가 없습니다.\n"
-                "그래도 이 폴더를 연결할까요?\n(이후 「지금 동기화」로 내보낼 수 있습니다)",
+                t("gui.wizard.folder_check_title"),
+                t("gui.wizard.folder_check", sites=SITES_FILENAME, manifest=manifest),
                 parent=self.dialog,
             ):
                 return
@@ -169,30 +168,30 @@ class PortableDataWizard:
 
         try:
             result = self.service.maybe_backup_pull(force=True)
-            msg = result.get("message") or "가져오기 완료"
+            msg = result.get("message") or t("gui.wizard.import_done")
             if result.get("ok") or result.get("skipped"):
-                messagebox.showinfo("연결 완료", f"공유 폴더를 연결했습니다.\n{msg}", parent=self.parent)
+                messagebox.showinfo(t("gui.wizard.connect_ok_title"), t("gui.wizard.connect_ok", msg=msg), parent=self.parent)
             else:
                 messagebox.showwarning(
-                    "연결됨 (가져오기 주의)",
-                    f"폴더는 연결되었지만 가져오기에 문제가 있을 수 있습니다.\n{msg}",
+                    t("gui.wizard.connect_warn_title"),
+                    t("gui.wizard.connect_warn", msg=msg),
                     parent=self.parent,
                 )
         except Exception as e:
-            messagebox.showwarning("연결됨", f"폴더는 저장되었습니다.\n가져오기: {e}", parent=self.parent)
+            messagebox.showwarning(t("gui.wizard.connect_saved_title"), t("gui.wizard.connect_saved", error=e), parent=self.parent)
         self._finish("connect")
 
     def _create_new(self) -> None:
         path = filedialog.askdirectory(
             parent=self.dialog,
-            title="새 공유 데이터 폴더 선택 (비어 있거나 전용 폴더)",
+            title=t("gui.wizard.select_new"),
         )
         if not path:
             return
         try:
             os.makedirs(path, exist_ok=True)
         except OSError as e:
-            messagebox.showerror("오류", f"폴더를 만들 수 없습니다:\n{e}", parent=self.dialog)
+            messagebox.showerror(t("dialog.error"), t("gui.wizard.mkdir_fail", error=e), parent=self.dialog)
             return
 
         if not self._mark_wizard_done(
@@ -206,19 +205,19 @@ class PortableDataWizard:
 
         try:
             result = self.service.maybe_backup_push(force=True)
-            msg = result.get("message") or "내보내기 완료"
+            msg = result.get("message") or t("gui.wizard.export_done")
             if result.get("ok"):
                 messagebox.showinfo(
-                    "생성 완료",
-                    f"공유 데이터 폴더를 만들고 현재 사이트·이력을 내보냈습니다.\n{msg}",
+                    t("gui.wizard.create_ok_title"),
+                    t("gui.wizard.create_ok", msg=msg),
                     parent=self.parent,
                 )
             else:
                 messagebox.showwarning(
-                    "폴더 설정됨",
-                    f"폴더는 설정되었지만 내보내기에 실패했을 수 있습니다.\n{msg}",
+                    t("gui.wizard.folder_set_title"),
+                    t("gui.wizard.folder_set_warn", msg=msg),
                     parent=self.parent,
                 )
         except Exception as e:
-            messagebox.showwarning("폴더 설정됨", f"폴더는 저장되었습니다.\n내보내기: {e}", parent=self.parent)
+            messagebox.showwarning(t("gui.wizard.folder_set_title"), t("gui.wizard.folder_set_saved", error=e), parent=self.parent)
         self._finish("create")

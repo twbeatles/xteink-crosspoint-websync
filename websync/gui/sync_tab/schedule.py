@@ -13,6 +13,7 @@ from websync.gui.widgets import (
 )
 from websync.upload.uploader import X3Uploader, normalize_device_host
 from websync.config.exceptions import ConfigSaveError, ConfigLoadError
+from websync.i18n import t
 
 
 class SyncScheduleMixin:
@@ -20,27 +21,27 @@ class SyncScheduleMixin:
         self.app._save_ui_settings()
         h, m = self.hour_cb.get(), self.min_cb.get()
         if self.scheduler.register_daily_task(h, m):
-            messagebox.showinfo("스케줄러", f"매일 {h}:{m}에 백그라운드 동기화 스케줄이 등록되었습니다.")
+            messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.registered", hour=h, minute=m))
             config = self.service.config
             config["schedule"]["enabled"] = True
             self.app._safe_save_config(config)
         else:
-            messagebox.showerror("스케줄러", "스케줄러 등록에 실패했습니다. 관리자 권한을 확인하세요.")
+            messagebox.showerror(t("gui.schedule.title"), t("gui.schedule.register_failed"))
         self._refresh_schedule_status()
 
     def _unregister_schedule(self):
         if self.scheduler.unregister_task():
-            messagebox.showinfo("스케줄러", "스케줄 작업이 해제되었습니다.")
+            messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.unregistered"))
             config = self.service.config
             config["schedule"]["enabled"] = False
             self.app._safe_save_config(config)
         else:
-            messagebox.showwarning("스케줄러", "스케줄 해제에 실패했거나 등록된 작업이 없습니다.")
+            messagebox.showwarning(t("gui.schedule.title"), t("gui.schedule.unregister_failed"))
         self._refresh_schedule_status()
 
     def _refresh_schedule_status(self):
         status = self.scheduler.get_task_status()
-        self.sched_status_label.configure(text=f"스케줄러 상태: {status}")
+        self.sched_status_label.configure(text=t("gui.schedule.status", status=status))
 
     # ------------------------------------------------------------------
     # 추가 기기 관리 팝업

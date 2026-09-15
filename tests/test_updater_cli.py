@@ -24,6 +24,7 @@ def test_run_smoke_check_loads_core_modules():
     assert "websync.pipeline.service" in SMOKE_MODULES
     assert "websync.scrapers.factory" in SMOKE_MODULES
     assert "websync.epub.builder" in SMOKE_MODULES
+    assert "websync.i18n" in SMOKE_MODULES
     assert run_smoke_check() == 0
 
 

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{lang}}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>X3 WebSync 로그인</title>
+<title>{{i18n.dashboard.login_title}}</title>
 <style>
   body { font-family: 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
   .card { background:#313244; padding:28px; border-radius:12px; width:min(400px, 90vw); }
@@ -16,16 +16,16 @@
 </head>
 <body>
 <div class="card">
-  <h1>🔐 X3 WebSync 대시보드</h1>
-  <p>config.json의 <code>web_dashboard.api_token</code> 값을 입력하세요.</p>
-  <input id="token" type="password" placeholder="API 토큰" autocomplete="current-password">
-  <button onclick="login()">로그인</button>
+  <h1>{{i18n.dashboard.login_heading}}</h1>
+  <p>{{i18n.dashboard.login_hint}}</p>
+  <input id="token" type="password" placeholder="{{i18n.dashboard.token_placeholder}}" autocomplete="current-password">
+  <button onclick="login()">{{i18n.dashboard.login_button}}</button>
   <div id="msg"></div>
 </div>
 <script>
 async function login() {
   const token = document.getElementById('token').value.trim();
-  if (!token) { document.getElementById('msg').textContent = '토큰을 입력하세요.'; return; }
+  if (!token) { document.getElementById('msg').textContent = '{{i18n.dashboard.token_required}}'; return; }
   try {
     const r = await fetch('/api/login', {
       method: 'POST',
@@ -34,8 +34,8 @@ async function login() {
     });
     const d = await r.json();
     if (r.ok) { window.location.href = '/dashboard'; }
-    else { document.getElementById('msg').textContent = d.error || '로그인 실패'; }
-  } catch(e) { document.getElementById('msg').textContent = '오류: ' + e; }
+    else { document.getElementById('msg').textContent = d.error || '{{i18n.dashboard.login_failed}}'; }
+  } catch(e) { document.getElementById('msg').textContent = '{{i18n.dialog.error}}: ' + e; }
 }
 </script>
 </body>

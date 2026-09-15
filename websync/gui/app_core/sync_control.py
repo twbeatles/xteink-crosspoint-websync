@@ -25,28 +25,34 @@ from websync.gui.tab_history import HistoryTab
 from websync.gui.tab_device_files import DeviceFilesTab
 from websync.gui.tab_settings import SettingsTab
 from websync.gui.bottom_bar import BottomBar
+from websync.i18n import t
 
 
 class AppSyncControlMixin:
     def _request_sync_cancel(self):
         if hasattr(self, "service") and self.service:
             self.service.request_cancel()
-            self._log_message("⏹ 동기화 취소를 요청했습니다. 현재 사이트 처리가 끝나면 중단됩니다.")
+            self._log_message(t("gui.app.cancel_requested"))
 
     def _run_immediate_sync(self):
         self._save_ui_settings()
         self._set_sync_ui_busy(True)
         self.bottom_bar.progress_bar["value"] = 0
-        self._log_message("\n=== 동기화 실행 요청 받음 ===")
+        self._log_message(t("gui.app.sync_requested"))
 
         def run():
             self.service.run_sync_pipeline(
                 log_callback=self._make_log_callback(),
                 progress_callback=self._make_progress_callback(),
             )
-            self.root.after(0, self._sync_finished_ui)
+            try:
+                self.root.after(0, self._sync_finished_ui)
+            except tk.TclError:
+                return
 
-        threading.Thread(target=run, daemon=True).start()
+        worker = threading.Thread(target=run, daemon=True)
+        self.service.attach_pipeline_thread(worker)
+        worker.start()
 
     def _sync_finished_ui(self):
         try:
@@ -59,7 +65,7 @@ class AppSyncControlMixin:
                 maximum = float(bar["maximum"] or 0)
                 bar["value"] = maximum if maximum > 0 else 0
             self._set_sync_ui_busy(False)
-            self._log_message("=== 동기화 프로세스 종료 ===\n")
+            self._log_message(t("gui.app.sync_finished"))
             self.tab_history._refresh_history()
         except tk.TclError:
             return
@@ -71,6 +77,7 @@ class AppSyncControlMixin:
     def _on_close(self):
         try:
             if hasattr(self, "service") and self.service:
+                self.service.shutdown_pipeline(timeout=5.0)
                 self.service.flush_backup_push()
         except Exception:
             pass

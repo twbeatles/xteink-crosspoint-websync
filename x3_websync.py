@@ -196,6 +196,7 @@ SMOKE_MODULES: tuple[str, ...] = (
     "websync.epub.builder",
     "websync.db.history",
     "websync.upload.uploader",
+    "websync.i18n",
 )
 
 
@@ -209,6 +210,16 @@ def run_smoke_check() -> int:
             importlib.import_module(name)
         except Exception as exc:
             failed.append(f"{name}: {exc}")
+    try:
+        from websync.i18n import init_i18n, t
+
+        init_i18n("ko")
+        sample = t("gui.tabs.sync")
+        if not sample or sample == "gui.tabs.sync":
+            failed.append("websync.i18n: catalog missing gui.tabs.sync")
+    except Exception as exc:
+        failed.append(f"websync.i18n catalog: {exc}")
+
     if failed:
         print("Xteink X3 WebSync smoke check FAILED")
         for item in failed:
@@ -264,16 +275,19 @@ def _handle_apply_update(args) -> int:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Xteink X3 WebSync CLI / GUI Manager")
+    from websync.i18n import detect_system_language, init_from_config, init_i18n, t
+
+    init_i18n(detect_system_language())
+    parser = argparse.ArgumentParser(description=t("cli.description"))
     parser.add_argument(
         "--sync",
         action="store_true",
-        help="GUI 없이 config.json 기준 즉시 동기화 (스케줄러 연동용)",
+        help=t("cli.help.sync"),
     )
     parser.add_argument(
         "--smoke",
         action="store_true",
-        help="핵심 모듈 import 무결성 스모크 체크 (성공 0, 실패 1)",
+        help=t("cli.help.smoke"),
     )
     parser.add_argument(
         "-v", "--version",
@@ -283,7 +297,7 @@ def main():
     parser.add_argument(
         "--check-update",
         action="store_true",
-        help="최신 버전 업데이트 존재 여부 확인",
+        help=t("cli.help.check_update"),
     )
     # 업데이터 헬퍼 전용 인자
     parser.add_argument("--apply-update", action="store_true", help=argparse.SUPPRESS)
@@ -312,21 +326,21 @@ def main():
         try:
             manifest = service.check_for_update()
             if manifest:
-                print(f"[NEW UPDATE] v{manifest.version} 사용 가능 (현재: v{__version__})")
-                print(f"다운로드 URL: {manifest.artifact_url}")
+                print(t("cli.update_available", version=manifest.version, current=__version__))
+                print(t("cli.update_url", url=manifest.artifact_url))
                 sys.exit(0)
             else:
-                print(f"[UP TO DATE] 현재 버전(v{__version__})이 최신 버전입니다.")
+                print(t("cli.up_to_date", version=__version__))
                 sys.exit(0)
         except Exception as exc:
-            print(f"[ERROR] 업데이트 확인 실패: {exc}")
+            print(t("cli.update_check_failed", error=exc))
             sys.exit(1)
 
     # GUI만 단일 인스턴스 락 — --sync는 프로세스 파일 락(SyncService)으로 직렬화
     gui_lock_acquired = False
     if not args.sync:
         if not acquire_instance_lock():
-            print(f"[{datetime.now()}] ⚠️ 경고: 이미 다른 X3 WebSync GUI가 실행 중입니다. 실행을 중단합니다.")
+            print(t("cli.gui_already_running", now=datetime.now()))
             sys.exit(1)
         gui_lock_acquired = True
 
@@ -337,15 +351,16 @@ def main():
 
         try:
             config_manager = ConfigManager()
+            init_from_config(config_manager.load_config())
             service = SyncService(config_manager)
         except Exception as e:
-            print(f"[{datetime.now()}] ❌ 설정 로드 실패: {e}")
+            print(t("cli.config_load_failed", now=datetime.now(), error=e))
             sys.exit(1)
 
         if args.sync:
-            print(f"[{datetime.now()}] 백그라운드 동기화 모드 구동 시작")
+            print(t("cli.sync_start", now=datetime.now()))
             success = service.run_sync_pipeline()
-            print(f"[{datetime.now()}] 백그라운드 동기화 모드 종료 (결과: {success})")
+            print(t("cli.sync_end", now=datetime.now(), result=success))
             sys.exit(0 if success else 1)
         else:
             app = SyncAppGui(service)

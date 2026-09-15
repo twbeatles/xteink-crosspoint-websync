@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 
 from websync.core.logger import get_logger
 from websync.scrapers.base import BaseScraper, ensure_article_url, fetch_url, maybe_strip_images
+from websync.i18n import t
 
 
 class NewneekScraper(BaseScraper):
@@ -45,7 +46,7 @@ class NewneekScraper(BaseScraper):
             title, content = self._fetch_article(post_url, site_config)
             if content:
                 articles.append({
-                    "title": title or f"뉴닉 {aid}",
+                    "title": title or t("newneek.fallback_title", id=aid),
                     "content": content,
                     "url": ensure_article_url(post_url, url, title or aid),
                 })
@@ -53,17 +54,17 @@ class NewneekScraper(BaseScraper):
                 skipped += 1
             self.last_fetch_stats = {"skipped": skipped}
             if not articles:
-                raise Exception("뉴닉 단일 글 본문 수집 실패")
+                raise Exception(t("newneek.single_failed"))
             return articles
 
         handle = self._extract_handle(url) or "newneek"
         try:
             links = self._list_from_sitemap(handle, limit * 2)
         except Exception as e:
-            raise Exception(f"뉴닉 사이트맵 수집 실패: {e}") from e
+            raise Exception(t("newneek.sitemap_failed", error=e)) from e
 
         if not links:
-            raise Exception(f"뉴닉 사이트맵에서 @{handle} 글을 찾지 못했습니다.")
+            raise Exception(t("newneek.no_articles", handle=handle))
 
         for post_url in links:
             if len(articles) >= limit:
@@ -80,7 +81,7 @@ class NewneekScraper(BaseScraper):
 
         self.last_fetch_stats = {"skipped": skipped}
         if not articles:
-            raise Exception(f"뉴닉 목록 {len(links)}건 중 본문 수집 성공 0건")
+            raise Exception(t("newneek.zero_body", n=len(links)))
         return articles
 
     def _extract_handle(self, url: str) -> str | None:
@@ -100,7 +101,7 @@ class NewneekScraper(BaseScraper):
                 resp.raise_for_status()
                 text = resp.content.decode("utf-8", errors="replace")
             except Exception as e:
-                self.logger.warning(f"사이트맵 조회 실패 ({sm_url}): {e}")
+                self.logger.warning(t("newneek.sitemap_lookup_failed", url=sm_url, error=e))
                 continue
 
             urls = re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", text)
@@ -135,7 +136,7 @@ class NewneekScraper(BaseScraper):
                                     title = (layout.get("articleTitle") or "").strip()
                                     html = layout.get("articleContent") or ""
                 except Exception as e:
-                    self.logger.warning(f"뉴닉 __NEXT_DATA__ JSON 파싱 실패 (폴백 시도): {e}")
+                    self.logger.warning(t("newneek.json_failed", error=e))
             if not html:
                 # 폴백: 본문 후보
                 body = (
@@ -166,5 +167,5 @@ class NewneekScraper(BaseScraper):
                 return title, ""
             return title, str(container)
         except Exception as e:
-            self.logger.warning(f"뉴닉 본문 수집 실패 ({post_url}): {e}")
+            self.logger.warning(t("newneek.body_failed", url=post_url, error=e))
             return "", ""

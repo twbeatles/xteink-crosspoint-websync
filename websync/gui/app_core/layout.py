@@ -14,6 +14,7 @@ from websync.gui.tab_history import HistoryTab
 from websync.gui.tab_device_files import DeviceFilesTab
 from websync.gui.tab_settings import SettingsTab
 from websync.gui.bottom_bar import BottomBar
+from websync.i18n import t
 
 
 class AppLayoutMixin:
@@ -72,11 +73,11 @@ class AppLayoutMixin:
         self.notebook = self.tabview
 
         # 탭 생성
-        tab_sync_frame = self.tabview.add(" 뉴스 동기화 ")
-        tab_calibre_frame = self.tabview.add(" Calibre 서재 ")
-        tab_history_frame = self.tabview.add(" 📋 동기화 이력 ")
-        tab_device_frame = self.tabview.add(" 📁 기기 파일 ")
-        tab_settings_frame = self.tabview.add(" ⚙️ 고급 & 서버 설정 ")
+        tab_sync_frame = self.tabview.add(f" {t('gui.tabs.sync')} ")
+        tab_calibre_frame = self.tabview.add(f" {t('gui.tabs.calibre')} ")
+        tab_history_frame = self.tabview.add(f" {t('gui.tabs.history')} ")
+        tab_device_frame = self.tabview.add(f" {t('gui.tabs.device')} ")
+        tab_settings_frame = self.tabview.add(f" {t('gui.tabs.settings')} ")
 
         # 탭 컴포넌트 실체화 — 반드시 pack()으로 부모 프레임에 배치해야 보임
         self.tab_sync = SyncTab(tab_sync_frame, self)

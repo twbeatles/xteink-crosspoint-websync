@@ -31,6 +31,7 @@ from bs4 import BeautifulSoup
 
 from websync.scrapers.base import BaseScraper, fetch_url, maybe_strip_images, ensure_article_url
 from websync.core.logger import get_logger
+from websync.i18n import t
 
 
 class BaseNewsletterScraper(BaseScraper):
@@ -60,13 +61,13 @@ class BaseNewsletterScraper(BaseScraper):
         skipped = 0
 
         if not url or not self.LINK_PATTERN:
-            raise ValueError("URL 또는 LINK_PATTERN이 설정되지 않았습니다.")
+            raise ValueError(t("newsletter.missing_config"))
 
         try:
             if self._is_detail_url(url):
                 content, page_title = self._fetch_detail_page(url, site_config)
                 if content:
-                    title = page_title or "뉴스레터"
+                    title = page_title or t("newsletter.fallback_title")
                     articles.append({
                         "title": title,
                         "content": content,
@@ -85,7 +86,7 @@ class BaseNewsletterScraper(BaseScraper):
                     if not content:
                         skipped += 1
                         continue
-                    title = page_title or link_text or "뉴스레터"
+                    title = page_title or link_text or t("newsletter.fallback_title")
                     articles.append({
                         "title": title,
                         "content": content,
@@ -95,12 +96,13 @@ class BaseNewsletterScraper(BaseScraper):
             self.last_fetch_stats = {"skipped": skipped}
 
             if not articles and (locals().get("links") or self._is_detail_url(url)):
-                raise Exception("뉴스레터 본문 수집에 성공한 항목이 없습니다.")
+                raise Exception(t("newsletter.no_content"))
 
         except Exception as e:
-            if "본문 수집" in str(e):
+            msg = str(e)
+            if t("newsletter.no_content") in msg or t("newsletter.failed", name="", error="") in msg:
                 raise
-            raise Exception(f"{self.__class__.__name__} 수집 실패: {e}") from e
+            raise Exception(t("newsletter.failed", name=self.__class__.__name__, error=e)) from e
 
         return articles
 
@@ -124,7 +126,7 @@ class BaseNewsletterScraper(BaseScraper):
             if full in seen:
                 continue
             seen.add(full)
-            title = a.get_text(strip=True) or "뉴스레터"
+            title = a.get_text(strip=True) or t("newsletter.fallback_title")
             results.append((full, title))
         return results
 
@@ -152,7 +154,7 @@ class BaseNewsletterScraper(BaseScraper):
 
             container = self._find_content_container(soup)
             if not container:
-                self.logger.warning(f"본문 컨테이너를 찾을 수 없음: {url}")
+                self.logger.warning(t("newsletter.no_container", url=url))
                 return ""
 
             self._clean_content(container, site_config)
@@ -160,7 +162,7 @@ class BaseNewsletterScraper(BaseScraper):
 
             return str(container)
         except Exception as e:
-            self.logger.warning(f"상세 페이지 수집 실패 ({url}): {e}")
+            self.logger.warning(t("newsletter.detail_failed", url=url, error=e))
             return ""
 
     def _find_content_container(self, soup: BeautifulSoup):

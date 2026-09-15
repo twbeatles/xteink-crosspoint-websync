@@ -5,6 +5,7 @@ import secrets
 from typing import Any, Callable
 
 from websync.upload.host import normalize_device_host
+from websync.i18n import t
 
 
 def new_device_id() -> str:
@@ -50,9 +51,11 @@ def build_targets_with_keys(
     devices: list | None = None,
     *,
     primary_id: str = "",
-    primary_name: str = "기본 기기",
+    primary_name: str | None = None,
 ) -> list[dict[str, Any]]:
     """업로드 대상 목록: name, ip, id, history_key, alias_keys (중복 IP 제거)."""
+    if not primary_name:
+        primary_name = t("device.default_name")
     targets: list[dict[str, Any]] = []
     seen_ips: set[str] = set()
 

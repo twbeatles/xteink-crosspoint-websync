@@ -23,6 +23,7 @@ from websync.scrapers.selector_assistant import (
     evaluate_selector,
     is_private_or_local_url,
 )
+from websync.i18n import t
 
 
 # 선택자 필드 역할 키
@@ -32,13 +33,18 @@ ROLE_LINK = "link"
 ROLE_CONTENT = "content"
 ROLE_REMOVE = "remove"
 
-ROLE_LABELS = {
-    ROLE_ITEM: "아이템",
-    ROLE_TITLE: "제목",
-    ROLE_LINK: "링크",
-    ROLE_CONTENT: "본문",
-    ROLE_REMOVE: "제거",
+_ROLE_I18N = {
+    ROLE_ITEM: "gui.selector.role.item",
+    ROLE_TITLE: "gui.selector.role.title",
+    ROLE_LINK: "gui.selector.role.link",
+    ROLE_CONTENT: "gui.selector.role.content",
+    ROLE_REMOVE: "gui.selector.role.remove",
 }
+
+
+def _role_label(role: str) -> str:
+    key = _ROLE_I18N.get(role)
+    return t(key) if key else role
 
 
 class SelectorWizardPanel:
@@ -80,7 +86,7 @@ class SelectorWizardPanel:
 
         self.role_var = tk.StringVar(value=ROLE_ITEM)
 
-        self.frame = ttk.LabelFrame(parent, text=" 선택자 도우미 (CSS) ")
+        self.frame = ttk.LabelFrame(parent, text=t("gui.selector.frame_title"))
         self._build()
 
     # ------------------------------------------------------------------
@@ -185,15 +191,15 @@ class SelectorWizardPanel:
         top = ttk.Frame(self.frame)
         top.pack(fill="x", padx=8, pady=6)
 
-        ttk.Button(top, text="페이지 분석", command=self._on_analyze).pack(side="left", padx=2)
-        ttk.Button(top, text="선택자 테스트", command=self._on_test).pack(side="left", padx=2)
-        ttk.Button(top, text="수집 미리보기", command=self._on_preview_scrape).pack(side="left", padx=2)
-        ttk.Button(top, text="추천 적용", command=self._on_apply_suggestions).pack(side="left", padx=2)
-        ttk.Button(top, text="최적 설정 적용", command=self._on_apply_recommended).pack(side="left", padx=2)
+        ttk.Button(top, text=t("gui.selector.analyze"), command=self._on_analyze).pack(side="left", padx=2)
+        ttk.Button(top, text=t("gui.selector.test"), command=self._on_test).pack(side="left", padx=2)
+        ttk.Button(top, text=t("gui.selector.preview_scrape"), command=self._on_preview_scrape).pack(side="left", padx=2)
+        ttk.Button(top, text=t("gui.selector.apply_suggestions"), command=self._on_apply_suggestions).pack(side="left", padx=2)
+        ttk.Button(top, text=t("gui.selector.apply_recommended"), command=self._on_apply_recommended).pack(side="left", padx=2)
 
         self.status_label = ttk.Label(
             self.frame,
-            text="URL 입력 후 「페이지 분석」으로 선택자를 찾거나 검증하세요.",
+            text=t("gui.selector.status_hint"),
             font=("Malgun Gothic", 10),
             foreground=HINT_COLOR,
             wraplength=520,
@@ -203,10 +209,10 @@ class SelectorWizardPanel:
 
         role_row = ttk.Frame(self.frame)
         role_row.pack(fill="x", padx=8, pady=2)
-        ttk.Label(role_row, text="트리 클릭 시 채울 필드:").pack(side="left")
-        for key, label in ROLE_LABELS.items():
+        ttk.Label(role_row, text=t("gui.selector.role_prompt")).pack(side="left")
+        for key in _ROLE_I18N:
             ttk.Radiobutton(
-                role_row, text=label, value=key, variable=self.role_var
+                role_row, text=_role_label(key), value=key, variable=self.role_var
             ).pack(side="left", padx=3)
 
         self.hint_frame = ttk.Frame(self.frame)
@@ -220,7 +226,7 @@ class SelectorWizardPanel:
         paned.add(left, weight=3)
         paned.add(right, weight=2)
 
-        ttk.Label(left, text="DOM 구조 (클릭 → 선택자 삽입)").pack(anchor="w")
+        ttk.Label(left, text=t("gui.selector.dom_tree")).pack(anchor="w")
         tree_wrap = ttk.Frame(left)
         tree_wrap.pack(fill="both", expand=True)
         self.dom_tree = ttk.Treeview(tree_wrap, show="tree", height=10, selectmode="browse")
@@ -230,7 +236,7 @@ class SelectorWizardPanel:
         ys.pack(side="right", fill="y")
         self.dom_tree.bind("<<TreeviewSelect>>", self._on_dom_select)
 
-        ttk.Label(right, text="테스트 / 미리보기 결과").pack(anchor="w")
+        ttk.Label(right, text=t("gui.selector.result_panel")).pack(anchor="w")
         self.result_text = tk.Text(right, height=10, width=36, wrap="word", font=("Consolas", 9))
         rsb = ttk.Scrollbar(right, orient="vertical", command=self.result_text.yview)
         self.result_text.configure(yscrollcommand=rsb.set)
@@ -244,9 +250,8 @@ class SelectorWizardPanel:
             return True
         return bool(
             messagebox.askyesno(
-                "내부 주소 확인",
-                "입력한 URL이 로컬 또는 사설 네트워크 주소로 보입니다.\n"
-                "계속하면 해당 호스트로 HTTP 요청을 보냅니다.\n\n계속할까요?",
+                t("gui.selector.private_url_title"),
+                t("gui.selector.private_url_body"),
                 parent=self.dialog,
             )
         )
@@ -254,14 +259,14 @@ class SelectorWizardPanel:
     def _on_analyze(self) -> None:
         url = self.get_url().strip()
         if not url:
-            messagebox.showwarning("경고", "수집 주소를 입력해 주세요.", parent=self.dialog)
+            messagebox.showwarning(t("dialog.warning"), t("gui.selector.url_required"), parent=self.dialog)
             return
         if not (url.startswith("http://") or url.startswith("https://")):
-            messagebox.showerror("오류", "URL은 http:// 또는 https://로 시작해야 합니다.", parent=self.dialog)
+            messagebox.showerror(t("dialog.error"), t("gui.selector.url_http_required"), parent=self.dialog)
             return
         if not self._warn_private_url(url):
             return
-        gen = self._begin_work("페이지 불러오는 중… (피드 확인 포함, 수 초 소요될 수 있음)")
+        gen = self._begin_work(t("gui.selector.loading_page"))
         if gen is None:
             return
         try:
@@ -274,7 +279,7 @@ class SelectorWizardPanel:
             try:
                 analysis = analyze_page(url)
             except Exception as e:
-                analysis = PageAnalysis(url=url, base_url=url, error=f"분석 예외: {e}")
+                analysis = PageAnalysis(url=url, base_url=url, error=t("gui.selector.analyze_exception", error=e))
             self._schedule(gen, lambda: self._apply_analysis(analysis, gen))
 
         threading.Thread(target=work, daemon=True).start()
@@ -315,57 +320,66 @@ class SelectorWizardPanel:
             p = analysis.platform
             ttk.Button(
                 self.hint_frame,
-                text=f"전용 타입 권장: {p} (전환)",
+                text=t("gui.selector.hint_platform", platform=p),
                 command=lambda pt=p: self._switch_platform(pt),
             ).pack(side="left", padx=2, pady=2)
         for feed in analysis.feeds[:3]:
             label = feed.url if len(feed.url) <= 52 else feed.url[:50] + "…"
             ttk.Button(
                 self.hint_frame,
-                text=f"RSS 권장: {label}",
+                text=t("gui.selector.hint_rss", label=label),
                 command=lambda f=feed: self._switch_rss(f.url),
             ).pack(side="left", padx=2, pady=2)
         if analysis.recommended_site:
             ttk.Button(
                 self.hint_frame,
-                text="최적 설정 적용",
+                text=t("gui.selector.apply_recommended"),
                 command=self._on_apply_recommended,
             ).pack(side="left", padx=2, pady=2)
 
         lines = [
-            f"제목: {analysis.title or '(없음)'}",
-            f"URL: {analysis.base_url}",
-            f"권장 모드: {analysis.recommend_mode}",
+            t("gui.selector.result_title", title=analysis.title or t("gui.selector.none")),
+            t("gui.selector.result_url", url=analysis.base_url),
+            t("gui.selector.result_mode", mode=analysis.recommend_mode),
         ]
         for note in (analysis.notes or [])[:6]:
-            lines.append(f"· {note}")
+            lines.append(t("gui.selector.result_note", note=note))
         if analysis.platform:
-            lines.append(f"플랫폼 감지: {analysis.platform} → 전용 스크래퍼 권장")
+            lines.append(t("gui.selector.result_platform", platform=analysis.platform))
         if analysis.feeds:
-            lines.append(f"RSS/Atom {len(analysis.feeds)}개 발견")
+            lines.append(t("gui.selector.result_feeds", count=len(analysis.feeds)))
             for f in analysis.feeds[:3]:
                 lines.append(f"  - {f.url}")
         sug = analysis.suggestions or {}
-        for role, key in (("아이템", "item"), ("제목", "title"), ("링크", "link"), ("본문", "content")):
+        for role_key, key in ((ROLE_ITEM, "item"), (ROLE_TITLE, "title"), (ROLE_LINK, "link"), (ROLE_CONTENT, "content")):
             items = sug.get(key) or []
             if items:
                 top = items[0]
                 lines.append(
-                    f"추천 {role}: {top.get('selector')} "
-                    f"(점수 {top.get('score')}, {top.get('count')}건) — {top.get('sample', '')[:40]}"
+                    t(
+                        "gui.selector.suggest_role",
+                        role=_role_label(role_key),
+                        selector=top.get("selector"),
+                        score=top.get("score"),
+                        count=top.get("count"),
+                        sample=(top.get("sample", "") or "")[:40],
+                    )
                 )
         if analysis.fetch_detail_recommended:
-            lines.append("상세 페이지 본문 옵션 권장: ON")
+            lines.append(t("gui.selector.fetch_detail_recommended"))
         rec = analysis.recommended_site or {}
         if rec:
             lines.append(
-                f"\n[최적 설정] type={rec.get('type')} "
-                f"fetch_detail={rec.get('fetch_detail_page')} "
-                f"— {rec.get('_recommend_note', '')}"
+                t(
+                    "gui.selector.best_settings",
+                    type=rec.get("type"),
+                    fetch_detail=rec.get("fetch_detail_page"),
+                    note=rec.get("_recommend_note", ""),
+                )
             )
         self._set_result("\n".join(lines))
         self._set_status(
-            "분석 완료. 「최적 설정 적용」 또는 「추천 적용」·DOM 클릭으로 선택자를 채우세요.",
+            t("gui.selector.analyze_done"),
             ok=True,
         )
 
@@ -373,14 +387,14 @@ class SelectorWizardPanel:
         self.set_type(platform)
         if self.on_type_change:
             self.on_type_change()
-        self._set_status(f"타입을 '{platform}'(으)로 전환했습니다. 선택자는 전용 스크래퍼가 처리합니다.", ok=True)
+        self._set_status(t("gui.selector.switched_platform", platform=platform), ok=True)
 
     def _switch_rss(self, feed_url: str) -> None:
         self.set_type("rss")
         self.set_url(feed_url)
         if self.on_type_change:
             self.on_type_change()
-        self._set_status("RSS 피드로 전환했습니다. 선택자 없이 수집할 수 있습니다.", ok=True)
+        self._set_status(t("gui.selector.switched_rss"), ok=True)
 
     def _on_dom_select(self, _event=None) -> None:
         sel = self.dom_tree.selection()
@@ -391,22 +405,20 @@ class SelectorWizardPanel:
             return
         role = self.role_var.get()
         self.set_entry(role, path)
-        self._set_status(f"{ROLE_LABELS.get(role, role)} 필드에 선택자 삽입: {path}", ok=True)
+        self._set_status(t("gui.selector.inserted_selector", role=_role_label(role), path=path), ok=True)
 
     def _on_apply_suggestions(self) -> None:
         if not self._analysis or not self._analysis.suggestions:
             messagebox.showinfo(
-                "안내",
-                "먼저 「페이지 분석」을 실행해 주세요.",
+                t("gui.selector.info_title"),
+                t("gui.selector.analyze_first"),
                 parent=self.dialog,
             )
             return
         if self._analysis.recommend_mode in ("rss", "platform"):
             if not messagebox.askyesno(
-                "확인",
-                f"이 페이지는 '{self._analysis.recommend_mode}' 모드가 더 안정적입니다.\n"
-                "그래도 CSS 선택자 추천만 적용할까요?\n"
-                "(「최적 설정 적용」을 쓰면 권장 모드로 채웁니다.)",
+                t("dialog.confirm"),
+                t("gui.selector.css_vs_recommended", mode=self._analysis.recommend_mode),
                 parent=self.dialog,
             ):
                 return
@@ -426,20 +438,20 @@ class SelectorWizardPanel:
                     sel = "a" if role == ROLE_TITLE else ("a[href]" if role == ROLE_LINK else sel)
                 if sel and sel != ".":
                     self.set_entry(role, sel)
-                    applied.append(f"{ROLE_LABELS[role]}={sel}")
+                    applied.append(f"{_role_label(role)}={sel}")
         if self.apply_site_config and self._analysis.fetch_detail_recommended:
             self.apply_site_config({"fetch_detail_page": True, "type": "css"})
-            applied.append("상세본문=ON")
+            applied.append(t("gui.selector.applied_detail_on"))
         if applied:
-            self._set_status("추천 선택자 적용: " + ", ".join(applied), ok=True)
+            self._set_status(t("gui.selector.suggestions_applied", items=", ".join(applied)), ok=True)
         else:
-            self._set_status("추천 후보를 찾지 못했습니다. DOM 트리에서 직접 골라 주세요.")
+            self._set_status(t("gui.selector.no_suggestions"))
 
     def _on_apply_recommended(self) -> None:
         if not self._analysis or not self._analysis.recommended_site:
             messagebox.showinfo(
-                "안내",
-                "먼저 「페이지 분석」을 실행해 주세요.",
+                t("gui.selector.info_title"),
+                t("gui.selector.analyze_first"),
                 parent=self.dialog,
             )
             return
@@ -464,9 +476,9 @@ class SelectorWizardPanel:
                         self.set_entry(role, rec[key])
             if self.on_type_change:
                 self.on_type_change()
-        self._set_status(f"최적 설정 적용 완료. {note}", ok=True)
+        self._set_status(t("gui.selector.recommended_applied", note=note), ok=True)
         lines = [
-            "최적 설정 적용됨",
+            t("gui.selector.recommended_applied_result"),
             f"type={rec.get('type')}",
             f"url={rec.get('url', '')}",
             f"item={rec.get('item_selector', '-')}",
@@ -485,27 +497,27 @@ class SelectorWizardPanel:
             try:
                 items = soup.select(item_sel)
             except Exception as e:
-                return f"아이템 선택자 오류: {e}"
+                return t("gui.selector.item_selector_error", error=e)
             if not items:
-                return f"아이템 '{item_sel}' 매칭 0건 — 아이템 선택자를 먼저 확인하세요."
-            lines = [f"아이템 {len(items)}건 기준, 상대 선택자 '{selector}':"]
+                return t("gui.selector.item_no_match", selector=item_sel)
+            lines = [t("gui.selector.item_relative", count=len(items), selector=selector)]
             hit = 0
             for i, it in enumerate(items[:8]):
                 r = evaluate_selector(soup, selector, limit=1, root=it)
                 if r.error:
-                    lines.append(f"  [{i+1}] 오류: {r.error}")
+                    lines.append(t("gui.selector.test_row_error", index=i + 1, error=r.error))
                 elif r.count:
                     hit += 1
                     sample = r.samples[0].text if r.samples else ""
-                    lines.append(f"  [{i+1}] OK — {sample}")
+                    lines.append(t("gui.selector.test_row_ok", index=i + 1, sample=sample))
                 else:
-                    lines.append(f"  [{i+1}] 없음")
-            lines.append(f"요약: 상위 {min(8, len(items))}개 중 {hit}개 매칭")
+                    lines.append(t("gui.selector.test_row_none", index=i + 1))
+            lines.append(t("gui.selector.test_summary", shown=min(8, len(items)), hit=hit))
             return "\n".join(lines)
         r = evaluate_selector(soup, selector, limit=8)
         if r.error:
             return r.error
-        lines = [f"선택자: {selector}", f"매칭: {r.count}건"]
+        lines = [t("gui.selector.test_selector", selector=selector), t("gui.selector.test_match_count", count=r.count)]
         for i, s in enumerate(r.samples, 1):
             lines.append(f"  {i}. {s.text}")
         return "\n".join(lines)
@@ -523,22 +535,22 @@ class SelectorWizardPanel:
         field = key_map.get(role, "item")
         selector = (entries.get(field) or "").strip()
         if not selector:
-            messagebox.showwarning("경고", "테스트할 선택자가 비어 있습니다.", parent=self.dialog)
+            messagebox.showwarning(t("dialog.warning"), t("gui.selector.empty_selector"), parent=self.dialog)
             return
 
         if self._html:
             msg = self._run_selector_test(self._html, self._base_url, entries, field, selector)
             self._set_result(msg)
-            self._set_status("선택자 테스트 완료 (캐시 HTML).", ok=True)
+            self._set_status(t("gui.selector.test_done_cached"), ok=True)
             return
 
         url = self.get_url().strip()
         if not url:
-            messagebox.showwarning("경고", "URL이 필요합니다.", parent=self.dialog)
+            messagebox.showwarning(t("dialog.warning"), t("gui.selector.url_needed"), parent=self.dialog)
             return
         if not self._warn_private_url(url):
             return
-        gen = self._begin_work("페이지 로드 후 테스트 중…")
+        gen = self._begin_work(t("gui.selector.testing"))
         if gen is None:
             return
 
@@ -553,7 +565,7 @@ class SelectorWizardPanel:
                         analysis.html, analysis.base_url, entries, field, selector
                     )
             except Exception as e:
-                msg = f"테스트 실패: {e}"
+                msg = t("gui.selector.test_failed", error=e)
             # 상태 갱신은 메인 스레드에서만
             self._schedule(
                 gen,
@@ -578,32 +590,30 @@ class SelectorWizardPanel:
             self._base_url = analysis.base_url or analysis.url
             self._analysis = analysis
         self._set_result(msg)
-        self._set_status("선택자 테스트 완료.", ok=True)
+        self._set_status(t("gui.selector.test_done"), ok=True)
 
     def _on_preview_scrape(self) -> None:
         snap = self.get_site_snapshot()
         if (snap.get("type") or "css") != "css":
             messagebox.showinfo(
-                "안내",
-                "수집 미리보기는 CSS 타입에서만 지원합니다.",
+                t("gui.selector.info_title"),
+                t("gui.selector.preview_css_only"),
                 parent=self.dialog,
             )
             return
         if not snap.get("url"):
-            messagebox.showwarning("경고", "수집 주소를 입력해 주세요.", parent=self.dialog)
+            messagebox.showwarning(t("dialog.warning"), t("gui.selector.url_required"), parent=self.dialog)
             return
         if self.is_pipeline_running and self.is_pipeline_running():
             if not messagebox.askyesno(
-                "동기화 실행 중",
-                "전체 동기화/프리뷰 파이프라인이 실행 중입니다.\n"
-                "추가 네트워크 요청이 대상 사이트에 부하를 줄 수 있습니다.\n\n"
-                "그래도 수집 미리보기를 실행할까요?",
+                t("gui.selector.pipeline_busy_title"),
+                t("gui.selector.pipeline_busy_body"),
                 parent=self.dialog,
             ):
                 return
         if not self._warn_private_url(snap["url"]):
             return
-        gen = self._begin_work("수집 미리보기 실행 중… (최대 몇 초 소요)")
+        gen = self._begin_work(t("gui.selector.preview_running"))
         if gen is None:
             return
         snap = dict(snap)
@@ -622,22 +632,23 @@ class SelectorWizardPanel:
                 arts = scraper.fetch_articles(snap)
                 stats = getattr(scraper, "last_fetch_stats", {}) or {}
                 if stats.get("content_fallback_count"):
-                    stats_note = (
-                        f"\n\n⚠️ 본문 선택자 미매칭으로 목록 카드 전체를 본문으로 쓴 항목: "
-                        f"{stats['content_fallback_count']}건\n"
-                        "「상세 페이지 본문」을 켜거나 본문 선택자를 조정하세요."
+                    stats_note = t(
+                        "gui.selector.content_fallback_note",
+                        count=stats["content_fallback_count"],
                     )
-                lines = [f"미리보기 성공: {len(arts)}건"]
+                lines = [t("gui.selector.preview_success", count=len(arts))]
                 for i, a in enumerate(arts, 1):
                     title = (a.get("title") or "")[:60]
                     url = (a.get("url") or "")[:80]
                     body = (a.get("content") or "")
                     plain = body[:120].replace("\n", " ")
-                    flag = " [목록폴백]" if a.get("_content_fallback") else ""
-                    lines.append(f"\n[{i}]{flag} {title}\n  URL: {url}\n  본문: {plain}…")
-                msg = ("\n".join(lines) if arts else "수집 결과 0건") + stats_note
+                    flag = t("gui.selector.list_fallback_flag") if a.get("_content_fallback") else ""
+                    lines.append(
+                        t("gui.selector.preview_item", index=i, flag=flag, title=title, url=url, plain=plain)
+                    )
+                msg = ("\n".join(lines) if arts else t("gui.selector.preview_empty")) + stats_note
             except Exception as e:
-                msg = f"미리보기 실패:\n{e}"
+                msg = t("gui.selector.preview_failed", error=e)
             self._schedule(gen, lambda: self._finish_preview(msg, gen))
 
         threading.Thread(target=work, daemon=True).start()
@@ -649,15 +660,19 @@ class SelectorWizardPanel:
         if not self._dialog_alive():
             return
         self._set_result(msg)
-        ok = not msg.startswith("미리보기 실패")
-        warn = "목록폴백" in msg or "본문 선택자 미매칭" in msg
+        fail_prefix = t("gui.selector.preview_failed", error="").rstrip()
+        ok = not msg.startswith(fail_prefix)
+        warn = (
+            t("gui.selector.list_fallback_flag").strip() in msg
+            or t("gui.selector.content_mismatch_marker") in msg
+        )
         if ok and warn:
             self._set_status(
-                "미리보기 완료 — 본문 폴백 사용됨. 선택자·상세 페이지 옵션을 확인하세요.",
+                t("gui.selector.preview_done_fallback"),
                 ok=False,
             )
         else:
             self._set_status(
-                "수집 미리보기 완료." if ok else "수집 미리보기 실패 — 선택자를 조정하세요.",
+                t("gui.selector.preview_done") if ok else t("gui.selector.preview_failed_status"),
                 ok=ok,
             )
