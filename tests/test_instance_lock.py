@@ -4,13 +4,14 @@ import tempfile
 from unittest.mock import patch
 
 import x3_websync
+from websync.core import instance_lock
 
 
 def test_acquire_and_release_lock():
     with tempfile.TemporaryDirectory() as tmp:
         lock_path = os.path.join(tmp, "test.lock")
 
-        with patch.object(x3_websync, "_lock_path", return_value=lock_path):
+        with patch.object(instance_lock, "_lock_path", return_value=lock_path):
             assert x3_websync.acquire_instance_lock() is True
             assert os.path.exists(lock_path)
             x3_websync.release_instance_lock()
@@ -21,7 +22,7 @@ def test_duplicate_lock_denied():
     with tempfile.TemporaryDirectory() as tmp:
         lock_path = os.path.join(tmp, "test.lock")
 
-        with patch.object(x3_websync, "_lock_path", return_value=lock_path):
+        with patch.object(instance_lock, "_lock_path", return_value=lock_path):
             assert x3_websync.acquire_instance_lock() is True
             assert x3_websync.acquire_instance_lock() is False
             x3_websync.release_instance_lock()
@@ -33,8 +34,8 @@ def test_stale_lock_removed_when_pid_dead():
         with open(lock_path, "w", encoding="utf-8") as f:
             f.write("999999999,2020-01-01T00:00:00")
 
-        with patch.object(x3_websync, "_lock_path", return_value=lock_path):
-            with patch.object(x3_websync, "_is_process_running", return_value=False):
+        with patch.object(instance_lock, "_lock_path", return_value=lock_path):
+            with patch.object(instance_lock, "_is_process_running", return_value=False):
                 assert x3_websync.acquire_instance_lock() is True
                 x3_websync.release_instance_lock()
 

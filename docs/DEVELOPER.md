@@ -11,9 +11,10 @@
 
 ```
 xteink-crosspoint-websync/
-├── x3_websync.py              # 진입점 (CLI/GUI, 단일 인스턴스 락)
+├── x3_websync.py              # 진입점 (CLI/GUI 분기; 락/스모크는 core/)
 ├── websync/                  # 메인 패키지
-│   ├── core/                 # paths, article, logger, process_lock
+│   ├── core/                 # paths, article, logger, process_lock, instance_lock, smoke, update/
+│   ├── cli/                  # --apply-update 헬퍼
 │   ├── i18n/                 # t(), OS 언어 감지, locales/ko.json·en.json
 │   ├── config/               # ConfigManager, validator
 │   ├── db/                   # SyncHistoryDb
@@ -35,7 +36,8 @@ xteink-crosspoint-websync/
 | 패키지 | 역할 |
 |--------|------|
 | `x3_websync.py` | 진입점 — GUI / `--sync` / `--smoke`(핵심 모듈 import + i18n 카탈로그) |
-| `websync.core` | 경로, 로깅, 프로세스 락, 기사 URL 유틸 |
+| `websync.core` | 경로, 로깅, 프로세스 락, GUI 인스턴스 락, 스모크, 기사 URL 유틸, `update/` |
+| `websync.cli` | `--apply-update` 헬퍼 (`update_apply`) |
 | `websync.i18n` | UI 언어 감지(`auto`/`ko`/`en`)와 JSON 카탈로그 `t()` |
 | `websync.config` | `config.json` CRUD, 검증, secrets 마스킹 유틸 |
 | `websync.pipeline` | 동기화·프리뷰·선택 전송 오케스트레이션 (`upload_results` 공통 헬퍼) |
@@ -59,7 +61,7 @@ GUI·validator·factory 가 이 목록을 공유합니다.
 | 타입 | 모듈 | 비고 |
 |------|------|------|
 | `css` | `css.py` | 사용자 CSS 선택자 (`link_selector`, 상세 본문 폴백, 폴백 통계) |
-| (도우미) | `selector_assistant.py` | 페이지 분석·선택자 추천·RSS 프로브·사설 URL 감지 (GUI 비의존) |
+| (도우미) | `selector_assistant/` | 페이지 분석·선택자 추천·RSS 프로브·사설 URL 감지 (GUI 비의존) |
 | (GUI) | `gui/sync_tab/selector_wizard.py` | 사이트 등록 시 분석/테스트/미리보기 패널 (스레드 안전) |
 | `rss` | `rss.py` | RSS/Atom |
 | `velog` | `velog.py` | 프로필 URL → Velog RSS |
@@ -198,7 +200,7 @@ i18n 문자열을 추가하면 `websync/i18n/locales/ko.json` 과 `en.json` 에 
 
 ### 보안 서명 모델 (Ed25519)
 - **비대칭키 서명**: 빌드된 바이너리(`xteink-x3-websync-vX.Y.Z.exe`)의 SHA-256 해시 및 메타데이터에 대해 Ed25519 개인키로 디지털 서명된 `latest.json` 매니페스트를 생성합니다.
-- **공개키 내장**: `websync/core/update_constants.py`의 `UPDATE_PUBLIC_KEY_B64_DEFAULT`에 공개키가 안전하게 내장되어 있으며, 개인키는 오직 GitHub Actions Secret(`X3_UPDATE_PRIVATE_KEY_B64`)으로만 관리됩니다.
+- **공개키 내장**: `websync/core/update/constants.py`의 `UPDATE_PUBLIC_KEY_B64_DEFAULT`에 공개키가 안전하게 내장되어 있으며, 개인키는 오직 GitHub Actions Secret(`X3_UPDATE_PRIVATE_KEY_B64`)으로만 관리됩니다.
 - **안전 검증 체계**:
   1. 원격 매니페스트 다운로드 시 CDN 캐시 우회(`Cache-Control: no-cache` + 타임스탬프 파라미터).
   2. Ed25519 서명, HTTPS URL, SHA-256 해시, 크기 상한(500MB), 만료일 무결성 검증.

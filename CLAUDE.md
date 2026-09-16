@@ -22,18 +22,20 @@
 
 ```
 xteink-crosspoint-websync/
-├── x3_websync.py              # 진입점 — CLI/GUI 분기, 단일 인스턴스 락
+├── x3_websync.py              # 진입점 — CLI/GUI 분기 (NullWriter, main; 락/스모크는 core/)
 ├── x3_websync.spec            # PyInstaller 빌드 스펙
 ├── websync/                   # 메인 패키지 (SOLID 기반 역할별 분리)
 │   ├── core/
 │   │   ├── paths.py           # PROJECT_ROOT (개발: 패키지 상위, frozen: exe 디렉터리)
 │   │   ├── process_lock.py    # 크로스 프로세스 파이프라인 파일 락
+│   │   ├── instance_lock.py   # GUI 단일 인스턴스 락 (named mutex + 파일)
+│   │   ├── smoke.py           # --smoke 핵심 모듈 import 검증
 │   │   ├── article.py         # 기사 URL / synthetic key 유틸
-│   │   ├── update_constants.py# 업데이트 URL, Ed25519 공개키 및 제한 상수
-│   │   ├── update_manifest.py # Ed25519 서명 검증 및 릴리즈 매니페스트 파싱
-│   │   ├── update_installer.py# 스트리밍 다운로드, 교체/롤백, 헬퍼 프로세스
-│   │   ├── update_service.py  # 비동기 업데이트 확인/다운로드 조율 서비스
+│   │   ├── update/            # 자동 업데이트 (constants/manifest/installer/service)
+│   │   ├── update_*.py        # 하위 호환 re-export → update/
 │   │   └── logger.py          # 날짜별 로그 파일
+│   ├── cli/
+│   │   └── update_apply.py    # --apply-update 헬퍼 프로세스
 │   ├── i18n/
 │   │   ├── __init__.py        # t(), init_i18n, init_from_config
 │   │   ├── detect.py          # OS UI 언어 (auto → ko/en)
@@ -45,7 +47,7 @@ xteink-crosspoint-websync/
 │   │   └── history.py         # SQLite 동기화 이력 — timeout=10.0
 │   ├── scrapers/
 │   │   ├── base.py / types.py / presets.py   # 공통·타입 상수·한국 추천 프리셋
-│   │   ├── selector_assistant.py  # CSS 선택자 도우미(분석·추천·RSS 프로브, GUI 비의존)
+│   │   ├── selector_assistant/    # CSS 선택자 도우미(분석·추천·RSS 프로브, GUI 비의존)
 │   │   ├── css.py / rss.py / velog.py / naver.py / tistory.py / brunch.py / newneek.py
 │   │   ├── youtube.py / substack.py / naver_cafe.py / naver_post.py
 │   │   ├── soonsal.py / moneyletter.py / newsletter_base.py
@@ -88,7 +90,7 @@ xteink-crosspoint-websync/
 │   └── gui/
 │       ├── widgets.py         # 공통 위젯 및 테마 색상 상수
 │       ├── app_core/          # SyncAppGui (layout/helpers/config_sync/sync_control)
-│       ├── sync_tab/          # 뉴스 동기화 탭 (connection/devices/sites/schedule/preview/selector_wizard)
+│       ├── sync_tab/          # 뉴스 동기화 탭 (connection/devices/sites/site_dialog/schedule/preview/selector_wizard)
 │       ├── device_files/      # 기기 파일 탭 (browser/actions/cleanup/settings)
 │       ├── settings_tab/      # 고급 설정 (epub/servers/watch/ai_translation/backup_sync)
 │       ├── tab_*.py           # 하위 호환 re-export (sync/device_files/settings)
@@ -131,16 +133,17 @@ xteink-crosspoint-websync/
 |------|------|
 | 역할 | CLI `--sync` 플래그 분기 / GUI 앱 기동 |
 | 보안 패치 | `NullWriter` 클래스로 pythonw.exe stdout=None 방어 |
-| 다중 실행 방지 | GUI: Windows named mutex + 락 파일 / Unix flock |
+| 다중 실행 방지 | GUI: `websync.core.instance_lock` (Windows named mutex + 락 파일 / Unix flock) |
 | `--sync` 모드 | GUI 락 없이 기동 — `threading.Lock` + **프로세스 파일 락**(`PROJECT_ROOT/x3_websync_pipeline.lock`)으로 직렬화 |
-| `--smoke` | 핵심 모듈 import + i18n 카탈로그 적재 검증. 성공 0 / 실패 1 (업데이트 롤백 스모크) |
+| `--smoke` | `websync.core.smoke` — 핵심 모듈 import + i18n 카탈로그 적재 검증. 성공 0 / 실패 1 |
 | 주의 | GUI 락은 `finally`에서 항상 해제됨 |
 
 **호출 관계**:
 ```
 main()
-  ├── [--smoke] run_smoke_check()
-  ├── [GUI만] acquire_instance_lock()
+  ├── [--smoke] websync.core.smoke.run_smoke_check()
+  ├── [--apply-update] websync.cli.update_apply.handle_apply_update()
+  ├── [GUI만] websync.core.instance_lock.acquire_instance_lock()
   ├── ConfigManager()
   ├── SyncService(config_manager)
   └── [--sync] service.run_sync_pipeline() → sys.exit(0|1)

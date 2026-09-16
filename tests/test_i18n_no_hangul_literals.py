@@ -10,7 +10,6 @@ WEBSYNC = ROOT / "websync"
 # 콘텐츠 매칭·고유명·샘플 데이터. UI 크롬이 아님.
 _ALLOW_FILES = {
     "websync/scrapers/presets.py",  # 프리셋 고유명·label 폴백
-    "websync/scrapers/selector_assistant.py",  # 한글 내비 토큰·정규식
     "websync/scrapers/moneyletter.py",  # CTA 본문 휴리스틱
     "websync/scrapers/soonsal.py",
     "websync/scrapers/brunch.py",
@@ -31,6 +30,9 @@ def _iter_py_literals():
             continue
         rel = path.relative_to(ROOT).as_posix()
         if rel.startswith("websync/i18n/"):
+            continue
+        if rel.startswith("websync/scrapers/selector_assistant/"):
+            # 한글 내비 토큰·정규식 (구 selector_assistant.py)
             continue
         src = path.read_text(encoding="utf-8")
         tree = ast.parse(src)

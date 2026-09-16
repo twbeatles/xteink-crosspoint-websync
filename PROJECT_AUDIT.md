@@ -75,7 +75,8 @@ Xteink X3(CrossPoint) e-ink 리더기에 뉴스·블로그·RSS 등을 EPUB으�
 | GUI | `gui/app_core`, `sync_tab`, `settings_tab`, `device_files` |
 | i18n | `i18n/` (`t()`, `ko.json`/`en.json`) |
 | 서버 | `servers/opds.py`, `servers/dashboard/` |
-| 업데이트 | `core/update_installer.py`, `update_service.py` |
+| 업데이트 | `core/update/` (constants·manifest·installer·service; 구 `update_*.py` 는 re-export) |
+| CLI 헬퍼 | `core/instance_lock.py`, `core/smoke.py`, `cli/update_apply.py` |
 
 ### 데이터 저장
 

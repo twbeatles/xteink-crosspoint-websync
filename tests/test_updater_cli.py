@@ -57,7 +57,7 @@ def test_handle_apply_update_parent_timeout(tmp_path):
     )
 
     # 부모 프로세스가 계속 살아있다고 모킹하고 time.sleep을 즉시 리턴하게 모킹
-    with patch("x3_websync._is_process_running", return_value=True), \
+    with patch("websync.cli.update_apply._is_process_running", return_value=True), \
          patch("time.sleep", return_value=None):
         ret = _handle_apply_update(args)
         assert ret == 1

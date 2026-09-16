@@ -26,7 +26,8 @@
     "gui_already_running": "[{now}] ⚠️ Warning: another X3 WebSync GUI is already running. Exiting.",
     "config_load_failed": "[{now}] ❌ Failed to load settings: {error}",
     "sync_start": "[{now}] Starting background sync",
-    "sync_end": "[{now}] Background sync finished (result: {result})"
+    "sync_end": "[{now}] Background sync finished (result: {result})",
+    "parent_wait_timeout": "Timed out waiting for parent process (PID: {pid}) to exit (15s)"
   },
   "settings": {
     "language": {

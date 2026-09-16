@@ -21,6 +21,7 @@ from websync.gui.sync_tab.connection import SyncConnectionMixin
 from websync.gui.sync_tab.schedule import SyncScheduleMixin
 from websync.gui.sync_tab.devices import SyncDevicesMixin
 from websync.gui.sync_tab.sites import SyncSitesMixin
+from websync.gui.sync_tab.site_dialog import SiteDialogMixin
 from websync.gui.sync_tab.preview import SyncPreviewMixin
 from websync.i18n import t
 
@@ -30,6 +31,7 @@ class SyncTab(
     SyncScheduleMixin,
     SyncDevicesMixin,
     SyncSitesMixin,
+    SiteDialogMixin,
     SyncPreviewMixin,
     ctk.CTkFrame,
 ):

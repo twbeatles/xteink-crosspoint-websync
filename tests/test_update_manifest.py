@@ -164,7 +164,7 @@ def test_download_release_manifest_cache_busting():
         captured_requests.append(req)
         return FakeResponse()
 
-    with patch("websync.core.update_manifest.urlopen", side_effect=fake_urlopen):
+    with patch("websync.core.update.manifest.urlopen", side_effect=fake_urlopen):
         result = download_release_manifest("https://example.com/latest.json")
         assert result == b'{"payload": {}}'
         assert len(captured_requests) == 1

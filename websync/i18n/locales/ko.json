@@ -26,7 +26,8 @@
     "gui_already_running": "[{now}] ⚠️ 경고: 이미 다른 X3 WebSync GUI가 실행 중입니다. 실행을 중단합니다.",
     "config_load_failed": "[{now}] ❌ 설정 로드 실패: {error}",
     "sync_start": "[{now}] 백그라운드 동기화 모드 구동 시작",
-    "sync_end": "[{now}] 백그라운드 동기화 모드 종료 (결과: {result})"
+    "sync_end": "[{now}] 백그라운드 동기화 모드 종료 (결과: {result})",
+    "parent_wait_timeout": "부모 프로세스(PID: {pid}) 종료 대기 시간(15초) 초과"
   },
   "settings": {
     "language": {
