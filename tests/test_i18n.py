@@ -22,6 +22,16 @@ def test_t_formats_named_placeholders():
     assert t("epub.cover.articles", n=3) == "3 articles"
 
 
+def test_t_accepts_key_as_format_kwarg():
+    """카탈로그 {key} 플레이스홀더는 t() 첫 인자 이름과 충돌하면 안 된다."""
+    init_i18n("ko")
+    result = t("gui.settings.api_key_shown", key="SECRET123")
+    assert "SECRET123" in result
+    init_i18n("en")
+    result = t("gui.settings.api_key_masked", key="abcd")
+    assert "abcd" in result
+
+
 def test_unknown_language_falls_back_to_supported():
     init_i18n("xx")
     assert get_language() in ("en", "ko")

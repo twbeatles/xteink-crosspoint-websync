@@ -65,8 +65,11 @@ def get_language() -> str:
         return _language
 
 
-def t(key: str, **kwargs: Any) -> str:
-    """dotted key 번역. 없으면 한국어 폴백, 그것도 없으면 키 자체."""
+def t(key: str, /, **kwargs: Any) -> str:
+    """dotted key 번역. 없으면 한국어 폴백, 그것도 없으면 키 자체.
+
+    첫 인자는 위치 전용이라 카탈로그 `{key}` 플레이스홀더와 충돌하지 않는다.
+    """
     _ensure_init()
     with _lock:
         text = _primary.get(key) or _fallback.get(key) or key
