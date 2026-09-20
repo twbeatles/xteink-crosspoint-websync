@@ -64,6 +64,7 @@ class SelectorWizardPanel:
         on_type_change: Optional[Callable[[], None]] = None,
         apply_site_config: Optional[Callable[[dict], None]] = None,
         is_pipeline_running: Optional[Callable[[], bool]] = None,
+        start_background_task: Optional[Callable[..., Any]] = None,
     ):
         self.parent = parent
         self.dialog = dialog
@@ -76,6 +77,7 @@ class SelectorWizardPanel:
         self.on_type_change = on_type_change
         self.apply_site_config = apply_site_config
         self.is_pipeline_running = is_pipeline_running
+        self.start_background_task = start_background_task
 
         self._html: str = ""
         self._base_url: str = ""
@@ -282,7 +284,10 @@ class SelectorWizardPanel:
                 analysis = PageAnalysis(url=url, base_url=url, error=t("gui.selector.analyze_exception", error=e))
             self._schedule(gen, lambda: self._apply_analysis(analysis, gen))
 
-        threading.Thread(target=work, daemon=True).start()
+        if self.start_background_task:
+            self.start_background_task(work, name="selector-analyze")
+        else:
+            threading.Thread(target=work, daemon=True).start()
 
     def _apply_analysis(self, analysis: PageAnalysis, gen: int) -> None:
         if gen != self._req_gen:
@@ -572,7 +577,10 @@ class SelectorWizardPanel:
                 lambda: self._finish_test(msg, analysis, gen),
             )
 
-        threading.Thread(target=work, daemon=True).start()
+        if self.start_background_task:
+            self.start_background_task(work, name="selector-test")
+        else:
+            threading.Thread(target=work, daemon=True).start()
 
     def _finish_test(
         self,
@@ -651,7 +659,10 @@ class SelectorWizardPanel:
                 msg = t("gui.selector.preview_failed", error=e)
             self._schedule(gen, lambda: self._finish_preview(msg, gen))
 
-        threading.Thread(target=work, daemon=True).start()
+        if self.start_background_task:
+            self.start_background_task(work, name="selector-preview")
+        else:
+            threading.Thread(target=work, daemon=True).start()
 
     def _finish_preview(self, msg: str, gen: int) -> None:
         if gen != self._req_gen:

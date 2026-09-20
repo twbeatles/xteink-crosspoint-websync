@@ -260,4 +260,4 @@ class SettingsBackupSyncMixin:
 
                 self.app.root.after(0, err)
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="backup-sync")

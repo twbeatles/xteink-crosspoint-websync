@@ -1,8 +1,9 @@
 import json
 import os
 import tempfile
+import pytest
 
-from websync.backup.atomic_io import read_json_safe, write_json_atomic
+from websync.backup.atomic_io import JsonReadError, read_json_checked, read_json_safe, write_json_atomic
 
 
 def test_write_and_read_json_atomic():
@@ -33,3 +34,14 @@ def test_read_json_safe_missing_and_corrupt():
         with open(ok, "w", encoding="utf-8") as f:
             json.dump([1, 2, 3], f)
         assert read_json_safe(ok) == [1, 2, 3]
+
+
+def test_read_json_checked_distinguishes_missing_from_corrupt():
+    with tempfile.TemporaryDirectory() as tmp:
+        missing = os.path.join(tmp, "missing.json")
+        corrupt = os.path.join(tmp, "corrupt.json")
+        assert read_json_checked(missing) is None
+        with open(corrupt, "w", encoding="utf-8") as f:
+            f.write('{"partial":')
+        with pytest.raises(JsonReadError):
+            read_json_checked(corrupt)

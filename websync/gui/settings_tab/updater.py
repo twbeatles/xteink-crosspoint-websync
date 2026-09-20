@@ -155,7 +155,11 @@ class SettingsUpdaterMixin:
                 error_msg = str(exc)
                 self._safe_ui(lambda msg=error_msg: self._on_update_check_failed(msg))
 
-        threading.Thread(target=worker, daemon=True).start()
+        starter = getattr(getattr(self, "app", None), "_start_background_task", None)
+        if starter:
+            starter(worker, name="update-check")
+        else:
+            threading.Thread(target=worker, daemon=True).start()
 
     def _on_update_check_latest(self):
         self.check_update_btn.configure(state="normal")
@@ -225,7 +229,11 @@ class SettingsUpdaterMixin:
                 error_msg = str(exc)
                 self._safe_ui(lambda msg=error_msg: self._on_download_failed(msg))
 
-        threading.Thread(target=download_worker, daemon=True).start()
+        starter = getattr(getattr(self, "app", None), "_start_background_task", None)
+        if starter:
+            starter(download_worker, name="update-download")
+        else:
+            threading.Thread(target=download_worker, daemon=True).start()
 
     def _on_cancel_download_clicked(self):
         if self._download_cancel_event:

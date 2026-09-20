@@ -57,7 +57,7 @@ class DeviceFilesActionsMixin:
                 0, lambda ip=ip, count=len(paths), err=err: self._delete_finished(ip, count, err)
             )
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="device-delete")
 
     def _delete_finished(self, ip: str, count: int, err: str | None) -> None:
         self._set_busy(False)
@@ -100,7 +100,7 @@ class DeviceFilesActionsMixin:
                 0, lambda ip=ip, name=name, err=err: self._mkdir_finished(ip, name, err)
             )
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="device-mkdir")
 
     def _mkdir_finished(self, ip: str, name: str, err: str | None) -> None:
         self._set_busy(False)
@@ -151,7 +151,7 @@ class DeviceFilesActionsMixin:
                 0, lambda ip=ip, err=err: self._op_finished(ip, t("gui.device.op_rename"), err)
             )
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="device-rename")
 
     def _move_selected(self) -> None:
         if self._busy:
@@ -192,7 +192,7 @@ class DeviceFilesActionsMixin:
                 ),
             )
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="device-move")
 
     def _op_finished(self, ip: str, label: str, err: str | None) -> None:
         self._set_busy(False)
@@ -257,7 +257,7 @@ class DeviceFilesActionsMixin:
                 lambda ip=ip, ok=ok, errors=errors: self._download_finished(ip, ok, errors),
             )
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="device-download")
 
     def _download_finished(self, ip: str, ok: int, errors: list[str]) -> None:
         self._set_busy(False)
@@ -342,7 +342,7 @@ class DeviceFilesActionsMixin:
                 ),
             )
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="device-upload")
 
     # ------------------------------------------------------------------
     # 오래된 동기화 EPUB 정리

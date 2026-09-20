@@ -123,7 +123,7 @@ class DeviceFilesBrowserMixin:
                 ),
             )
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="device-list")
 
     def _refresh_finished(
         self,

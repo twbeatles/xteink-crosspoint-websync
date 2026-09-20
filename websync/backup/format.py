@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 FORMAT_NAME = "xteink-websync-backup"
@@ -17,7 +17,7 @@ LOCK_FILENAME = ".backup_sync.lock"
 
 
 def now_iso() -> str:
-    return datetime.now().isoformat(timespec="microseconds")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -28,9 +28,19 @@ def parse_iso(value: str | None) -> datetime | None:
         return None
     # "2026-07-20T12:34:56" 또는 공백 구분
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00").replace(" ", "T", 1))
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00").replace(" ", "T", 1))
+        if parsed.tzinfo is None:
+            # SQLite CURRENT_TIMESTAMP values use a space and are UTC.  Older
+            # application-generated ISO values used T and local wall time.
+            tz = timezone.utc if " " in text else datetime.now().astimezone().tzinfo
+            parsed = parsed.replace(tzinfo=tz)
+        return parsed.astimezone(timezone.utc)
     except ValueError:
         return None
+
+
+def _time_key(value: str | None) -> datetime:
+    return parse_iso(value) or datetime.min.replace(tzinfo=timezone.utc)
 
 
 def is_remote_newer(remote_at: str | None, local_at: str | None) -> bool:
@@ -146,7 +156,7 @@ def merge_site_tombstones(*groups: list[dict]) -> list[dict]:
             if not url or not deleted_at:
                 continue
             old = by_url.get(url)
-            if old is None or deleted_at.replace("T", " ", 1) > old["deleted_at"].replace("T", " ", 1):
+            if old is None or _time_key(deleted_at) > _time_key(old["deleted_at"]):
                 by_url[url] = {"url": url, "deleted_at": deleted_at}
     return [by_url[url] for url in sorted(by_url)]
 
@@ -166,7 +176,7 @@ def apply_site_tombstones(
             kept.append(site)
             continue
         updated_at = (site.get("_sync_updated_at") or "").strip()
-        if updated_at and updated_at.replace("T", " ", 1) > tombstone["deleted_at"].replace("T", " ", 1):
+        if updated_at and _time_key(updated_at) > _time_key(tombstone["deleted_at"]):
             kept.append(site)
             tombstones.pop(url, None)
     return kept, [tombstones[url] for url in sorted(tombstones)]
@@ -229,9 +239,9 @@ def merge_sites(
         if not key:
             continue
         if key in by_url:
-            current_at = (by_url[key].get("_sync_updated_at") or "").replace("T", " ", 1)
-            incoming_at = (s.get("_sync_updated_at") or "").replace("T", " ", 1)
-            if incoming_at and incoming_at > current_at:
+            current_at = by_url[key].get("_sync_updated_at") or ""
+            incoming_at = s.get("_sync_updated_at") or ""
+            if incoming_at and _time_key(incoming_at) > _time_key(current_at):
                 _put(s, overwrite=True)
             elif not current_at and not incoming_at and remote_wins_same_url:
                 _put(s, overwrite=True)

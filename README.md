@@ -66,7 +66,7 @@ flowchart LR
 
 A zero-install, single portable executable for Windows users.
 
-1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.1.1.exe` from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
+1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.2.2.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
 2. **Connect Device**: Launch the executable. In the **News Sync** tab, enter your reader's IP address (e.g., `192.168.0.25`) or `crosspoint.local` into the **X3 Address** field, then click **[Check Connection]**.
 3. **Add Sites & Sync**: Click **[Add Site]** to pick from recommended presets (tech blogs, newsletters) or enter your favorite RSS feed URL. Then click **[Run Full Scraping & Sync to X3 Immediately]** at the bottom.
 
@@ -150,7 +150,7 @@ Engineered specifically for superior readability on monochrome electronic ink sc
 - **Wi-Fi Direct Upload**: Delivers EPUBs straight to the reader via CrossPoint's HTTP file management API.
 - **Incremental Deduplication**: Tracks synced article URLs and hashes in an embedded SQLite database (`sync_history.db`). Only delivers genuinely new articles, conserving battery and storage.
 - **News Preview (Selective Sync)**: Review freshly fetched articles in a preview modal before syncing. Selectively check only the stories you wish to read today.
-- **Multi-Device Support**: Configure multiple XTEINK X3/X4 readers to distribute reading lists across multiple devices simultaneously.
+- **Multi-Device Support**: Configure multiple XTEINK X3/X4 readers. In per-device history mode, each generated EPUB contains only the articles missing from its target device, preventing cross-device duplicate delivery.
 
 ### 4. Calibre Library Integration & Direct File Transfer
 - **Calibre Database Integration**: Interacts directly with your PC's Calibre database (`calibredb`) to search, browse, and wirelessly send library books to your reader.
@@ -167,7 +167,7 @@ Manage files on the XTEINK reader directly from your desktop when in `File Trans
 - **Scheduled Background Delivery**: Integrates with Windows Task Scheduler (or cron/launchd) to wake up and wirelessly sync reading materials at a set time (e.g., 7:00 AM daily).
 - **Cloud Shared Data Folder (OneDrive / Google Drive / Dropbox)**:
   - Synchronize subscription configurations (`sites.json`) and delivery history (`synced_posts.json`) via a cloud storage directory.
-  - Switch between desktop and laptop without receiving duplicate articles or losing feed settings.
+  - Switch between desktop and laptop without receiving duplicate articles or losing feed settings. Empty, truncated, malformed, or schema-invalid cloud files are rejected and never overwrite the shared copy.
 
 ### 7. Advanced Services & Extensibility
 - **Built-in OPDS Catalog Server**: Serves generated EPUBs as a standardized OPDS feed so you can browse and download books directly from OPDS-compatible reader apps.

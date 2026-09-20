@@ -29,7 +29,7 @@ class SyncConnectionMixin:
                 results.append((dev["name"], dev["ip"], ok))
             self.master.after(0, lambda: self._test_connection_finished(results))
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="connection-test")
 
     def _test_connection_finished(self, results: list[tuple[str, str, bool]]):
         if not self.app._sync_busy:
@@ -97,7 +97,7 @@ class SyncConnectionMixin:
             results = self.app._make_uploader().upload_to_targets(file_path)
             self.master.after(0, lambda: self._direct_upload_finished(results, file_path))
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="direct-upload")
 
     def _direct_upload_finished(self, results: dict, file_path: str):
         if not self.app._sync_busy:

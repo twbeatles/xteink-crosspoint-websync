@@ -120,7 +120,7 @@ class CalibreTab(ctk.CTkFrame):
             books = self.calibre.list_books()
             self.master.after(0, lambda: self._show_calibre_books(books, silent))
 
-        threading.Thread(target=worker, daemon=True).start()
+        self.app._start_background_task(worker, name="calibre-load")
 
     def _show_calibre_books(self, books: list, silent: bool):
         if not self.app._sync_busy:
@@ -170,7 +170,7 @@ class CalibreTab(ctk.CTkFrame):
                     self.master.after(0, lambda p=file_path, s=summary: self.app._log_message(t("gui.calibre.log_file_fail", name=os.path.basename(p), summary=s)))
             self.master.after(0, lambda: self._calibre_send_finished(success_cnt, len(selected_items)))
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="calibre-send")
 
     def _calibre_send_finished(self, success_cnt: int, total_cnt: int):
         if not self.app._sync_busy:

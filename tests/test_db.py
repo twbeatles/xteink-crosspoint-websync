@@ -296,3 +296,22 @@ def test_import_newer_tombstone_removes_local_history():
         assert not db.is_synced_for_device(url, device)
     finally:
         _cleanup_db(db, path)
+
+
+def test_resend_uses_utc_timestamp_and_rejects_older_tombstone():
+    db, path = _make_db()
+    try:
+        url = "https://example.com/resend"
+        device = "dev_primary"
+        db.mark_synced(url, "site", "first", device_ip=device)
+        db.delete_entry(url)
+        old_tombstone = db.export_deleted_posts()[0]
+        assert old_tombstone["deleted_at"].endswith("Z")
+
+        db.mark_synced(url, "site", "resent", device_ip=device)
+        resent = db.export_all_posts()[0]
+        assert resent["synced_at"].endswith("Z")
+        db.import_deleted_posts([old_tombstone])
+        assert db.is_synced_for_device(url, device)
+    finally:
+        _cleanup_db(db, path)

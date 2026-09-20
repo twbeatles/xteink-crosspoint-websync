@@ -2,7 +2,7 @@ import sqlite3
 import os
 import threading
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from websync.core.paths import PROJECT_ROOT, resolve_path
 from websync.i18n import t
 
@@ -244,6 +244,7 @@ class SyncHistoryDb:
         if not entries:
             return 0
         rows = []
+        synced_at = self._utc_now_iso()
         for e in entries:
             if not isinstance(e, dict):
                 continue
@@ -257,6 +258,7 @@ class SyncHistoryDb:
                     device_ip,
                     e.get("site_name") or "",
                     e.get("title") or "",
+                    synced_at,
                 )
             )
         if not rows:
@@ -267,14 +269,15 @@ class SyncHistoryDb:
                     cursor = conn.cursor()
                     cursor.executemany(
                         """
-                        INSERT OR REPLACE INTO synced_posts (url, device_ip, site_name, title)
-                        VALUES (?, ?, ?, ?)
+                        INSERT OR REPLACE INTO synced_posts
+                        (url, device_ip, site_name, title, synced_at)
+                        VALUES (?, ?, ?, ?, ?)
                         """,
                         rows,
                     )
                     cursor.executemany(
                         "DELETE FROM deleted_posts WHERE url = ? AND device_ip = ?",
-                        [(url, device_ip) for url, device_ip, _site, _title in rows],
+                        [(url, device_ip) for url, device_ip, _site, _title, _at in rows],
                     )
                     conn.commit()
                     return len(rows)
@@ -348,7 +351,7 @@ class SyncHistoryDb:
             try:
                 with self._connect() as conn:
                     cursor = conn.cursor()
-                    deleted_at = datetime.now().isoformat(timespec="microseconds")
+                    deleted_at = self._utc_now_iso()
                     cursor.execute(
                         """
                         INSERT OR REPLACE INTO deleted_posts (url, device_ip, deleted_at)
@@ -367,7 +370,7 @@ class SyncHistoryDb:
             try:
                 with self._connect() as conn:
                     cursor = conn.cursor()
-                    deleted_at = datetime.now().isoformat(timespec="microseconds")
+                    deleted_at = self._utc_now_iso()
                     cursor.execute(
                         """
                         INSERT OR REPLACE INTO deleted_posts (url, device_ip, deleted_at)
@@ -467,22 +470,50 @@ class SyncHistoryDb:
                             )
                             changed += 1
                         cursor.execute(
+                            "SELECT deleted_at FROM deleted_posts WHERE url = ? AND device_ip = ?",
+                            (url, device_ip),
+                        )
+                        effective_tombstone = cursor.fetchone()
+                        cursor.execute(
                             "SELECT synced_at FROM synced_posts WHERE url = ? AND device_ip = ?",
                             (url, device_ip),
                         )
                         synced = cursor.fetchone()
-                        if synced and self._time_key(deleted_at) >= self._time_key(synced[0] or ""):
-                            cursor.execute(
-                                "DELETE FROM synced_posts WHERE url = ? AND device_ip = ?",
-                                (url, device_ip),
-                            )
+                        if synced and effective_tombstone:
+                            if self._time_key(effective_tombstone[0] or "") >= self._time_key(synced[0] or ""):
+                                cursor.execute(
+                                    "DELETE FROM synced_posts WHERE url = ? AND device_ip = ?",
+                                    (url, device_ip),
+                                )
+                            else:
+                                # A successful resend supersedes an older
+                                # deletion; do not export that stale tombstone
+                                # back to the shared folder indefinitely.
+                                cursor.execute(
+                                    "DELETE FROM deleted_posts WHERE url = ? AND device_ip = ?",
+                                    (url, device_ip),
+                                )
                     return changed
             except Exception as e:
                 raise SyncHistoryDbError(t("db.import_deleted_failed", error=e)) from e
 
     @staticmethod
-    def _time_key(value: str) -> str:
-        return (value or "").replace("T", " ", 1).replace("Z", "+00:00")
+    def _utc_now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+    @staticmethod
+    def _time_key(value: str) -> datetime:
+        text = (value or "").strip()
+        if not text:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00").replace(" ", "T", 1))
+        except (TypeError, ValueError):
+            return datetime.min.replace(tzinfo=timezone.utc)
+        if parsed.tzinfo is None:
+            tz = timezone.utc if " " in text else datetime.now().astimezone().tzinfo
+            parsed = parsed.replace(tzinfo=tz)
+        return parsed.astimezone(timezone.utc)
 
     def import_posts_union(self, posts: list[dict]) -> int:
         """원격 이력을 합집합 병합합니다. (url, device_ip) 기준.
@@ -558,9 +589,10 @@ class SyncHistoryDb:
                         new_at_s = synced_at or ""
                         # 원격이 더 최신이거나 로컬 시각이 비어 있으면 갱신
                         # ISO(T) / SQLite(공백) 혼용을 위해 비교용 정규화
-                        old_cmp = old_at_s.replace("T", " ", 1)
-                        new_cmp = new_at_s.replace("T", " ", 1)
-                        if new_at_s and (not old_at_s or new_cmp > old_cmp):
+                        if new_at_s and (
+                            not old_at_s
+                            or self._time_key(new_at_s) > self._time_key(old_at_s)
+                        ):
                             cursor.execute(
                                 """
                                 UPDATE synced_posts

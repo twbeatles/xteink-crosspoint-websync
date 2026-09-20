@@ -99,4 +99,4 @@ class DeviceFilesCleanupMixin:
                 0, lambda ip=ip, count=len(paths), err=err: self._delete_finished(ip, count, err)
             )
 
-        threading.Thread(target=task, daemon=True).start()
+        self.app._start_background_task(task, name="device-cleanup")

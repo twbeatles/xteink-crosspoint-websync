@@ -1,284 +1,321 @@
 # Project Audit
 
-## Remediation Follow-up — 2026-09-15
+감사일: 2026-09-20
 
-감사에서 제안한 항목을 같은 작업 트리에서 구현했다.
+기준: `main` / `a290acc` / Windows / Python 3.14.7
+범위: 기능 구현, 런타임 안정성, 데이터 무결성, 오류 복구, 주요 보안 경계. 스타일·네이밍·취향성 리팩터링은 제외했다.
 
-| 항목 | 상태 | 적용 |
-|---|---|---|
-| ISSUE-001 CAS 우회 저장 | **Resolved** | `ConfigManager.patch_fields` 추가. 테마·언어·자동업데이트·portable wizard가 디스크 최신본에 해당 필드만 패치한다. |
-| ISSUE-002 GUI 종료 시 daemon 동기화 | **Resolved** | `SyncService.shutdown_pipeline`이 cancel 후 워커 join. GUI 즉시/프리뷰/선택 동기화 스레드를 등록하고 `_on_close`에서 최대 5초 대기한다. |
-| frozen i18n 스모크 | **Resolved** | `--smoke`가 `t("gui.tabs.sync")` 카탈로그 적재를 검사한다. |
-| 대시보드 cancel 테스트 | **Resolved** | 콜백 횟수 단언을 `>= 1`로 완화. |
-| README 스크래퍼 표 | **Resolved** | `SCRAPER_TYPES` 13종을 표에 맞춤. |
-| 공유 폴더 동시 기록 안내 | **Resolved** | USER_GUIDE에 PC 간 락 한계를 명시. |
+## Remediation Status — 2026-09-20
 
-회귀: `test_patch_fields_keeps_sites_written_by_other_writer`, `test_shutdown_pipeline_cancels_running_worker`.
+이 문서 아래의 내용은 수정 전 감사 스냅샷이며, 이후 다음 조치를 구현했다.
 
-감사일: 2026-09-15  
-작업 트리: `feat/i18n-ko-en` (기준 커밋 `991259d`, 그 위에 미커밋 i18n 변경 포함)  
-범위: 기능 구현·런타임 안정성·데이터 무결성. 스타일/네이밍/리팩터링 취향은 제외.
+- **ISSUE-001 해결:** 공유 JSON의 missing과 invalid/partial 상태를 구분하는 strict reader를 추가했다. sites/history 파일을 모두 선검증하고 제한적으로 재시도한 뒤, 손상 상태면 push/pull을 중단하여 원본을 덮어쓰지 않는다.
+- **ISSUE-002 해결:** 신규 history/tombstone/site 시각을 UTC `Z` 형식으로 기록하고, SQLite UTC·offset·legacy local naive 시각을 절대시간으로 비교한다. 삭제 후 재전송한 최신 이력이 이전 tombstone으로 다시 삭제되지 않는 회귀 테스트를 추가했다.
+- **ISSUE-003 해결:** 자동 동기화와 선택 동기화의 per-site/digest 경로 모두 기기별 missing article set을 계산하고, 동일 집합의 기기만 묶어 별도 EPUB을 생성·전송·기록한다.
+- **ISSUE-004 해결:** OPDS의 파일명·제목을 XML escape하고 파일 mtime을 UTC로 출력한다. `A&B.epub` 카탈로그를 표준 XML parser로 검증한다.
+- **안정성 보완:** GUI 장기 작업을 공통 thread registry로 추적하고 종료 시 서비스 취소, 서버/watcher 중지, worker 대기를 수행한다. 공개 scraper URL이 redirect를 통해 loopback/private 주소로 진입하는 경로도 차단한다. 명시적으로 설정한 로컬 source는 계속 허용한다.
+- **검증 결과:** `python -m pytest -q` — **307 passed in 19.58s**. `python x3_websync.py --smoke` — **v1.2.1 smoke check OK**.
 
-2026-09-06 감사에서 열었던 ISSUE-001~005(설정 동시 저장 락, 다운로드 원자 교체, 로그인 Content-Length, 감시 파일 대기 큐, 업데이터 실패 콜백)와 후속 보완(tombstone, DB context manager, 파이프라인 config 스냅샷, OPDS `normcase`, 종료 시 watch worker 대기 등)은 **현재 코드에서 열린 이슈로 재분류하지 않는다.** 이번 감사는 그 이후 트리(특히 i18n 도입과 CAS를 우회하는 저장 경로)를 기준으로 한다.
-
----
+실제 X3/X4 펌웨어의 중단된 multipart 처리, 실제 클라우드 동기화 클라이언트의 순간 파일 상태, OS별 frozen 배포물은 로컬 자동 테스트로 검증할 수 없어 운영 환경 검증 항목으로 남아 있다.
 
 ## 1. Executive Summary
 
-Xteink X3 WebSync는 수집 → EPUB → 무선 전송 → 기기별 이력의 핵심 경로가 락·스냅샷·성공 기기만 `mark_synced`로 잘 막혀 있다. 격리 pytest **296 passed** (14.5s). 광범위한 DB 파괴, SQL 인젝션, 인증 우회, 경로 탈출은 확인하지 못했다. Critical 이슈 없음.
+이 프로젝트의 기본 단일 기기 흐름은 전반적으로 잘 구성되어 있다. 스크래핑 URL 검증, 사이트별 예외 격리, EPUB 생성, 업로드 성공 기기만 이력 기록, 프로세스 간 파이프라인 락, 설정 원자 교체, 업데이트 서명 검증이 구현되어 있고 전체 테스트 **299개가 통과**했다.
 
-**전체 위험도: Acceptable.**
+다만 전체 평가는 **Needs Work**다. 특히 **공유 데이터 폴더 기능을 사용하는 환경은 High Risk**로 본다. 임시 데이터로 실제 실행한 재현에서 공유 JSON 손상 시 원격 데이터를 덮어쓰는 동작과, 한국 시간대에서 삭제 후 재전송한 이력이 오래된 tombstone에 다시 제거되는 동작을 확인했다.
 
-가장 중요한 문제:
+가장 중요한 문제는 다음과 같다.
 
-1. **설정 revision CAS를 건너뛰는 GUI 저장 경로** — 스케줄러 `--sync`와 GUI가 동시에 켜져 있을 때 사이트 목록·공유 폴더 메타를 덮어쓸 수 있다.
-2. **동기화 중 GUI 종료** — daemon 스레드를 기다리지 않아 전송이 중간에 끊긴다(이력은 성공 시에만 기록되므로 재시도는 되지만, 사용자에게 경고가 없다).
-3. **i18n EXE 번들 미검증** — 소스/테스트는  gre지만 frozen `--smoke`로 locale JSON 적재를 이번 감사에서 확인하지 못했다.
-4. **README 수집 유형 표가 구현보다 짧다** — `newneek`/`substack`/`soonsal`/`moneyletter` 등이 본문 표에 없다.
-5. **GUI·실제 기기·클라우드 충돌은 테스트가 얇다.**
+1. **공유 폴더의 0바이트·손상 JSON을 “파일 없음”으로 처리한 뒤 정상 push로 덮어쓴다.** 원격에만 있던 구독·이력은 복구할 자료 없이 사라질 수 있다.
+2. **SQLite 전송 시각은 UTC인데 삭제 시각은 로컬 naive 시각이다.** UTC+9 환경에서 삭제 후 즉시 재전송해도 원격 tombstone을 다시 읽으면 최신 전송 이력이 삭제된다.
+3. **다중 기기의 누락 기사 집합이 서로 다를 때 기기별 EPUB을 만들지 않는다.** 한 기기에 이미 보낸 기사까지 포함한 공통 EPUB을 각 기기에 전송하여 “중복 없는 전송” 약속을 위반한다.
+4. **OPDS 출력 폴더에 `&` 같은 문자가 든 EPUB 파일명이 있으면 카탈로그 XML이 깨진다.** 생성 EPUB의 정상 경로에서는 파일명이 정리되므로 영향은 제한적이다.
 
-**데이터 손상/유실 가능성:** 이력 SQLite는 성공 업로드만 기록하므로 “보냈는데 이력만 남는” 방향의 유실은 막혀 있다. 반대로 **설정 JSON을 낡은 메모리로 통째 저장하면 사이트 목록이 되돌아갈 수 있다.** 공유 폴더 동시 기록은 병합·tombstone으로 완화되지만 OS 파일락은 PC 간에 동작하지 않는다.
+**데이터 손상/유실 가능성:** 있다. ISSUE-001은 공유 폴더에만 있던 `sites.json`·`synced_posts.json` 내용을 덮어쓸 수 있다. ISSUE-002는 물리적 EPUB을 지우지는 않지만 최신 전송 이력을 유실시켜 중복 전송과 삭제 전파 오류를 만든다. 기본 뉴스 파이프라인에서 업로드 실패를 성공으로 기록하는 경로는 확인하지 못했다.
 
-**가장 먼저 고칠 영역:** `save_config`를 쓰는 테마/언어/자동업데이트/마법사 경로를 `_safe_save_config`와 같은 revision CAS로 통일.
-
----
+**가장 먼저 수정할 영역:** `backup/atomic_io.py`의 읽기 결과 모델, `db/history.py`의 시각 저장·비교 규칙, 다중 기기용 기사 배치 생성 순서다.
 
 ## 2. Project Understanding
 
-### 목적
+### 프로젝트 목적
 
-Xteink X3(CrossPoint) e-ink 리더기에 뉴스·블로그·RSS 등을 EPUB으로 만들어 Wi-Fi 전송하는 데스크톱 도구. 기기별 SQLite 이력으로 증분 동기화. Calibre·OPDS·웹 대시보드·공유 폴더(OneDrive 등)·자체 업데이트를 부가로 제공한다.
-
-`README.md`, `CLAUDE.md`, `docs/USER_GUIDE.md`, `docs/DEVELOPER.md`, `requirements.txt`, `x3_websync.spec`, `pytest.ini`를 확인했다. **루트 `AGENTS.md`는 없다.**
+XTEINK X3/X4 및 CrossPoint 호환 리더용 데스크톱 동기화 앱이다. RSS·웹·뉴스레터·YouTube 자막을 수집해 EPUB으로 만들고, 기기 HTTP API로 무선 전송한다. SQLite 이력으로 증분 동기화하며 Calibre, 기기 파일 관리, 일정 등록, OPDS, 웹 대시보드, 공유 폴더 백업, 자동 업데이트를 제공한다.
 
 ### 주요 entrypoint
 
-`x3_websync.py` `main()`:
-
-- `--smoke` → 핵심 모듈 import
-- `--apply-update` → 헬퍼가 스테이징 EXE 교체/롤백
-- `--check-update` → 서명 매니페스트 조회
-- `--sync` → GUI 락 없이 `SyncService.run_sync_pipeline()` (스케줄러용)
-- 기본 → GUI 단일 인스턴스 락 후 `SyncAppGui`
+- `x3_websync.py:47` `main()`
+  - `--sync`: 헤드리스 전체 동기화
+  - `--smoke`: 핵심 모듈과 i18n 카탈로그 확인
+  - `--check-update`: 서명된 업데이트 매니페스트 확인
+  - `--apply-update`: 스테이징 바이너리 교체 헬퍼
+  - 기본 실행: GUI 단일 인스턴스 락 후 `SyncAppGui`
+- GUI 즉시 동기화: `websync/gui/app_core/sync_control.py:37`
+- 웹 대시보드 동기화: `WebDashboard` → `SyncService.begin_sync_pipeline_async()`
 
 ### 핵심 모듈
 
-| 영역 | 위치 |
-|------|------|
-| 설정 | `websync/config/manager.py`, `validator.py` |
+| 영역 | 주요 모듈 |
+|---|---|
+| 설정 | `websync/config/manager.py`, `validator.py`, `secrets.py` |
 | 파이프라인 | `pipeline/service.py`, `sync_pipeline.py`, `preview.py`, `selected_sync.py` |
-| 수집 | `scrapers/` + `ScraperFactory` (13 타입) |
-| EPUB | `epub/builder.py` |
-| 업로드 | `upload/uploader.py`, `device_client.py` |
+| 수집 | `scrapers/` 13종, `factory.py`, `selector_assistant/` |
+| EPUB | `epub/builder.py`, `sanitize.py`, `css.py`, `cover.py` |
+| 업로드·기기 파일 | `upload/uploader.py`, `device_client.py`, `device_ids.py`, `remote_path.py` |
 | 이력 | `db/history.py` |
-| 공유 폴더 | `backup/service.py` |
-| GUI | `gui/app_core`, `sync_tab`, `settings_tab`, `device_files` |
-| i18n | `i18n/` (`t()`, `ko.json`/`en.json`) |
+| 공유 폴더 | `backup/service.py`, `atomic_io.py`, `format.py` |
+| 외부 통합 | `integrations/calibre.py`, `watch/calibre.py`, `scheduler/manager.py` |
 | 서버 | `servers/opds.py`, `servers/dashboard/` |
-| 업데이트 | `core/update/` (constants·manifest·installer·service; 구 `update_*.py` 는 re-export) |
-| CLI 헬퍼 | `core/instance_lock.py`, `core/smoke.py`, `cli/update_apply.py` |
+| 업데이트 | `core/update/`, `cli/update_apply.py` |
+| GUI | `gui/app_core/`, `sync_tab/`, `device_files/`, `settings_tab/` |
 
-### 데이터 저장
+### 데이터 저장 방식
 
-- `config.json` — 프로세스 파일락 + 고유 tmp + `fsync` + `os.replace`, `_config_revision` CAS (`expected_revision` 사용 시)
-- `sync_history.db` — `synced_posts(url, device_ip PK)`, WAL, `timeout=10`, 스레드 락, context manager commit/rollback/close
-- `output/`, `logs/`
-- 공유 폴더: `sites.json` / `synced_posts.json` / tombstone (SQLite 파일을 클라우드에 두지 않음)
+- `config.json`: 프로세스 파일 락, revision CAS, 임시 파일 + `fsync` + `os.replace`
+- `sync_history.db`: SQLite WAL, `(url, device_ip)` 기본키, 프로세스 내부 락, commit/rollback context manager
+- `output/`: 생성 EPUB
+- `logs/`: 일자별 회전 로그
+- 공유 폴더: `sites.json`, `synced_posts.json`, `manifest.json`, 삭제 tombstone
+- `.updates/`: 검증된 업데이트 스테이징 파일과 결과
 
 ### 외부 의존성
 
-필수: requests, bs4, lxml, ebooklib, customtkinter, cryptography.  
-선택: Pillow, googletrans, youtube-transcript-api, watchdog.  
-런타임 외부: CrossPoint HTTP, 웹 소스, Calibre CLI, OS 스케줄러, 클라우드 폴더 클라이언트.
+- 필수: `requests`, `beautifulsoup4`, `lxml`, `ebooklib`, `customtkinter`, `cryptography`
+- 선택: Pillow, googletrans, youtube-transcript-api, watchdog
+- 외부 시스템: CrossPoint HTTP API, 각 웹 소스, Calibre CLI, Windows Task Scheduler/launchd/crontab, 클라우드 동기화 클라이언트, OpenAI/Ollama/LibreTranslate
 
 ### 핵심 실행 흐름
 
-```
-CLI main / GUI _run_immediate_sync
-  → SyncService.run_sync_pipeline
-  → 스레드 Lock + ProcessFileLock (비차단)
-  → maybe_backup_pull → config 스냅샷
-  → ScraperFactory.fetch_articles (http(s)만)
-  → SyncHistoryDb.needs_sync (기기 키/alias)
-  → 번역·요약(선택) → EpubBuilder
-  → upload_to_targets(only_ips=pending)
-  → 성공 IP만 mark_synced_many
-  → toast / last_pipeline_result → backup push → 락 해제
+```text
+x3_websync.main / GUI / Dashboard
+→ SyncService: 스레드 락 + ProcessFileLock
+→ 공유 폴더 pull
+→ config 스냅샷
+→ ScraperFactory → fetch_url → 기사 정규화
+→ SyncHistoryDb.needs_sync
+→ 번역·요약(선택)
+→ EpubBuilder.build / build_digest
+→ X3Uploader.upload_to_targets
+→ 성공 기기만 SyncHistoryDb.mark_synced_many
+→ 공유 폴더 push
+→ 결과·로그·알림
 ```
 
-선택 동기화·프리뷰는 동일 파이프라인 락을 공유한다. 웹 대시보드 즉시 동기화는 `begin_sync_pipeline_async`로 락을 HTTP 스레드에서 선점한 뒤 daemon 워커에서 본문을 실행한다.
-
----
+기기 파일 관리 흐름은 `GUI 입력 → normalize_remote_path → X3DeviceClient → CrossPoint API → GUI 결과`이고, 자동 업데이트는 `HTTPS 매니페스트 → Ed25519 검증 → 스트리밍 SHA-256 검증 → 헬퍼 교체 → --smoke → 실패 시 롤백`이다.
 
 ## 3. Audit Coverage & Limitations
 
-### 확인한 모듈
+### 확인한 주요 모듈
 
-진입점, `SyncService`/`sync_pipeline`/`selected_sync`/`upload_results`, `ConfigManager` 저장·CAS, `BackupSyncService` merge/tombstone, `SyncHistoryDb`, `X3Uploader`/`DeviceClient`/`normalize_remote_path`, OPDS 인증·경로 `normcase`, 대시보드 인증, 스케줄러 argv, 업데이트 교체/롤백, GUI 종료·테마/언어 저장, i18n 카탈로그 로더.
+- 진입점, GUI/CLI 분기, GUI 단일 인스턴스와 파이프라인 프로세스 락
+- 전체/프리뷰/선택 동기화, 취소, 결과 집계, 다중 기기 alias와 부분 재시도
+- SQLite 스키마·마이그레이션·이력/tombstone import/export
+- 공유 폴더 pull/push, 병합, 파일 락, 원자적 JSON 저장
+- 설정 기본값 병합, 검증, revision CAS, 충돌 병합
+- 업로더·기기 파일 API의 경로 정규화, timeout, 다운로드 임시 파일 교체
+- 스크래퍼 공통 네트워크 세션, retry, 16MB 상한, 선택자 도우미 URL 안전 검사
+- Calibre, watcher, 스케줄러, OPDS, 대시보드, 업데이트 검증·롤백
+- README, README.ko, CLAUDE, USER_GUIDE, DEVELOPER, requirements, pytest/pyright 설정, PyInstaller spec, CI/release workflow
 
-### CodeGraph로 본 호출 관계
+루트 `AGENTS.md` 파일은 저장소에 존재하지 않았다.
 
-- `run_sync_pipeline` ← `x3_websync.main`, `gui/app_core/sync_control._run_immediate_sync` (테스트: `test_pipeline_digest`, `test_service`)
-- `upload_to_targets` ← 파이프라인·선택동기화·직접업로드·Calibre·watch
-- `mark_synced` / `mark_synced_many` ← 파이프라인만 실질 기록, 테스트 `test_db`/`test_backup_service`
-- `save_config` / `update_config` ← GUI·backup·local_import. **일부 GUI 호출은 `expected_revision` 없음**
-- `begin_sync_pipeline_async` ← 웹 대시보드 `sync_cb`
-- DeviceClient 목록은 이름에 `/` `..` 를 걸러 내고, OPDS 다운로드는 `realpath`+`normcase`로 output_dir 밖으로 못 나간다
+### CodeGraph로 분석한 호출 관계
 
-### 실행한 테스트
+CodeGraph를 일반 검색보다 먼저 사용해 다음 경로와 영향 범위를 확인했다.
 
-`python -m pytest -q` → **296 passed in 14.46s** (Windows, Python 3.14.7).  
-실제 X3 기기, OneDrive 두 PC 동시 기록, PyInstaller frozen EXE, macOS/Linux 스케줄러는 실행하지 않았다.
+- `x3_websync.main` → `SyncService.run_sync_pipeline` → `run_sync_pipeline_locked`
+- `ScraperFactory.fetch_articles` → `article_sync_key` → `needs_sync`
+- `resolve_pending_upload_ips` → `EpubBuilder` → `upload_to_targets` → `collect_mark_entries` → `mark_synced_many`
+- `delete_entry` / `clear_all` → `export_deleted_posts` → `BackupSyncService.push/pull` → `import_deleted_posts` / `import_posts_union`
+- GUI `_on_close`와 파이프라인·watch·Calibre·기기 파일 daemon worker의 종료 범위
+- OPDS `_serve_catalog`의 출력 폴더·파일명 처리와 호출자
+- 설정 `load_config` / `save_config` / `update_config` / `_safe_save_config`의 CAS와 호출자
+- 업데이트 매니페스트 검증 → 스테이징 → 헬퍼 → smoke/rollback
 
-### 확인하지 못한 것
+### 실행한 테스트와 재현
 
-- CrossPoint 펌웨어 `/upload` 부분 POST 중단 시 기기 측 파일 상태
-- 클라우드 폴더의 실제 last-write-wins 타이밍
-- frozen EXE에서 `websync/i18n/locales/*.json` 적재 (`x3_websync.spec` datas에는 추가됨)
-- GUI를 사람이 조작하는 E2E
+- `python -m pytest -q` → **299 passed in 26.84s**
+- `python x3_websync.py --smoke` → **v1.2.1 smoke check OK**
+- 임시 SQLite DB에서 `mark → delete → mark → 이전 tombstone import` → 최신 전송 행이 다시 삭제됨
+- 임시 공유 폴더의 손상된 `sites.json`·`synced_posts.json`에 `BackupSyncService.push(force=True)` → 성공으로 반환하며 두 파일을 로컬 내용으로 교체
+- 임시 DB의 두 기기에 서로 다른 URL 이력을 넣고 전체 파이프라인 실행 → 두 URL이 든 같은 EPUB을 두 기기에 모두 업로드
+- 임시 OPDS 폴더에 `A&B.epub` 생성 후 카탈로그 요청 → HTTP 200이지만 XML 파싱 실패
+
+위 재현은 모두 임시 디렉터리·임시 DB·mock 기기를 사용했다. 저장소의 `sync_history.db`, 실제 기기, 실제 사용자 데이터는 변경하지 않았다.
+
+### 확인하지 못한 환경
+
+- 실제 X3/X4 및 펌웨어별 HTTP API 동작, 중단된 multipart upload의 기기 측 상태
+- 실제 OneDrive/Google Drive/Dropbox 두 PC 동시 동기화 타이밍
+- PyInstaller frozen 산출물 실행 및 자동 업데이트 실제 교체
+- macOS launchd, Linux crontab, OS별 알림
+- Calibre 실제 라이브러리와 watchdog 실파일 이벤트
+- GUI 사람 조작 기반 end-to-end
+- 외부 웹사이트의 현재 DOM/API 호환성
 
 ### 분석 한계
 
-CodeGraph는 심볼·호출 그래프를 주지만 Tk `after`/daemon 스레드·`schtasks` 같은 프로세스 밖 효과는 정적이다. 동적 레이스는 코드 경로와 락 범위로 추론했고, 별도 재현 프로세스를 띄우지는 않았다.
-
----
+CodeGraph는 동적 Tk callback, 파일시스템 감시, OS 스케줄러와 실제 펌웨어의 동작을 완전히 모델링하지 못한다. 네트워크·클라우드 관련 결론은 코드 흐름과 임시 환경 재현을 결합했으며, 실제 외부 서비스 성공 여부를 검증한 것으로 표현하지 않는다.
 
 ## 4. High-Risk Issues
 
-### [ISSUE-001] 테마·언어·자동업데이트 저장이 config revision CAS를 건너뛴다
+### [ISSUE-001] 손상되거나 부분 동기화된 공유 JSON을 정상 push가 덮어쓴다
 
-* **위치:** `websync/gui/settings_tab/tab.py` `_on_app_theme_changed`, `_on_ui_language_changed`; `websync/gui/settings_tab/updater.py` `_save_updater_settings`; `websync/gui/portable_wizard.py` `_mark_wizard_done`
-* **우선순위:** High
-* **신뢰도:** Likely (저장 API가 디스크 revision을 읽지 않음은 Confirmed. 다중 프로세스 덮어쓰기는 코드 경로상 도달 가능하나 이번 감사에서 두 프로세스를 띄워 재현하지는 않음)
-* **문제:** 대부분의 GUI 저장은 `_safe_save_config` → `save_config(..., expected_revision=...)` 로 충돌을 감지·병합한다. 위 경로만 `save_config(self.service.config)` 를 호출해 **메모리 스냅샷으로 파일을 통째 교체**한다. `except Exception: pass` 로 실패도 삼킨다(테마/언어/자동업데이트).
-* **발생 조건:** GUI가 떠 있는 동안 스케줄러 `--sync` 또는 다른 프로세스가 backup pull/push로 `config.json` revision을 올린 뒤, 사용자가 화면 테마·표시 언어·시작 시 업데이트 확인을 바꾼다.
-* **영향:** 디스크에만 있는 사이트 목록·portable 메타·다른 탭에서 저장한 값이 이전 GUI 메모리로 되돌아갈 수 있다. 이력 DB 자체는 건드리지 않지만 **구독 설정 유실**은 재수집/재전송 범위에 영향을 준다.
-* **근거:** `ConfigManager.save_config`는 `expected_revision is not None` 일 때만 디스크 revision을 비교한다. 생략 시 락만 잡고 `_save_config_unlocked` 한다. `_safe_save_config` (`helpers.py:121`) 주석과 구현이 이 충돌을 명시적으로 다루는데, 테마/언어는 그 헬퍼를 쓰지 않는다.
-* **반증 확인:** config 경로별 `ProcessFileLock`은 **쓰는 순간을 직렬화**할 뿐, 낡은 내용을 쓰는 것을 막지 않는다. 파이프라인은 시작 시 config를 deepcopy 하므로 실행 중 전송 대상은 보호된다. 문제는 파이프라인 **종료 후 디스크에 남은 최신 설정**을 GUI가 되돌리는 쪽이다. `update_config(mutator)` 경로(watch pending_files 등)는 RMW라 해당 없음.
-* **호출/영향 범위:** 저장 → `config.json` 전체. 다음 `load_config`/`_reload_config`를 타는 GUI 사이트 트리, `--sync`, backup push 정본.
-* **권장 수정 방향:** 해당 저장을 `_safe_save_config` 또는 `update_config`로 바꾸고, 테마/언어는 `appearance_mode`/`ui_language`만 mutator로 갱신. 실패 시 사용자에게 알린다.
-* **필요한 회귀 테스트:** GUI 메모리 revision=N, 다른 프로세스가 sites를 바꾸고 revision=N+1로 저장한 뒤 테마 저장을 시뮬레이트 → 디스크 sites가 유지되고 appearance_mode만 갱신되는지.
+- **위치:** `websync/backup/atomic_io.py:31-48` `read_json_safe`; `websync/backup/service.py:308-358` `_push_unlocked`
+- **우선순위:** High
+- **신뢰도:** Confirmed
+- **문제:** `read_json_safe()`는 파일 없음, 0바이트, JSON 파싱 실패, 인코딩 실패를 모두 `None`으로 반환한다. push는 `None`을 “원격 데이터 없음”으로 간주하여 병합 없이 로컬 사이트·이력으로 원격 파일을 다시 쓴다.
+- **발생 조건:** 공유 폴더의 `sites.json` 또는 `synced_posts.json`이 클라우드 다운로드 중 0바이트/부분 상태이거나 실제로 손상된 순간에 자동/수동 push가 실행된다.
+- **영향:** 해당 PC 로컬 캐시에 없는 다른 PC의 구독, 전송 이력, tombstone이 원격 정본에서 사라질 수 있다. 이후 구독 누락, 삭제 항목 부활, 대량 중복 전송으로 이어질 수 있다.
+- **근거:** 임시 공유 폴더의 두 파일에 잘못된 JSON을 기록한 뒤 `push(force=True)`를 실행했다. 결과는 `ok: true`, `sites_written: true`, `history_written: true`였고 두 손상 파일은 로컬 1개 사이트·1개 이력만 든 정상 JSON으로 교체됐다.
+- **반증 확인:** 쓰기는 tmp + `fsync` + `os.replace`라 같은 PC의 부분 쓰기를 줄인다. 공유 폴더 파일락도 있다. 그러나 읽기 실패 원인을 구분하지 않고, 락은 문서대로 PC 간 상호 배타를 보장하지 않는다. 원격 파일이 존재하지만 유효하지 않은 경우에도 push 중단·격리·재시도가 없다.
+- **호출/영향 범위:** 전체 파이프라인 `_run_pipeline_body` 종료 push, GUI 사이트 변경 debounce push, 수동 `sync_now`, 앱 종료 `flush_backup_push`; 영향 파일은 `sites.json`, `synced_posts.json`, 이어서 `manifest.json`이다.
+- **권장 수정 방향:** 읽기 결과를 `MISSING / VALID / INVALID_OR_PARTIAL`로 구분한다. push에서 기존 파일이 있는데 VALID가 아니면 절대 덮어쓰지 말고 실패/재시도 처리한다. 손상본을 timestamped quarantine 사본으로 보존하고, 클라우드 안정화 후 다시 읽는다.
+- **필요한 회귀 테스트:** 기존 파일이 0바이트, 잘린 UTF-8, 잘못된 JSON, JSON scalar인 각 경우 push가 `ok: false`이고 원본 바이트가 바뀌지 않아야 한다. 실제 파일 없음일 때만 새 정본을 생성해야 한다.
 
-### [ISSUE-002] GUI 종료가 진행 중 동기화 daemon을 기다리지 않는다
+### [ISSUE-002] 로컬 삭제 시각과 UTC 전송 시각 혼용으로 재전송 이력이 다시 삭제된다
 
-* **위치:** `websync/gui/app_core/sync_control.py` `_run_immediate_sync` (daemon `Thread`), `_on_close`; `websync/pipeline/service.py` `begin_sync_pipeline_async`
-* **우선순위:** Medium
-* **신뢰도:** Confirmed (종료 훅에 파이프라인 join/cancel 대기가 없음)
-* **문제:** 즉시 동기화·대시보드 기동 모두 `daemon=True` 스레드다. `_on_close`는 `flush_backup_push`, OPDS/대시보드/watch 중지, watch worker 최대 3초 대기 후 `root.destroy()` 한다. 실행 중 파이프라인에 `request_cancel`도, join도 없다.
-* **발생 조건:** 하단 “즉시 동기화” 또는 웹 대시보드 동기화 중에 창을 닫는다.
-* **영향:** 워커가 프로세스와 함께 죽는다. `mark_synced`는 업로드 성공 후에만 호출되므로 **허위 완료 이력은 남지 않는다.** 기기로의 HTTP POST가 중간에 끊기면 해당 회차는 실패로 끝나고 다음 실행에서 재시도된다. `ProcessFileLock`은 OS가 핸들을 닫으면 풀린다(잔존 `.lock` 파일만으로는 다음 `msvcrt.locking`/`flock`을 막지 않음). 사용자에게는 경고 없이 작업이 사라진다.
-* **근거:** `_on_close` 본문 (`sync_control.py:72-88`)과 `_run_immediate_sync`의 `daemon=True`.
-* **반증 확인:** watch 정지는 이전 감사에서 추가됨. 파이프라인은 해당 없음. 이력 손상 방향은 `collect_mark_entries`가 실패 IP를 건너뛰어 완화됨.
-* **호출/영향 범위:** GUI 즉시 동기화, 대시보드 `sync_cb` → `begin_sync_pipeline_async`. `--sync` CLI는 동기 실행이라 해당 없음.
-* **권장 수정 방향:** 종료 시 `request_cancel` 후 짧은 join, 또는 “동기화 중입니다. 종료할까요?” 확인. daemon 대신 non-daemon + 타임아웃.
-* **필요한 회귀 테스트:** 파이프라인 락을 잡은 채 `_on_close` 상당 훅이 cancel을 호출하는지; 업로드 mock 도중 종료해도 `mark_synced`가 호출되지 않는지.
+- **위치:** `websync/db/history.py:83-90`, `238-280`, `343-380`, `440-485`, `487-590`
+- **우선순위:** High
+- **신뢰도:** Confirmed
+- **문제:** `synced_at` 기본값은 SQLite `CURRENT_TIMESTAMP`라 UTC지만, `delete_entry()`와 `clear_all()`은 `datetime.now().isoformat()`으로 로컬 naive 시각을 기록한다. `_time_key()`와 import 병합은 timezone 해석 없이 문자열로 비교한다.
+- **발생 조건:** UTC와 다른 시간대에서 이력을 삭제해 재전송한 뒤, 공유 폴더에 남아 있던 이전 tombstone을 pull하거나 다음 push의 remote union 과정에서 다시 읽는다.
+- **영향:** 실제로 더 최신인 재전송 이력이 삭제된다. 이후 같은 기기에 같은 기사가 다시 전송되며, 원격 tombstone도 계속 유지될 수 있다. UTC+9에서는 삭제 시각이 새 전송 UTC 시각보다 약 9시간 미래처럼 보인다. UTC 음수 오프셋에서는 반대로 정당한 삭제가 최신 전송보다 오래된 것으로 오판될 수 있다.
+- **근거:** Asia/Seoul 환경의 임시 DB에서 삭제 tombstone은 `2026-09-20T09:11:09...`, 1초 뒤 재전송 행은 `2026-09-20 00:11:10`으로 저장됐다. 이전 tombstone을 `import_deleted_posts()`하자 재전송 행이 제거되어 export 결과가 빈 목록이 됐다.
+- **반증 확인:** `mark_synced_many()`는 같은 키의 로컬 tombstone을 삭제한다. 그러나 push는 원격 JSON을 다시 읽어 tombstone을 import하므로 보호가 무효화된다. DB transaction과 기본키는 원자성·중복 행만 보호하고 시각 의미 오류는 막지 못한다.
+- **호출/영향 범위:** History 탭의 선택 삭제/전체 초기화 → 선택 또는 전체 재동기화 → `mark_synced_many` → `BackupSyncService.pull/push` 및 이력 JSON 가져오기. CodeGraph상 `import_deleted_posts`는 backup/local import/History UI에서 호출된다.
+- **권장 수정 방향:** 모든 신규 시각을 UTC timezone-aware ISO 8601(`...Z` 또는 `+00:00`)이나 정수 epoch로 저장한다. 비교 시 문자열이 아니라 timezone-aware `datetime`으로 파싱한다. 기존 SQLite 공백형 UTC와 기존 naive 로컬 tombstone에 대한 명시적 마이그레이션 규칙이 필요하다.
+- **필요한 회귀 테스트:** UTC+9와 UTC-8 각각에서 `mark → delete → mark → old tombstone import` 후 최신 mark가 남아야 한다. 삭제 후 새 mark가 없으면 tombstone이 행을 제거해야 한다. 서로 다른 오프셋이 든 JSON import도 절대시간 기준으로 판정해야 한다.
 
----
+### [ISSUE-003] 다중 기기의 서로 다른 누락 기사 집합을 공통 EPUB으로 보내 중복 기사가 전달된다
+
+- **위치:** `websync/pipeline/sync_pipeline.py:147-158`, `187-236`, `263-314`; `websync/upload/device_ids.py:149-202`
+- **우선순위:** Medium
+- **신뢰도:** Confirmed
+- **문제:** `new_articles`는 “대상 중 한 기기라도 미전송”인 기사의 합집합이다. `resolve_pending_upload_ips()`는 그 배치 중 하나라도 빠진 기기를 고른다. 이후 EPUB은 기기별 누락 집합이 아니라 `new_articles` 전체로 한 번만 만들어 모든 pending 기기에 전송된다.
+- **발생 조건:** 기기 A에는 기사 1만 있고 기기 B에는 기사 2만 있는 등 기기별 이력이 갈라져 있을 때 자동 전체 동기화를 실행한다. 부분 업로드 실패 후 다음 회차나 여러 PC/기기를 번갈아 쓰면 현실적으로 발생한다.
+- **영향:** A는 이미 받은 기사 1을, B는 이미 받은 기사 2를 새 EPUB 안에서 다시 받는다. 저장 공간·배터리 절감과 “Zero Duplicate Delivery” 약속을 위반한다. daily digest에서도 같은 구조다.
+- **근거:** 임시 DB에서 A에 URL 1, B에 URL 2만 기록하고 두 기사를 수집하도록 실행했다. 빌더에는 URL 1·2가 모두 전달됐고, 동일한 `batch.epub`이 A와 B 모두에 업로드됐다. 실행 후 양 기기에 양 URL 이력이 기록됐다.
+- **반증 확인:** 업로드 자체는 미전송 기기만 대상으로 하며 성공 기기만 이력에 기록한다. 단일 기사 재시도와 모든 기기의 이력이 같은 경우에는 올바르다. 문제는 한 배치 안에서 기기별 누락 기사 집합이 다를 때만 발생하며, 현재 테스트는 “한 URL + 한 기기만 실패” 사례만 다룬다.
+- **호출/영향 범위:** 전체 per-site 모드와 daily digest 모드. 선택 동기화는 사용자가 명시적으로 재선택할 수 있어 의미가 다르지만 동일한 공통 배치 로직을 사용한다.
+- **권장 수정 방향:** 기기별 missing URL 집합을 먼저 계산하고, 동일 집합을 가진 기기끼리 그룹화해 그룹별 EPUB을 빌드·업로드한다. 최소한 자동 전체 동기화에서는 이미 전송된 기사를 해당 기기용 EPUB에서 제외해야 한다.
+- **필요한 회귀 테스트:** A={1}, B={2}, 수집={1,2}에서 A용 EPUB은 {2}, B용 EPUB은 {1}이어야 한다. A={1}, B={}이면 A용은 {2}, B용은 {1,2}; 각 그룹의 성공 기기만 해당 URL 이력이 추가되어야 한다. per-site와 digest 모두 필요하다.
+
+### [ISSUE-004] 특수문자 EPUB 파일명이 OPDS 카탈로그 XML을 깨뜨린다
+
+- **위치:** `websync/servers/opds.py:89-123` `_serve_catalog`
+- **우선순위:** Low
+- **신뢰도:** Confirmed
+- **문제:** `<title>`과 `<id>`에는 일부 escape한 `safe_name`을 쓰지만 `<summary>`의 `title`은 XML escape하지 않는다.
+- **발생 조건:** OPDS output 폴더에 `A&B.epub`, `<` 등이 포함된 EPUB이 존재하고 카탈로그를 조회한다.
+- **영향:** HTTP 200 응답이 well-formed XML이 아니어서 OPDS 클라이언트가 카탈로그 전체를 열지 못할 수 있다.
+- **근거:** 임시 output에 `A&B.epub`을 만들고 실제 서버를 요청했다. `<summary>A&B.epub ...</summary>`가 생성되어 XML parser가 `invalid token`으로 실패했다.
+- **반증 확인:** 앱이 생성하는 뉴스 EPUB 파일명은 영숫자·공백·`_`·`-`로 정리되므로 일반 생성 경로에서는 재현되지 않는다. 하지만 OPDS는 폴더의 모든 `.epub`을 열거하며 외부/수동 파일을 배제하지 않는다.
+- **호출/영향 범위:** `GET /`, `/opds`, `/opds/` 카탈로그 전체. 파일 다운로드 경로의 traversal 방어와는 무관하다.
+- **권장 수정 방향:** XML 문자열 수작업 연결 대신 XML builder를 쓰거나 모든 텍스트 노드와 속성을 `xml.sax.saxutils.escape/quoteattr`로 처리한다.
+- **필요한 회귀 테스트:** `&`, `<`, `>`, 따옴표, 한글이 든 파일명을 함께 두고 `ElementTree.fromstring()`이 성공하며 각 download URL도 200인지 확인한다.
 
 ## 5. Potential Functional Gaps
 
-* **Likely Gap — frozen i18n 리소스:** `x3_websync.spec`에 `websync/i18n/locales/*.json` datas와 hiddenimports가 있다. 이번 감사는 소스에서 `t()`·카탈로그 패리티 테스트만 확인했다. EXE에서 카탈로그를 못 읽으면 UI가 키 문자열(`gui.tabs.sync`)로 떨어진다 (`load_catalog` 실패 시 빈 dict). frozen `--smoke`에 카탈로그 로드를 넣는 편이 안전하다.
-* **Likely Gap — 종료 확인 UI:** ISSUE-002와 연결. 기능 버그라기보다 운영 안정성 공백.
-* **Likely Gap — 두 PC가 같은 공유 폴더에 동시에 push:** 폴더 락은 로컬 `ProcessFileLock`이라 머신 간에 상호 배타가 아니다. pull/push가 remote를 먼저 병합하고 tombstone을 쓰므로 **다음 동기화에서 합쳐질 가능성은 있다.** 한쪽 write가 OneDrive last-write-wins로 잠시 안 보이는 창은 남는다. 현재 설계의 한계로 보고 Critical로 올리지 않는다.
-* **Confirmed Gap — README 수집 유형 표:** 구현 `SCRAPER_TYPES`는 css/rss/velog/naver/tistory/brunch/newneek/youtube/substack/naver_cafe/naver_post/soonsal/moneyletter. README 표는 이 중 일부만 나열한다. 동작 버그는 아니다.
-* **추정 — `include_images`:** USER_GUIDE에 원격 URL 유지·EPUB 미내장이라고 명시됨. 오프라인 이미지 기대를 버그로 보지 않는다.
-* **추정 — 언어 변경 후 재시작:** 설정 안내와 일치. CTkTabview 탭명 재생성 비용 때문에 의도된 제약.
-* **추정 — GUI 자동화 테스트 공백:** CustomTkinter 탭은 단위 테스트가 거의 없고 i18n 가드(AST 한글 리터럴)로 회귀를 보완한다.
-
-단순 enhancement(라이브 언어 전환, 이미지 임베드)는 버그로 적지 않았다.
-
----
+- **Likely Gap — 앱 종료 시 직접 기기 작업:** `_on_close()`는 뉴스 파이프라인과 watch worker는 중단·대기하지만 Calibre 전송과 기기 파일 탭의 upload/download/delete/move/rename daemon thread는 등록하거나 기다리지 않는다. 작업 중 창을 닫으면 결과 확인 없이 프로세스가 종료되거나 Tk callback이 사라질 수 있다. 다운로드는 `.part` + `os.replace`로 로컬 파일을 보호하지만 기기 측 multipart 상태는 실제 펌웨어 검증이 필요하다.
+- **Likely Gap — 공유 사이트 병합의 시각 기준:** `backup.format.now_iso()`와 `_sync_updated_at`도 timezone 정보 없는 로컬 시각이며 site/tombstone LWW는 문자열 비교다. 서로 다른 시간대 또는 시계가 어긋난 PC 사이에서 최신 사이트 수정·삭제 판정이 틀릴 수 있다. ISSUE-002와 같은 원인이지만 사이트 데이터에 대해서는 이번 감사에서 두 시간대 프로세스로 재현하지 않아 별도 버그로 확정하지 않았다.
+- **Likely Gap — 일반 스크래퍼의 내부 주소 방어:** 선택자 도우미는 사설·loopback·link-local 주소를 검사하지만 공통 `fetch_url()`은 http(s)+host만 확인하고 redirect 후 최종 주소도 검사하지 않는다. 악성 피드/페이지가 상세 기사 요청을 내부 서비스로 redirect할 수 있다. 로컬 데스크톱 앱이고 사용자가 소스를 등록해야 하므로 즉시 High 보안 이슈로 올리지는 않았지만, 외부 콘텐츠에서 파생된 URL을 fetch하는 경로에는 동일한 정책이 필요하다.
+- **Confirmed Gap — OPDS 임의 파일명 회귀 테스트:** 현재 테스트는 unicode 다운로드와 traversal은 다루지만 XML 메타문자 파일명의 카탈로그 유효성을 검사하지 않는다.
+- **추정 — 실기기 중단 복구:** HTTP POST timeout 이후 기기 측에 부분 파일이 남는지, 같은 이름 재시도가 덮어쓰기인지 중복 생성인지는 펌웨어 계약이 없어 판단하지 못했다.
+- **추정 — 외부 사이트 호환성:** 픽스처 테스트는 충실하지만 실제 웹사이트 DOM/API 변경은 이번 감사에서 네트워크 스모크를 실행하지 않았다.
 
 ## 6. Documentation Mismatches
 
-| 문서 | 실제 | 비고 |
-|------|------|------|
-| `AGENTS.md` | 파일 없음 | 감사 지침의 AGENTS 확인 항목은 충족 불가 |
-| `README.md` 콘텐츠 소스 표 | 13종 스크래퍼 중 일부만 표에 있음 | `newneek`, `substack`, `soonsal`, `moneyletter`, `naver_post` 누락 |
-| `CLAUDE.md` 스크래퍼 13종 | `types.py`와 일치 | 문제 없음 |
-| USER_GUIDE 이미지 포함 | 코드가 img를 EPUB에 다운받지 않음 | 문서가 제한을 이미 설명 |
-| USER_GUIDE/README 표시 언어 | `ui_language` auto/ko/en 구현과 일치 (미커밋 i18n) | 문서가 코드보다 앞서 있지 않음 |
-| 2026-09-06 `PROJECT_AUDIT.md` 테스트 수 283 | 현재 296 | 이 파일이 갱신됨 |
+| 문서 설명 | 실제 구현/확인 결과 | 판단 |
+|---|---|---|
+| README/README.ko: “Zero Duplicate Delivery”, “중복 전송 완벽 방지”, 새 기사만 전송 | 다중 기기 이력이 갈라지면 공통 EPUB 때문에 이미 받은 기사가 다시 포함됨 | ISSUE-003과 불일치 |
+| USER_GUIDE: 이력 삭제 후 다시 동기화하면 재전송 가능 | 로컬 재전송 자체는 가능하지만 공유 폴더 사용 시 이전 tombstone이 최신 mark를 다시 지울 수 있음 | ISSUE-002 조건에서 불완전 |
+| USER_GUIDE: OneDrive가 내려받는 중이면 다음 동기화 때 다시 시도 | push 시 부분/손상 JSON을 빈 원격으로 보고 즉시 덮어쓸 수 있음 | ISSUE-001과 불일치 |
+| USER_GUIDE/DEVELOPER: 공유 폴더는 사이트·이력 정본을 병합 | 유효 JSON일 때는 맞지만 invalid/partial 상태를 보존하지 않음 | 오류 조건 설명 누락 |
+| `AGENTS.md` 확인 지시 | 저장소 루트에 파일 없음 | 확인 불가로 명시 |
 
-설정 프로세스 락, 기기 alias, YouTube RSS URL, 경량 EXE 선택 의존성은 이전 감사 이후 문서와 코드가 맞춰져 있다.
-
----
+CLAUDE의 로드맵은 대부분 구현 완료된 초기 기록이라고 문서 자체가 명시한다. 이를 현재 미구현 기능 목록으로 오판하지 않았다. README의 13종 스크래퍼, 실행 명령, 선택 의존성, 저장 경로, i18n, 업데이트 서명 설명은 현재 코드와 대체로 일치한다.
 
 ## 7. Recommended Fix Plan
 
 ### Phase 1 — Immediate
 
-1. 테마·언어·`auto_check_update`·portable wizard 저장을 `update_config` 또는 `_safe_save_config`로 통일 (ISSUE-001).
-2. 저장 실패를 `except: pass`로 숨기지 말 것.
+1. 공유 JSON의 “없음”과 “읽기 실패/부분 파일”을 구분하고, 후자의 push 덮어쓰기를 차단한다.
+2. 이력·삭제 시각을 UTC aware 또는 epoch로 통일하고 legacy timestamp 정규화·마이그레이션을 구현한다.
+3. 삭제 후 재전송 → 원격 union까지 포함한 통합 테스트를 추가한다.
 
 ### Phase 2 — Stability
 
-1. GUI 종료 시 파이프라인 cancel + 제한 대기 또는 확인 대화상자 (ISSUE-002).
-2. frozen `--smoke`에서 `load_catalog("ko")` 키 존재 검증.
-3. 웹 대시보드 `/api/cancel` 테스트가 POST 재시도로 콜백이 2회여도 깨지지 않게 하거나, 테스트 헬퍼가 성공한 POST를 재시도하지 않게 조정.
+1. 자동 전체 동기화에서 기기별 missing article set으로 EPUB 배치를 분리한다.
+2. 앱 종료 시 Calibre 및 기기 파일 작업을 추적하여 완료 대기, 취소, 또는 명시적 종료 확인을 제공한다.
+3. 공유 폴더 invalid JSON을 격리 보관하고 제한적 backoff/retry 및 사용자 경고를 추가한다.
+4. 일반 scraper의 파생 URL과 redirect 최종 목적지에 내부 주소 정책을 적용하되, 의도적으로 로컬 사이트를 수집하는 사용 사례는 opt-in으로 분리한다.
 
 ### Phase 3 — Structural
 
-1. GUI 설정 저장 진입점을 한 헬퍼로만 노출해 CAS 우회를 컴파일/린트 수준에서 막기.
-2. README 스크래퍼 표를 `SCRAPER_TYPES`와 동기화.
-3. 공유 폴더 동시 기록 한계를 USER_GUIDE에 한 문단으로 명시.
+1. 공유 데이터 포맷의 모든 시각 필드를 timezone-aware schema로 올리고 문자열 직접 비교를 제거한다.
+2. `read_json_safe()` 대신 상태와 오류 원인을 반환하는 typed result를 사용한다.
+3. OPDS XML을 표준 XML builder로 생성한다.
+4. GUI의 모든 장기 작업을 하나의 작업 레지스트리에서 수명 주기·취소·종료 대기하도록 통합한다.
 
-실제 코드는 이 감사에서 수정하지 않았다.
-
----
+이 감사에서는 실제 코드를 수정하지 않았다.
 
 ## 8. Test Recommendations
 
-### ISSUE-001 (Unit/Concurrency)
+### Unit
 
-- **입력:** 임시 `config.json` revision=1, sites=[A]. 프로세스 A가 sites=[A,B], revision=2로 저장. 프로세스 B(GUI 흉내)는 메모리 revision=1, sites=[A], `appearance_mode="Dark"` 만 바꿔 `save_config` (현재 구현) 호출.
-- **현재 기대(버그):** 디스크 sites가 [A]로 후퇴할 수 있음.
-- **수정 후 기대:** sites=[A,B] 유지, `appearance_mode=Dark`, revision=3.
-- `_safe_save_config`/`update_config` 경로로 같은 시나리오를 통과시키는 회귀를 `tests/test_config_manager.py`에 추가.
+- `read_json_safe` 대체 API에 대해 missing, valid dict/list, empty, truncated UTF-8, malformed JSON, scalar JSON을 구분하고 예상 상태를 단언한다.
+- timestamp parser에 SQLite UTC 공백형, `Z`, 양/음 offset, legacy naive 값을 넣고 동일 절대시간 정렬을 검증한다.
+- 기기별 누락 집합 계산에 A={1}, B={2}, articles={1,2}를 넣어 `{A:{2}, B:{1}}`을 기대한다.
+- OPDS filename `A&B.epub`, `<book>.epub`, 한글 파일을 XML로 만든 뒤 표준 parser로 검증한다.
 
-### ISSUE-002 (Unit)
+### Integration
 
-- **입력:** `SyncService._try_acquire_pipeline_locks` 성공 상태에서 close 훅 호출.
-- **기대:** `request_cancel`이 호출되거나, 문서화된 확인 없이 destroy하지 않음. `mark_synced_many`는 업로드 mock이 끝나기 전에 호출되지 않음.
+- 공유 폴더에 remote-only 사이트·이력을 둔 뒤 파일을 일시적으로 잘라낸 상태에서 push를 호출한다. push는 실패하고 원본/격리 사본이 보존되어야 한다.
+- `mark → backup push → delete → backup push → resend → remote union → push` 전체 흐름 후 최신 이력이 로컬·원격 모두 남아야 한다.
+- 두 기기의 분기 이력으로 per-site와 digest를 실행하고, 생성된 각 EPUB의 chapter URL 집합과 DB mark 집합을 비교한다.
 
-### i18n frozen (Integration)
+### End-to-End
 
-- **입력:** PyInstaller 산출물 또는 `sys.frozen` + `_MEIPASS` 픽스처에서 `load_catalog("ko")`.
-- **기대:** `gui.tabs.sync` 등 필수 키가 비어 있지 않음. `--smoke` 종료 코드 0.
+- 실제 X3/X4 두 대에서 한 기기 업로드만 의도적으로 실패시킨 뒤 재실행한다. 성공 기기에는 기존 기사가 포함된 새 책이 생기지 않고 실패 기기만 누락분을 받아야 한다.
+- 실제 OneDrive 두 PC에서 한쪽 파일 다운로드 중 다른 쪽 자동 push를 실행해 기존 원격 정본이 보존되는지 확인한다.
+- History 탭에서 삭제 후 즉시 재전송하고 두 번째 PC에서 pull해도 재전송 이력이 유지되는지 확인한다.
 
-### 핵심 사용자 흐름 (이미 있는 것 유지)
+### Concurrency
 
-- **Unit:** `needs_sync` / `pending_device_ips` / `collect_mark_entries` — 한 기기 실패 시 성공 기기만 이력.
-- **Integration:** `test_pipeline_digest.py` — 부분 성공은 overall False.
-- **Concurrency:** 기존 두 프로세스 config 저장 테스트 유지.
-- **Platform:** `test_scheduler.py` Windows 경로 공백·Linux CI; `test_opds_normcase.py`.
-- **Regression:** i18n `test_i18n_catalogs.py` (ko/en 키 동일), `test_i18n_no_hangul_literals.py`.
-- **End-to-End (미보유):** 실기기 1대에 사이트 1개 limit=1 전송 후 이력 행과 기기 파일 존재. 이번 감사에서는 실행하지 않음.
+- 두 프로세스가 같은 공유 폴더에 동시에 push할 때 한쪽이 invalid/partial 파일을 관측하면 둘 다 덮어쓰지 않고 재시도해야 한다.
+- GUI 설정 저장과 background backup pull/push가 충돌할 때 sites, tombstone, portable metadata가 모두 보존되는지 검사한다.
+- 뉴스 파이프라인·Calibre 전송·기기 파일 업로드 중 각각 앱 종료를 요청하고 문서화한 종료 정책대로 완료/취소되는지 확인한다.
 
-### 대시보드 (Regression)
+### Regression
 
-- `/api/cancel` 인증 실패는 콜백 0회, 인증 성공은 **1회 이상** (테스트 헬퍼가 POST를 재시도할 수 있음). 본문 `ok: true`.
+- 기존 부분 업로드 테스트를 한 URL뿐 아니라 서로 다른 두 URL/두 기기로 확장한다.
+- 삭제 tombstone 테스트는 동일 시간대 문자열만 쓰지 말고 OS timezone과 UTC가 다른 환경을 강제한다.
+- OPDS 테스트에서 HTTP 200뿐 아니라 XML well-formedness를 반드시 확인한다.
+- 손상 공유 파일 테스트는 “None 반환”만 확인하지 말고 서비스 계층에서 overwrite가 금지되는지 단언한다.
 
----
+### Platform-specific
+
+- Windows/KST, Windows/UTC, Linux/UTC, macOS의 timestamp roundtrip을 CI matrix로 실행한다.
+- Windows 경로 공백·한글, macOS launchd plist, Linux crontab의 실제 등록/해제 smoke를 격리 환경에서 확인한다.
+- frozen EXE에서 `--smoke`, locale JSON, updater helper 교체/rollback을 Windows CI 산출물로 계속 검증한다.
 
 ## 9. Final Assessment
 
 | 항목 | 평가 | 근거 |
-|------|------|------|
-| Functional Correctness | **Good** | 수집·중복 제거·부분 재전송·취소 경계가 코드와 테스트로 일관됨 |
-| Runtime Stability | **Acceptable** | 락·스냅샷·서버 stop은 갖춤. GUI 종료 vs daemon 동기화가 약함 |
-| Data Integrity | **Acceptable** | DB는 성공 기기만 기록. 설정 CAS 우회가 사이트 JSON을 되돌릴 수 있음 |
-| Error Resilience | **Acceptable** | 사이트 단위 예외는 파이프라인을 계속. 일부 GUI 저장은 예외를 삼킴 |
-| Cross-platform Robustness | **Acceptable** | 스케줄러/경로/OPDS normcase 테스트 있음. 이번 실행은 Windows만 |
-| Test Confidence | **Acceptable** | 296 통과, 핵심 파이프라인·설정·이력은 커버. GUI·실기기·frozen i18n은 얇음 |
+|---|---|---|
+| Functional Correctness | **Needs Work** | 기본 단일 기기 흐름은 양호하나 다중 기기에서 중복 EPUB이 발생한다 |
+| Runtime Stability | **Acceptable** | timeout, retry, 락, 원자 교체가 있으나 일부 GUI 장기 작업 종료 수명 주기가 분리되어 있다 |
+| Data Integrity | **High Risk** | 공유 JSON 손상 덮어쓰기와 timestamp 혼용에 따른 최신 이력 제거를 재현했다 |
+| Error Resilience | **Needs Work** | invalid remote JSON을 재시도 가능한 오류가 아니라 빈 상태로 취급한다 |
+| Cross-platform Robustness | **Needs Work** | 코드·테스트는 다중 OS를 고려하지만 로컬 naive/UTC 혼용이 시간대별로 다른 오류를 만든다 |
+| Test Confidence | **Acceptable** | 299개가 통과하고 핵심 경로 커버리지가 좋지만 손상 백업·시간대·분기된 다중 기기 이력이 빠져 있다 |
 
 **실제로 먼저 수정할 문제 3개**
 
-1. 테마/언어/자동업데이트/마법사의 `save_config` CAS 우회 (ISSUE-001)
-2. GUI 종료 시 진행 중 동기화 처리 (ISSUE-002)
-3. frozen 빌드에서 i18n 카탈로그 로드를 `--smoke`로 고정
+1. ISSUE-001 — 손상/부분 공유 JSON을 감지하면 push를 중단하고 원본을 보존할 것
+2. ISSUE-002 — 이력과 tombstone의 시각 저장·비교를 UTC 절대시간으로 통일할 것
+3. ISSUE-003 — 자동 동기화 EPUB을 기기별 누락 기사 집합으로 구성할 것
 
 ---
 
-*CodeGraph: `run_sync_pipeline`, `upload_to_targets`, `mark_synced_many`, `save_config`, `BackupSyncService.pull/push`, `DeviceClient.list_files`, `DashboardHandler._is_authenticated`, `apply_staged_update`, `is_allowed_fetch_url`, `_safe_save_config`, `ProcessFileLock`.*  
-*테스트: `python -m pytest -q` → 296 passed (2026-09-15, 이 작업 트리).*
+감사 중 저장소 코드는 수정하지 않았으며, 결과물은 이 문서뿐이다. 기존 사용자 작업 파일 `docs/RECOMMENDED_SCRAPING_SOURCES.md`는 변경하지 않았다.

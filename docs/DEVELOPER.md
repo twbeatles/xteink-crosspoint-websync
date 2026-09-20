@@ -177,6 +177,8 @@ EXE는 실행 파일과 같은 폴더에 `config.json`, `sync_history.db`, `logs
 
 공유 데이터 폴더(`portable_data` / 하위 호환 `backup_sync`): 사이트·이력 **정본**은 OneDrive 등 폴더의 `sites.json` + `synced_posts.json` 입니다. 두 파일은 삭제 tombstone을 포함하며, 로컬 `sync_history.db` 는 작업 캐시이므로 클라우드 경로에 직접 두지 마세요. 이력 모드 `history_mode`: `per_device` | `global_url`.
 
+공유 JSON은 push/pull 전에 strict schema 검사를 거칩니다. 파일 없음은 초기 상태로 허용하지만 빈 파일·잘린 JSON·유효하지 않은 인코딩·필수 배열(`sites`/`posts`) 누락은 오류로 처리하여 기존 원격 파일을 덮어쓰지 않습니다. 신규 history/site/tombstone 시각은 UTC `Z` 형식이며 legacy naive 시각은 비교 시 정규화합니다. per-device EPUB 배치는 각 기기의 누락 URL 집합별로 분리됩니다.
+
 **로컬 사이드카 이어받기** (`websync/backup/local_import.py`): 실행 폴더의 `synced_posts.json`, `sites.json`, `*설정백업*.json`(kind 없는 레거시 sites export 포함)을 앱 기동 시 `import_posts_union` / `merge_sites` 로 반영합니다.  
 기기별 이력은 안정 기기 ID와 명시적 `alias_keys`로만 동일 기기를 판정합니다. 단일 기기라는 이유만으로 다른 기기의 URL 이력을 완료로 간주하지 않습니다.
 

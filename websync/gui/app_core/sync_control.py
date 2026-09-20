@@ -4,6 +4,7 @@ import os
 import hashlib
 import subprocess
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -29,6 +30,50 @@ from websync.i18n import t
 
 
 class AppSyncControlMixin:
+    def _make_background_thread(self, target, *, kwargs=None, name=None, daemon=True):
+        """Create a tracked GUI worker that unregisters itself on completion."""
+        holder = {}
+
+        def tracked_target():
+            try:
+                target(**(kwargs or {}))
+            finally:
+                thread = holder.get("thread")
+                lock = getattr(self, "_background_threads_lock", None)
+                threads = getattr(self, "_background_threads", None)
+                if thread is not None and lock is not None and threads is not None:
+                    with lock:
+                        threads.discard(thread)
+
+        worker = threading.Thread(target=tracked_target, name=name, daemon=daemon)
+        holder["thread"] = worker
+        with self._background_threads_lock:
+            self._background_threads.add(worker)
+        return worker
+
+    def _start_background_task(self, target, *, kwargs=None, name=None, daemon=True):
+        worker = self._make_background_thread(
+            target, kwargs=kwargs, name=name, daemon=daemon
+        )
+        worker.start()
+        return worker
+
+    def _wait_for_background_tasks(self, timeout: float = 5.0) -> None:
+        deadline = time.monotonic() + max(0.0, timeout)
+        current = threading.current_thread()
+        while True:
+            with self._background_threads_lock:
+                workers = [
+                    worker for worker in self._background_threads
+                    if worker is not current and worker.is_alive()
+                ]
+            if not workers:
+                return
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            workers[0].join(min(0.2, remaining))
+
     def _request_sync_cancel(self):
         if hasattr(self, "service") and self.service:
             self.service.request_cancel()
@@ -50,7 +95,7 @@ class AppSyncControlMixin:
             except tk.TclError:
                 return
 
-        worker = threading.Thread(target=run, daemon=True)
+        worker = self._make_background_thread(run, name="sync-pipeline")
         self.service.attach_pipeline_thread(worker)
         worker.start()
 
@@ -75,12 +120,9 @@ class AppSyncControlMixin:
     # ------------------------------------------------------------------
 
     def _on_close(self):
-        try:
-            if hasattr(self, "service") and self.service:
-                self.service.shutdown_pipeline(timeout=5.0)
-                self.service.flush_backup_push()
-        except Exception:
-            pass
+        self._closing = True
+        if hasattr(self, "service") and self.service:
+            self.service.request_cancel()
         if self._opds_server:
             self._opds_server.stop()
         if self._web_dashboard:
@@ -91,6 +133,13 @@ class AppSyncControlMixin:
             self.tab_settings._stop_watch_worker(wait_timeout=3.0)
         except Exception:
             pass
+        try:
+            if hasattr(self, "service") and self.service:
+                self.service.shutdown_pipeline(timeout=5.0)
+                self.service.flush_backup_push()
+        except Exception:
+            pass
+        self._wait_for_background_tasks(timeout=5.0)
         self.root.destroy()
 
     def run(self):

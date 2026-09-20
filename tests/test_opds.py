@@ -82,6 +82,23 @@ def test_opds_catalog_localhost_no_auth():
             srv.stop()
 
 
+def test_opds_catalog_escapes_xml_metacharacters_in_filename():
+    import xml.etree.ElementTree as ET
+
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "A&B_2026-01-01.epub"), "wb") as f:
+            f.write(b"epub")
+        srv = _start_server(tmp, require_auth=False)
+        try:
+            with _urlopen(f"http://127.0.0.1:{srv.port}/opds", timeout=3) as resp:
+                body = resp.read()
+            root = ET.fromstring(body)
+            assert root.tag.endswith("feed")
+            assert b"A&amp;B" in body
+        finally:
+            srv.stop()
+
+
 def test_opds_lan_requires_api_key():
     with tempfile.TemporaryDirectory() as tmp:
         srv = _start_server(tmp, require_auth=True, api_key="mykey")

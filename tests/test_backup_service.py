@@ -226,6 +226,34 @@ def test_backup_push_respects_auto_export():
             pass
 
 
+def test_backup_push_refuses_to_overwrite_corrupt_shared_json():
+    with tempfile.TemporaryDirectory() as tmp:
+        cloud = os.path.join(tmp, "cloud")
+        os.makedirs(cloud)
+        sites_path = os.path.join(cloud, SITES_FILENAME)
+        history_path = os.path.join(cloud, HISTORY_FILENAME)
+        with open(sites_path, "wb") as f:
+            f.write(b'{"sites":')
+        with open(history_path, "wb") as f:
+            f.write(b'{"posts": []}')
+        original_sites = open(sites_path, "rb").read()
+        original_history = open(history_path, "rb").read()
+
+        cm = ConfigManager(os.path.join(tmp, "config.json"))
+        cfg = cm.load_config()
+        cfg["backup_sync"] = {
+            "enabled": True, "folder": cloud, "include_history": True,
+            "auto_export": True,
+        }
+        cm.save_config(cfg)
+        db = SyncHistoryDb(os.path.join(tmp, "history.db"))
+        result = BackupSyncService(cm, db).push(force=True)
+
+        assert result["ok"] is False
+        assert open(sites_path, "rb").read() == original_sites
+        assert open(history_path, "rb").read() == original_history
+
+
 def test_backup_pull_retries_when_folder_locked():
     """폴더 락이 잠시 점유 중이면 재시도 후 획득한다."""
     tmp = tempfile.mkdtemp()
@@ -318,6 +346,17 @@ def test_backup_propagates_history_deletion_without_resurrection():
             payload = json.load(f)
         assert payload["posts"] == []
         assert len(payload["deleted_posts"]) == 1
+
+        # A later resend must supersede the shared tombstone on both PCs.
+        db1.mark_synced(url, "site", "resent", device_ip=device)
+        assert svc1.push(force=True)["ok"]
+        assert svc2.pull(force=True)["ok"]
+        assert db1.is_synced_for_device(url, device)
+        assert db2.is_synced_for_device(url, device)
+        with open(os.path.join(cloud, HISTORY_FILENAME), encoding="utf-8") as f:
+            resent_payload = json.load(f)
+        assert [post["title"] for post in resent_payload["posts"]] == ["resent"]
+        assert resent_payload["deleted_posts"] == []
         _cleanup_objs(svc2, svc1, db2, db1, cm2, cm1)
     finally:
         import shutil

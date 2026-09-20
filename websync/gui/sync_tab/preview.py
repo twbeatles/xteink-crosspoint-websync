@@ -33,7 +33,7 @@ class SyncPreviewMixin:
             except tk.TclError:
                 return
 
-        worker = threading.Thread(target=run, daemon=True)
+        worker = self.app._make_background_thread(run, name="sync-preview")
         self.service.attach_pipeline_thread(worker)
         worker.start()
 
@@ -135,7 +135,7 @@ class SyncPreviewMixin:
             except tk.TclError:
                 return
 
-        worker = threading.Thread(target=task, daemon=True)
+        worker = self.app._make_background_thread(task, name="selected-sync")
         self.service.attach_pipeline_thread(worker)
         worker.start()
 

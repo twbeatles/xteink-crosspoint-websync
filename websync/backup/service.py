@@ -12,7 +12,7 @@ import threading
 import time
 from typing import Any, Optional
 
-from websync.backup.atomic_io import ensure_dir, read_json_safe, write_json_atomic
+from websync.backup.atomic_io import JsonReadError, ensure_dir, read_json_checked, write_json_atomic
 from websync.backup.format import (
     HISTORY_FILENAME,
     LOCK_FILENAME,
@@ -125,6 +125,33 @@ class BackupSyncService:
                 time.sleep(max(0.05, float(delay)))
         return None
 
+    @staticmethod
+    def _read_shared_json(
+        path: str,
+        *,
+        list_key: str,
+        attempts: int = 3,
+        delay: float = 0.15,
+    ):
+        """Read a cloud-synced file, retrying brief partial-sync states."""
+        last_error: JsonReadError | None = None
+        for attempt in range(max(1, attempts)):
+            try:
+                payload = read_json_checked(path)
+                if payload is not None and (
+                    not isinstance(payload, dict)
+                    or not isinstance(payload.get(list_key), list)
+                ):
+                    raise JsonReadError(
+                        f"Shared JSON is missing a valid '{list_key}' list: {path}"
+                    )
+                return payload
+            except JsonReadError as exc:
+                last_error = exc
+                if attempt < max(1, attempts) - 1:
+                    time.sleep(delay)
+        raise BackupSyncError(str(last_error)) from last_error
+
     def _pull_unlocked(self, *, force: bool = False) -> dict[str, Any]:
         config = self._load_config()
         bs = self._backup_cfg(config)
@@ -162,8 +189,16 @@ class BackupSyncService:
             sites_path = os.path.join(folder, SITES_FILENAME)
             history_path = os.path.join(folder, HISTORY_FILENAME)
 
+            # Validate every input before mutating local state.  A cloud client
+            # may expose a zero-byte or partial file briefly while syncing.
+            remote_sites_payload = self._read_shared_json(sites_path, list_key="sites")
+            remote_hist_payload = (
+                self._read_shared_json(history_path, list_key="posts")
+                if bs.get("include_history", True)
+                else None
+            )
+
             # --- sites ---
-            remote_sites_payload = read_json_safe(sites_path)
             remote_sites, remote_sites_at = extract_sites(remote_sites_payload)
             remote_deleted_sites = extract_deleted_sites(remote_sites_payload)
             raw_sites = config.get("sites")
@@ -228,7 +263,6 @@ class BackupSyncService:
             # --- history ---
             history_changed = 0
             if bs.get("include_history", True):
-                remote_hist_payload = read_json_safe(history_path)
                 remote_posts, _ = extract_posts(remote_hist_payload)
                 remote_deleted = extract_deleted_posts(remote_hist_payload)
                 if remote_posts or remote_deleted:
@@ -305,10 +339,20 @@ class BackupSyncService:
             exported_at = now_iso()
             components: list[str] = []
 
+            sites_path = os.path.join(folder, SITES_FILENAME)
+            history_path = os.path.join(folder, HISTORY_FILENAME)
+            # Read and validate all existing shared inputs before the first
+            # local DB/config mutation or remote write.
+            remote_sites_payload = self._read_shared_json(sites_path, list_key="sites")
+            remote_history_payload = (
+                self._read_shared_json(history_path, list_key="posts")
+                if bs.get("include_history", True)
+                else None
+            )
+
             # sites — 원격 변경과 삭제 표식을 먼저 병합해 다른 PC 변경을 보존
             sites = config.get("sites") if isinstance(config.get("sites"), list) else []
             deleted_sites = bs.get("deleted_sites", [])
-            remote_sites_payload = read_json_safe(os.path.join(folder, SITES_FILENAME))
             remote_sites, _ = extract_sites(remote_sites_payload)
             remote_deleted_sites = extract_deleted_sites(remote_sites_payload)
             sites = merge_sites(sites, remote_sites, remote_wins_same_url=False)
@@ -324,7 +368,7 @@ class BackupSyncService:
             sites_payload = build_sites_payload(
                 sites, exported_at=exported_at, deleted_sites=deleted_sites
             )
-            write_json_atomic(os.path.join(folder, SITES_FILENAME), sites_payload)
+            write_json_atomic(sites_path, sites_payload)
             result["sites_written"] = True
             components.append("sites")
 
@@ -339,9 +383,8 @@ class BackupSyncService:
                     self.last_result = result
                     return result
                 # push 전 remote와 union 해서 쓴다 (다른 PC 이력 보존)
-                remote_payload = read_json_safe(os.path.join(folder, HISTORY_FILENAME))
-                remote_posts, _ = extract_posts(remote_payload)
-                remote_deleted = extract_deleted_posts(remote_payload)
+                remote_posts, _ = extract_posts(remote_history_payload)
+                remote_deleted = extract_deleted_posts(remote_history_payload)
                 if remote_posts or remote_deleted:
                     try:
                         self.db.import_deleted_posts(remote_deleted)
@@ -355,7 +398,7 @@ class BackupSyncService:
                     exported_at=exported_at,
                     deleted_posts=deleted_posts,
                 )
-                write_json_atomic(os.path.join(folder, HISTORY_FILENAME), hist_payload)
+                write_json_atomic(history_path, hist_payload)
                 result["history_written"] = True
                 result["history_count"] = len(posts)
                 components.append("synced_posts")

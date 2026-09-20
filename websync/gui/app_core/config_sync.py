@@ -59,7 +59,11 @@ class AppConfigSyncMixin:
         # 2. CalibreTab 설정 로드
         _set_entry_val(self.tab_calibre.calibre_entry, config.get("calibre_path", "C:\\Program Files\\Calibre2\\calibredb.exe"))
         _set_entry_val(self.tab_calibre.calibre_lib_entry, config.get("calibre_library_path", ""))
-        threading.Thread(target=self.tab_calibre._test_and_load_calibre, kwargs={"silent": True}, daemon=True).start()
+        self._start_background_task(
+            self.tab_calibre._test_and_load_calibre,
+            kwargs={"silent": True},
+            name="calibre-initial-load",
+        )
 
         # 3. HistoryTab 로드
         self.tab_history._refresh_history()

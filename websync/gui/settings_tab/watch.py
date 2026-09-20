@@ -105,7 +105,9 @@ class SettingsWatchMixin:
                 watch_queue.put(fpath)
 
             # 워커 스레드 시작
-            self._watch_worker_thread = threading.Thread(target=_upload_worker, daemon=True)
+            self._watch_worker_thread = self.app._make_background_thread(
+                _upload_worker, name="watch-upload"
+            )
             self._watch_worker_thread.start()
 
             self.app._calibre_watcher = CalibreWatcher(watch_dir, on_new_file)

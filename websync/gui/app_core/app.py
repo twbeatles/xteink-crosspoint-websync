@@ -54,6 +54,9 @@ class SyncAppGui(
         self._opds_server = None
         self._web_dashboard = None
         self._calibre_watcher = None
+        self._closing = False
+        self._background_threads: set[threading.Thread] = set()
+        self._background_threads_lock = threading.Lock()
 
         self.root = ctk.CTk()
         self.root.title("Xteink X3 WebSync Manager")
@@ -124,7 +127,7 @@ class SyncAppGui(
             except Exception:
                 pass
 
-        threading.Thread(target=update_task, daemon=True).start()
+        self._start_background_task(update_task, name="update-check")
 
     def _maybe_show_portable_wizard(self):
         """첫 실행 시 공유 데이터 폴더 연결 마법사."""
@@ -177,5 +180,5 @@ class SyncAppGui(
             except Exception as e:
                 self.root.after(0, lambda: self._log_message(t("gui.app.backup_pull_fail", error=e)))
 
-        threading.Thread(target=task, daemon=True).start()
+        self._start_background_task(task, name="backup-pull")
 

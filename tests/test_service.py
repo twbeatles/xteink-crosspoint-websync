@@ -202,6 +202,49 @@ def test_pipeline_skips_already_synced_device_on_retry():
     assert entries[0]["device_ip"] == "10.0.0.2"
 
 
+def test_pipeline_builds_separate_epubs_for_divergent_device_history():
+    cm = MagicMock(spec=ConfigManager)
+    cfg = _base_config([
+        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 2},
+    ])
+    cfg["x3_ip"] = "10.0.0.1"
+    cfg["x3_devices"] = [{"name": "B", "ip": "10.0.0.2"}]
+    cm.load_config.return_value = cfg
+    cm.get_resolved_output_dir.return_value = "./output"
+    svc = SyncService(cm)
+    svc.db.needs_sync = MagicMock(return_value=True)
+    svc.db.is_synced_for_device = MagicMock(
+        side_effect=lambda url, key: key == "10.0.0.1" and url == "https://ex.com/1"
+    )
+    svc.db.mark_synced_many = MagicMock(return_value=1)
+
+    def upload(_path, *, only_ips):
+        return {ip: True for ip in only_ips}
+
+    with patch.object(svc, "_reload_config"), \
+         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
+         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
+         patch.object(ScraperFactory, "get_scraper") as mock_get, \
+         patch.object(
+             svc.epub_builder, "build", side_effect=["/tmp/only-2.epub", "/tmp/both.epub"]
+         ) as mock_build, \
+         patch.object(svc.uploader, "upload_to_targets", side_effect=upload) as mock_upload, \
+         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+        mock_get.return_value.fetch_articles.return_value = [
+            {"title": "one", "content": "<p>1</p>", "url": "https://ex.com/1"},
+            {"title": "two", "content": "<p>2</p>", "url": "https://ex.com/2"},
+        ]
+        assert svc.run_sync_pipeline() is True
+
+    built_url_sets = [
+        [article["url"] for article in call.args[1]]
+        for call in mock_build.call_args_list
+    ]
+    assert built_url_sets == [["https://ex.com/2"], ["https://ex.com/1", "https://ex.com/2"]]
+    uploaded_sets = [call.kwargs["only_ips"] for call in mock_upload.call_args_list]
+    assert uploaded_sets == [["10.0.0.1"], ["10.0.0.2"]]
+
+
 def test_pipeline_uses_startup_snapshot_when_service_components_change_mid_run():
     cm = MagicMock(spec=ConfigManager)
     cfg = _base_config([

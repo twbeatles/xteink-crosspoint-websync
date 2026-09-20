@@ -15,9 +15,9 @@ from websync.pipeline.article_keys import article_sync_key
 from websync.backup.portable_cfg import get_portable_cfg
 from websync.upload.device_ids import (
     alias_key_groups,
+    group_articles_by_pending_targets,
     history_keys_from_targets,
     ip_to_history_key_map,
-    resolve_pending_upload_ips,
 )
 from websync.pipeline.upload_results import (
     collect_mark_entries,
@@ -185,13 +185,14 @@ def run_sync_pipeline_locked(
             else:
                 # 기존 방식: 사이트별 개별 빌드 및 전송
                 # 이번 배치 중 하나라도 미전송인 기기만 업로드 대상
-                pending_ips = resolve_pending_upload_ips(
+                upload_batches = group_articles_by_pending_targets(
                     db.is_synced_for_device,
                     db.is_synced,
-                    [art["url"] for art in new_articles],
+                    new_articles,
                     upload_targets,
                     history_mode=history_mode,
                 )
+                pending_ips = [ip for ips, _articles in upload_batches for ip in ips]
 
                 if not pending_ips:
                     log(t("pipeline.no_pending_devices", site=name))
@@ -201,11 +202,24 @@ def run_sync_pipeline_locked(
                     names = [ip_to_name.get(ip, ip) for ip in pending_ips]
                     log(t("pipeline.pending_devices_only", names=", ".join(names)))
 
-                log(t("pipeline.building_epub", site=name))
-                epub_path = epub_builder.build(name, new_articles, generate_cover=generate_cover)
-                log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
-
-                upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
+                upload_results: dict[str, bool] = {}
+                for batch_ips, batch_articles in upload_batches:
+                    log(t("pipeline.building_epub", site=name))
+                    epub_path = epub_builder.build(
+                        name, batch_articles, generate_cover=generate_cover
+                    )
+                    log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
+                    batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
+                    upload_results.update(batch_results)
+                    mark_batch = collect_mark_entries(
+                        batch_results,
+                        batch_articles,
+                        site_name=name,
+                        is_synced_for_device=db.is_synced_for_device,
+                        ip_to_history_key=ip_hist_map,
+                    )
+                    if mark_batch:
+                        db.mark_synced_many(mark_batch)
                 for ip, ok in upload_results.items():
                     status = "✅" if ok else "❌"
                     detail = ""
@@ -225,15 +239,6 @@ def run_sync_pipeline_locked(
                 all_ok = upload_all_ok(upload_results, pending_ips)
 
                 if any_ok:
-                    batch = collect_mark_entries(
-                        upload_results,
-                        new_articles,
-                        site_name=name,
-                        is_synced_for_device=db.is_synced_for_device,
-                        ip_to_history_key=ip_hist_map,
-                    )
-                    if batch:
-                        db.mark_synced_many(batch)
                     if all_ok:
                         log(t("pipeline.site_sync_ok", site=name))
                         success_count += 1
@@ -267,13 +272,21 @@ def run_sync_pipeline_locked(
                     all_new_urls.append((art["url"], site_name, art.get("title", "")))
 
             # 이번 배치 기사 중 미전송된 기기가 있는 기기 추출
-            pending_ips = resolve_pending_upload_ips(
+            digest_flat = []
+            for digest_site_name, arts in digest_articles.items():
+                for art in arts:
+                    item = dict(art)
+                    item["_digest_site_name"] = digest_site_name
+                    digest_flat.append(item)
+
+            upload_batches = group_articles_by_pending_targets(
                 db.is_synced_for_device,
                 db.is_synced,
-                [url for url, _, _ in all_new_urls],
+                digest_flat,
                 upload_targets,
                 history_mode=history_mode,
             )
+            pending_ips = [ip for ips, _articles in upload_batches for ip in ips]
 
             if pending_ips:
                 log(t(
@@ -281,10 +294,31 @@ def run_sync_pipeline_locked(
                     sites=len(digest_articles),
                     articles=len(all_new_urls),
                 ))
-                epub_path = epub_builder.build_digest(digest_articles, generate_cover=generate_cover)
-                log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
-
-                upload_results = uploader.upload_to_targets(epub_path, only_ips=pending_ips)
+                upload_results: dict[str, bool] = {}
+                for batch_ips, batch_articles in upload_batches:
+                    batch_by_site: dict[str, list[dict]] = {}
+                    batch_triples: list[tuple[str, str, str]] = []
+                    for art in batch_articles:
+                        site_name = art.get("_digest_site_name") or ""
+                        clean_art = {k: v for k, v in art.items() if k != "_digest_site_name"}
+                        batch_by_site.setdefault(site_name, []).append(clean_art)
+                        batch_triples.append(
+                            (art.get("url") or "", site_name, art.get("title") or "")
+                        )
+                    epub_path = epub_builder.build_digest(
+                        batch_by_site, generate_cover=generate_cover
+                    )
+                    log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
+                    batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
+                    upload_results.update(batch_results)
+                    mark_batch = collect_mark_entries_from_triples(
+                        batch_results,
+                        batch_triples,
+                        is_synced_for_device=db.is_synced_for_device,
+                        ip_to_history_key=ip_hist_map,
+                    )
+                    if mark_batch:
+                        db.mark_synced_many(mark_batch)
                 for ip, ok in upload_results.items():
                     status = "✅" if ok else "❌"
                     detail = ""
@@ -304,14 +338,6 @@ def run_sync_pipeline_locked(
                 all_ok = upload_all_ok(upload_results, pending_ips)
 
                 if any_ok:
-                    batch = collect_mark_entries_from_triples(
-                        upload_results,
-                        all_new_urls,
-                        is_synced_for_device=db.is_synced_for_device,
-                        ip_to_history_key=ip_hist_map,
-                    )
-                    if batch:
-                        db.mark_synced_many(batch)
                     if all_ok:
                         log(t("pipeline.digest.ok"))
                         digest_success = True

@@ -256,6 +256,7 @@ class SiteDialogMixin:
             on_type_change=on_type_change,
             apply_site_config=apply_site_config,
             is_pipeline_running=_pipeline_running,
+            start_background_task=self.app._start_background_task,
         )
         wizard.grid(row=9, column=0, columnspan=2, sticky="nsew", pady=10)
         form.rowconfigure(9, weight=1)

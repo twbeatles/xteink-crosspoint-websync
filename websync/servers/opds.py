@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from typing import Optional
 from urllib.parse import quote, unquote, urlparse, parse_qs
+from xml.sax.saxutils import escape
 
 from websync.i18n import t
 
@@ -99,23 +100,26 @@ class OPDSHandler(BaseHTTPRequestHandler):
         for fname in epub_files:
             fpath = os.path.join(output_dir, fname)
             size = os.path.getsize(fpath) if os.path.exists(fpath) else 0
-            safe_name = fname.replace("&", "&amp;").replace("<", "&lt;")
+            safe_name = escape(fname)
             title = re.sub(r"_\d{4}-\d{2}-\d{2}\.epub$", "", fname.replace("_", " ")).strip()
-            mtime = datetime.fromtimestamp(os.path.getmtime(fpath)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            safe_title = escape(title)
+            mtime = datetime.fromtimestamp(
+                os.path.getmtime(fpath), timezone.utc
+            ).strftime("%Y-%m-%dT%H:%M:%SZ")
             href = f"/opds/download/{quote(fname, safe='')}"
             entries += f"""
   <entry>
     <title>{safe_name}</title>
     <id>urn:x3sync:{safe_name}</id>
     <updated>{mtime}</updated>
-    <summary>{title} ({size // 1024} KB)</summary>
+    <summary>{safe_title} ({size // 1024} KB)</summary>
     <link rel="http://opds-spec.org/acquisition" href="{href}" type="application/epub+zip"/>
   </entry>"""
 
         now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog">
-  <title>{t("opds.catalog_title")}</title>
+  <title>{escape(t("opds.catalog_title"))}</title>
   <id>urn:x3sync:root</id>
   <updated>{now_utc}</updated>
   <link rel="self" href="/opds" type="application/atom+xml;profile=opds-catalog"/>{entries}

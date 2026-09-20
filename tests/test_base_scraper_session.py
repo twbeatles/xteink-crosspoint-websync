@@ -41,3 +41,15 @@ def test_base_scraper_session_pool_size():
 
     assert https_adapter._pool_connections >= 20
     assert https_adapter._pool_maxsize >= 20
+
+
+def test_fetch_url_blocks_public_redirect_to_private_network():
+    redirect = MagicMock()
+    redirect.status_code = 302
+    redirect.headers = {"Location": "http://127.0.0.1/admin"}
+    redirect.close = MagicMock()
+    with patch.object(_session, "get", return_value=redirect) as get:
+        with pytest.raises(ValueError, match="private/local"):
+            fetch_url("https://example.com/start")
+    assert get.call_count == 1
+    redirect.close.assert_called_once()

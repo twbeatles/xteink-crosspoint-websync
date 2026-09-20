@@ -81,7 +81,7 @@ class EpubBuilder:
         file_path = os.path.join(self.output_dir, file_name)
 
         if os.path.exists(file_path):
-            time_suffix = datetime.now().strftime("%H%M%S")
+            time_suffix = datetime.now().strftime("%H%M%S_%f")
             file_name = f"{safe_site_name}_{today_str}_{time_suffix}.epub"
             file_path = os.path.join(self.output_dir, file_name)
 
@@ -166,7 +166,7 @@ class EpubBuilder:
         filename = f"Daily_Digest_{today}.epub"
         epub_path = os.path.join(self.output_dir, filename)
         if os.path.exists(epub_path):
-            suffix = datetime.now().strftime("%H%M%S")
+            suffix = datetime.now().strftime("%H%M%S_%f")
             filename = f"Daily_Digest_{today}_{suffix}.epub"
             epub_path = os.path.join(self.output_dir, filename)
 

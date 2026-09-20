@@ -200,3 +200,48 @@ def resolve_pending_upload_ips(
             seen.add(ip)
             pending.append(ip)
     return pending
+
+
+def group_articles_by_pending_targets(
+    is_synced_for_device: Callable[[str, str], bool],
+    is_synced_url: Callable[[str], bool],
+    articles: list[dict],
+    upload_targets: list[dict],
+    *,
+    history_mode: str = "per_device",
+) -> list[tuple[list[str], list[dict]]]:
+    """Group targets that need exactly the same subset of articles."""
+    from websync.backup.portable_cfg import HISTORY_MODE_GLOBAL_URL, normalize_history_mode
+
+    mode = normalize_history_mode(history_mode)
+    grouped: dict[tuple[str, ...], dict] = {}
+    for target in upload_targets:
+        if not isinstance(target, dict):
+            continue
+        ip = normalize_device_host(target.get("ip") or "")
+        if not ip:
+            continue
+        aliases = target.get("alias_keys")
+        keys = (
+            [str(a).strip() for a in aliases if str(a).strip()]
+            if isinstance(aliases, list) and aliases
+            else _unique_keys([(target.get("history_key") or ip).strip(), ip])
+        )
+        missing = []
+        for article in articles:
+            url = (article.get("url") or "").strip()
+            if not url:
+                continue
+            synced = (
+                is_synced_url(url)
+                if mode == HISTORY_MODE_GLOBAL_URL
+                else any(is_synced_for_device(url, key) for key in keys if key)
+            )
+            if not synced:
+                missing.append(article)
+        if not missing:
+            continue
+        fingerprint = tuple((article.get("url") or "").strip() for article in missing)
+        bucket = grouped.setdefault(fingerprint, {"ips": [], "articles": missing})
+        bucket["ips"].append(ip)
+    return [(bucket["ips"], bucket["articles"]) for bucket in grouped.values()]
