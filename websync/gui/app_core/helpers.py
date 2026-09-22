@@ -98,6 +98,7 @@ class AppHelpersMixin:
             config.get("x3_devices", []),
             remote_dir=df.get("default_upload_path", "/"),
             primary_device_id=config.get("x3_primary_device_id", "") or "",
+            primary_alias_ids=config.get("x3_primary_device_alias_ids") or [],
         )
 
     def _ip_display_name(self, ip: str) -> str:

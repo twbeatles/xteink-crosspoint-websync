@@ -59,6 +59,7 @@ a = Analysis(
         'websync.db', 'websync.db.history',
         'websync.backup', 'websync.backup.service', 'websync.backup.atomic_io', 'websync.backup.format',
         'websync.backup.portable_cfg', 'websync.backup.local_import',
+        'websync.backup.device_registry',
         # scrapers (13 types + factory/presets)
         'websync.scrapers', 'websync.scrapers.base', 'websync.scrapers.factory',
         'websync.scrapers.types', 'websync.scrapers.presets', 'websync.scrapers.newsletter_base',

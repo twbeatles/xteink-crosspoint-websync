@@ -1,7 +1,7 @@
 """YoutubeScraper"""
 from typing import cast
 
-from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url
+from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url, normalize_limit
 from bs4 import BeautifulSoup
 from websync.i18n import t
 
@@ -15,7 +15,7 @@ class YoutubeScraper(BaseScraper):
         # url은 채널 RSS 피드: https://www.youtube.com/feeds/videos.xml?channel_id=...
         self.last_fetch_stats = {"skipped": 0}
         url = site_config.get("url", "")
-        limit = site_config.get("limit", 3)
+        limit = normalize_limit(site_config.get("limit", 3), default=3)
         articles = []
         skipped = 0
         try:

@@ -1,5 +1,5 @@
 """SubstackScraper"""
-from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url
+from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url, normalize_limit
 from bs4 import BeautifulSoup
 from websync.i18n import t
 
@@ -7,7 +7,7 @@ class SubstackScraper(BaseScraper):
     """Substack 뉴스레터 전용 스크래퍼 - RSS 전문을 수신 후 Substack 고유 요소 클렌징"""
     def fetch_articles(self, site_config: dict) -> list:
         url = site_config.get("url", "")  # 예: https://example.substack.com/feed
-        limit = site_config.get("limit", 5)
+        limit = normalize_limit(site_config.get("limit", 5))
         articles = []
         try:
             rss_url = url if "/feed" in url else url.rstrip("/") + "/feed"

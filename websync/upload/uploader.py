@@ -28,10 +28,12 @@ class X3Uploader:
         remote_dir: str | None = None,
         *,
         primary_device_id: str = "",
+        primary_alias_ids: list | None = None,
     ):
         self.x3_ip = normalize_device_host(x3_ip)
         self.devices = devices or []
         self.primary_device_id = (primary_device_id or "").strip()
+        self.primary_alias_ids = primary_alias_ids or []
         self.remote_dir = normalize_upload_remote_dir(remote_dir)
         # 최근 전송 실패 사유 {ip: message} — GUI/파이프라인 로그용
         self.last_errors: dict[str, str] = {}
@@ -126,6 +128,7 @@ class X3Uploader:
             self.x3_ip,
             self.devices,
             primary_id=self.primary_device_id,
+            primary_alias_ids=self.primary_alias_ids,
         )
 
     def upload(self, file_path: str, remote_dir: str | None = None) -> bool:
@@ -201,7 +204,9 @@ class X3Uploader:
             return False
         url = f"http://{target_ip}/"
         try:
-            requests.get(url, timeout=3)
-            return True
+            response = requests.get(url, timeout=3)
+            # 상태코드를 보지 않으면 무관한 웹서버의 404/500도 연결 성공이 된다.
+            status = getattr(response, "status_code", 0) or 0
+            return 200 <= status < 300
         except Exception:
             return False

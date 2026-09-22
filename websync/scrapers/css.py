@@ -1,5 +1,5 @@
 """CssSelectorScraper"""
-from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, ensure_article_url, fetch_url
+from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, ensure_article_url, fetch_url, normalize_limit
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from websync.i18n import t
@@ -50,7 +50,7 @@ class CssSelectorScraper(BaseScraper):
         # 미지정 시 기존 동작 유지 (첫 a[href])
         link_selector = (site_config.get("link_selector") or "a[href]").strip() or "a[href]"
         remove_selectors = site_config.get("remove_selectors", "")
-        limit = site_config.get("limit", 5)
+        limit = normalize_limit(site_config.get("limit", 5))
         fetch_detail = bool(site_config.get("fetch_detail_page", False))
 
         headers = dict(HEADERS)

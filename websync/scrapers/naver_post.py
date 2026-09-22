@@ -11,7 +11,7 @@ from __future__ import annotations
 from bs4 import BeautifulSoup
 
 from websync.core.logger import get_logger
-from websync.scrapers.base import BaseScraper, fetch_url, maybe_strip_images
+from websync.scrapers.base import BaseScraper, fetch_url, normalize_limit, maybe_strip_images
 from websync.scrapers.naver_common import clean_naver_content
 from websync.i18n import t
 
@@ -55,7 +55,7 @@ class NaverPostScraper(BaseScraper):
     def _legacy_fetch(self, site_config: dict) -> list:
         """서비스 종료 전 마크업용 폴백 (정상 동작 기대 안 함)."""
         url = (site_config.get("url") or "").strip()
-        limit = int(site_config.get("limit", 5) or 5)
+        limit = normalize_limit(site_config.get("limit", 5))
         articles: list[dict] = []
         try:
             resp = fetch_url(url, timeout=15)

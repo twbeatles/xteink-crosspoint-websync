@@ -22,6 +22,20 @@ HEADERS = {
 FETCH_MAX_BYTES = 16 * 1024 * 1024
 FETCH_MAX_REDIRECTS = 5
 
+# 사이트 설정 limit 기본·범위 (설정 검증은 권고 수준이므로 스크래퍼 진입점에서 clamp)
+LIMIT_DEFAULT = 5
+LIMIT_MIN = 1
+LIMIT_MAX = 100
+
+
+def normalize_limit(value, default: int = LIMIT_DEFAULT) -> int:
+    """사이트 설정 limit을 정수로 정규화합니다 (실패 시 default, 1~100 clamp)."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(LIMIT_MIN, min(LIMIT_MAX, number))
+
 
 def is_allowed_fetch_url(url: str) -> bool:
     """스크래핑용 URL은 http(s) + 호스트가 있을 때만 허용."""

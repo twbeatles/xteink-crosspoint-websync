@@ -99,3 +99,31 @@ def test_selected_sync_rejects_when_busy():
         assert result is False
     finally:
         svc._pipeline_lock.release()
+
+
+def test_selected_sync_returns_false_when_cancelled():
+    """ISSUE-003: 취소 요청 시 빌드·전송 없이 False + cancelled 결과."""
+    svc = _make_svc()
+    svc.request_cancel()
+    selected = [
+        {"site_name": "A", "title": "t", "url": "https://ex.com/1", "content": "<p>x</p>"},
+    ]
+    with patch.object(svc, "_reload_config"), \
+         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
+         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
+         patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub") as mock_build, \
+         patch.object(
+             svc.uploader, "upload_to_targets", return_value={"127.0.0.1": True}
+         ) as mock_upload, \
+         patch("websync.pipeline.selected_sync.Summarizer") as mock_sum, \
+         patch("websync.pipeline.selected_sync.Translator") as mock_trans:
+        mock_sum.return_value.is_available.return_value = False
+        mock_trans.return_value.is_available_for_site.return_value = False
+        result = sync_selected_articles(svc, selected)
+
+    assert result is False
+    mock_build.assert_not_called()
+    mock_upload.assert_not_called()
+    svc.db.mark_synced_many.assert_not_called()
+    assert svc.get_last_pipeline_result() == {"status": "cancelled", "success": False}
+

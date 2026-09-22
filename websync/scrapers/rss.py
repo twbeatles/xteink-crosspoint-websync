@@ -11,6 +11,7 @@ from websync.scrapers.base import (
     ensure_article_url,
     extract_rss_link,
     fetch_url,
+    normalize_limit,
     maybe_strip_images,
 )
 from websync.i18n import t
@@ -45,7 +46,7 @@ class RssScraper(BaseScraper):
 
     def fetch_articles(self, site_config: dict) -> list:
         url = site_config.get("url")
-        limit = site_config.get("limit", 5)
+        limit = normalize_limit(site_config.get("limit", 5))
 
         try:
             response = fetch_url(url, timeout=15)

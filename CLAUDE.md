@@ -57,6 +57,7 @@ xteink-crosspoint-websync/
 │   │   ├── css.py / cover.py / sanitize.py  # CSS·표지·본문 정제 (SRP)
 │   │   └── themes/            # EPUB CSS 프리셋
 │   ├── upload/
+│   │   ├── device_ids.py      # 안정 기기 ID·alias_keys (여러 PC는 같은 설정 주소로 연결)
 │   │   ├── host.py            # 기기 호스트 정규화
 │   │   ├── remote_path.py     # 원격 경로 유틸
 │   │   ├── sync_epub.py       # 동기화 EPUB 날짜 필터
@@ -72,10 +73,11 @@ xteink-crosspoint-websync/
 │   │   ├── summarizer.py      # AI 요약
 │   │   └── translator.py      # 번역
 │   ├── backup/                # 공유 데이터 폴더 정본 (sites.json + synced_posts.json)
-│   │   ├── service.py         # BackupSyncService / PortableDataService pull/push
+│   │   ├── service.py         # BackupSyncService pull/push, 기기 ID 채택·게시
+│   │   ├── device_registry.py # 같은 설정 주소의 기기 ID를 합치고 alias_ids 유지
 │   │   ├── portable_cfg.py    # portable_data ↔ backup_sync 호환
 │   │   ├── local_import.py    # 실행 폴더 synced_posts·설정백업 JSON 이어받기
-│   │   ├── atomic_io.py / format.py
+│   │   ├── atomic_io.py / format.py  # history payload 의 devices[] 포함
 │   ├── integrations/
 │   │   ├── calibre.py         # calibredb.exe 래퍼
 │   │   └── notifier.py        # 크로스플랫폼 토스트 알림
@@ -169,7 +171,9 @@ main()
   "_config_revision": 0,
   "ui_language": "auto",
   "x3_ip": "crosspoint.local",
-  "x3_devices": [{"name": "침실", "ip": "192.168.1.20"}],
+  "x3_primary_device_id": "",
+  "x3_primary_device_alias_ids": [],
+  "x3_devices": [{"name": "침실", "ip": "192.168.1.20", "id": "", "alias_ids": []}],
   "output_dir": "./output",
   "calibre_path": "C:\\Program Files\\Calibre2\\calibredb.exe",
   "calibre_library_path": "",
@@ -351,6 +355,7 @@ run_sync_pipeline()
 | 테이블 | `synced_posts(url, device_ip PK, site_name, title, synced_at)` — 레거시 DB는 `device_ip='*'`로 자동 마이그레이션 |
 | API | `needs_sync(url, target_ips)`, `mark_synced(..., device_ip)`, `is_synced_for_device()`, `remap_legacy_star_to_device(ip)` (파이프라인 시작 시 기본 기기로 자동 이관) |
 | 레거시 `*` | 마이그레이션 시 `device_ip='*'` 부여. **전 기기 완료로 취급하지 않음**. 동기화 시작 시 첫 대상 IP로 이관 |
+| 여러 PC | 이력 키는 PC별 `dev_…`. 공유 `synced_posts.json`의 `devices`(id·hosts·alias_ids)로 **같은 설정 주소**만 한 기기로 묶는다. 다른 ID는 `x3_primary_device_alias_ids` / `x3_devices[].alias_ids`에 남겨 `alias_keys`로 조회. 조회용 `crosspoint.local`을 주소 일치로 쓰지 않음. 상세는 `docs/DEVELOPER.md` |
 
 ---
 
@@ -584,6 +589,7 @@ DEFAULT_CONFIG = {
 | pythonw 실행 후 아무 일도 없음 | stdout=None 크래시 | `x3_websync.py`의 `NullWriter` 확인 |
 | 동시 기동 시 config.json 저장 충돌 | Race Condition | `websync/config/manager.py`의 config 경로별 `ProcessFileLock`과 revision 확인 |
 | PyInstaller 빌드 후 import 오류 | hiddenimports 누락 | `x3_websync.spec`의 `websync.*` 서브패키지 목록 확인 |
+| 다른 PC에서 이미 보낸 글이 다시 전송 | 기기 ID가 PC마다 다르고 공유 `devices`에 주소가 없음, 또는 주소 문자열이 다름 | 공유 폴더 + 같은 설정 주소. 그 ID를 가진 PC를 한 번 열어 `devices`를 남긴 뒤 다른 PC에서 동기화. `192.168.1.20`과 `crosspoint.local`은 다른 기기. 표기가 다르면 `history_mode=global_url` |
 
 ---
 

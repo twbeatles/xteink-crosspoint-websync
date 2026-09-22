@@ -157,3 +157,28 @@ def test_upload_to_ip_root_no_path_query():
         assert mpost.call_args.args[0] == "http://10.0.0.1/upload"
     finally:
         os.remove(path)
+
+
+def test_test_connection_requires_2xx_status():
+    """ISSUE-002: 404/500을 연결 성공으로 오판하지 않는다."""
+    from unittest.mock import MagicMock
+
+    u = X3Uploader("127.0.0.1")
+    ok = MagicMock()
+    ok.status_code = 200
+    not_found = MagicMock()
+    not_found.status_code = 404
+    server_error = MagicMock()
+    server_error.status_code = 500
+    with patch("websync.upload.uploader.requests.get", return_value=ok):
+        assert u.test_connection() is True
+    with patch("websync.upload.uploader.requests.get", return_value=not_found):
+        assert u.test_connection() is False
+    with patch("websync.upload.uploader.requests.get", return_value=server_error):
+        assert u.test_connection() is False
+    with patch(
+        "websync.upload.uploader.requests.get",
+        side_effect=ConnectionError("down"),
+    ):
+        assert u.test_connection() is False
+

@@ -51,6 +51,7 @@ def build_targets_with_keys(
     devices: list | None = None,
     *,
     primary_id: str = "",
+    primary_alias_ids: list | None = None,
     primary_name: str | None = None,
 ) -> list[dict[str, Any]]:
     """업로드 대상 목록: name, ip, id, history_key, alias_keys (중복 IP 제거)."""
@@ -62,7 +63,7 @@ def build_targets_with_keys(
     ip = normalize_device_host(x3_ip)
     if ip:
         pid = (primary_id or "").strip()
-        aliases = _unique_keys([pid, ip, "crosspoint.local"])
+        aliases = _unique_keys([pid, *_clean_alias_ids(primary_alias_ids), ip, "crosspoint.local"])
         targets.append(
             {
                 "name": primary_name,
@@ -81,7 +82,7 @@ def build_targets_with_keys(
         if not dip or dip in seen_ips:
             continue
         did = (dev.get("id") or "").strip()
-        aliases = _unique_keys([did, dip])
+        aliases = _unique_keys([did, *_clean_alias_ids(dev.get("alias_ids")), dip])
         targets.append(
             {
                 "name": dev.get("name") or dip,
@@ -94,6 +95,17 @@ def build_targets_with_keys(
         seen_ips.add(dip)
 
     return targets
+
+
+def _clean_alias_ids(value) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for item in value:
+        text = str(item).strip() if item is not None else ""
+        if text:
+            out.append(text)
+    return out
 
 
 def _unique_keys(keys: list[str]) -> list[str]:

@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
 from websync.core.logger import get_logger
-from websync.scrapers.base import BaseScraper, ensure_article_url, fetch_url, maybe_strip_images
+from websync.scrapers.base import BaseScraper, ensure_article_url, fetch_url, normalize_limit, maybe_strip_images
 from websync.i18n import t
 
 
@@ -34,7 +34,7 @@ class NewneekScraper(BaseScraper):
     def fetch_articles(self, site_config: dict) -> list:
         self.last_fetch_stats = {"skipped": 0}
         url = (site_config.get("url") or "").strip() or "https://newneek.co/@newneek"
-        limit = int(site_config.get("limit", 5) or 5)
+        limit = normalize_limit(site_config.get("limit", 5))
         articles: list[dict] = []
         skipped = 0
 

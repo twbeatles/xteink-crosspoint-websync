@@ -25,12 +25,14 @@ from websync.backup.format import (
     extract_deleted_sites,
     extract_posts,
     extract_deleted_posts,
+    extract_devices,
     extract_sites,
     is_remote_newer,
     merge_sites,
     merge_site_tombstones,
     now_iso,
 )
+from websync.backup.device_registry import reconcile_config_devices
 from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
 from websync.config.manager import ConfigManager
 from websync.core.paths import resolve_path
@@ -41,6 +43,25 @@ from websync.i18n import t
 
 class BackupSyncError(Exception):
     """공유 데이터 폴더 동기화 실패"""
+
+
+def _same_device_registry(export: list[dict], remote: list[dict]) -> bool:
+    def signature(devices: list[dict]) -> tuple:
+        rows = []
+        for item in devices:
+            if not isinstance(item, dict):
+                continue
+            rows.append(
+                (
+                    (item.get("id") or "").strip(),
+                    tuple(item.get("hosts") or []),
+                    tuple(item.get("alias_ids") or []),
+                    (item.get("name") or ""),
+                )
+            )
+        return tuple(sorted(rows))
+
+    return signature(export) == signature(remote)
 
 
 class BackupSyncService:
@@ -82,6 +103,46 @@ class BackupSyncService:
     def _update_backup_meta(self, config: dict, **kwargs) -> dict:
         apply_portable_cfg(config, kwargs)
         return config
+
+    def _adopt_shared_device_ids(
+        self, config: dict, remote_devices: list
+    ) -> tuple[dict, bool]:
+        """같은 주소의 공유 기기 ID를 로컬 이력 키·별칭에 반영합니다."""
+        import copy
+
+        preview = copy.deepcopy(config)
+        _export, changed = reconcile_config_devices(preview, remote_devices)
+        if not changed:
+            return config, False
+
+        def _apply(cfg: dict) -> None:
+            reconcile_config_devices(cfg, remote_devices)
+
+        return self.config_manager.update_config(_apply), True
+
+    def _publish_device_registry(
+        self, folder: str, config: dict, remote_payload: Any
+    ) -> None:
+        """시작 시 pull만 해도 기기 ID↔주소를 공유 파일에 남깁니다.
+
+        예전 synced_posts.json 에는 글의 기기 ID만 있고 주소가 없습니다.
+        그 ID를 가진 PC가 한 번 열리면 다른 PC가 같은 주소를 같은 기기로 봅니다.
+        """
+        import copy
+
+        remote_devices = extract_devices(remote_payload)
+        export, _changed = reconcile_config_devices(copy.deepcopy(config), remote_devices)
+        if not export or _same_device_registry(export, remote_devices):
+            return
+        posts, _exported_at = extract_posts(remote_payload)
+        write_json_atomic(
+            os.path.join(folder, HISTORY_FILENAME),
+            build_history_payload(
+                posts,
+                deleted_posts=extract_deleted_posts(remote_payload),
+                devices=export,
+            ),
+        )
 
     def pull(self, *, force: bool = False) -> dict[str, Any]:
         """클라우드 폴더 → 로컬 병합.
@@ -263,6 +324,12 @@ class BackupSyncService:
             # --- history ---
             history_changed = 0
             if bs.get("include_history", True):
+                config, devices_changed = self._adopt_shared_device_ids(
+                    config, extract_devices(remote_hist_payload)
+                )
+                if devices_changed:
+                    bs = self._backup_cfg(config)
+                    result["devices_changed"] = True
                 remote_posts, _ = extract_posts(remote_hist_payload)
                 remote_deleted = extract_deleted_posts(remote_hist_payload)
                 if remote_posts or remote_deleted:
@@ -275,6 +342,8 @@ class BackupSyncService:
                         self.last_result = result
                         return result
             result["history_changed"] = history_changed
+            if bs.get("include_history", True):
+                self._publish_device_registry(folder, config, remote_hist_payload)
 
             result["ok"] = True
             parts = []
@@ -358,10 +427,16 @@ class BackupSyncService:
             sites = merge_sites(sites, remote_sites, remote_wins_same_url=False)
             deleted_sites = merge_site_tombstones(deleted_sites, remote_deleted_sites)
             sites, deleted_sites = apply_site_tombstones(sites, deleted_sites)
+            include_history = bool(bs.get("include_history", True))
+            remote_devices = extract_devices(remote_history_payload) if include_history else []
+            devices_export: list[dict] = []
 
             def _apply_site_merge(cfg: dict) -> None:
+                nonlocal devices_export
                 cfg["sites"] = sites
                 apply_portable_cfg(cfg, {"deleted_sites": deleted_sites})
+                if include_history:
+                    devices_export, _changed = reconcile_config_devices(cfg, remote_devices)
 
             config = self.config_manager.update_config(_apply_site_merge)
             bs = self._backup_cfg(config)
@@ -397,6 +472,7 @@ class BackupSyncService:
                     posts,
                     exported_at=exported_at,
                     deleted_posts=deleted_posts,
+                    devices=devices_export,
                 )
                 write_json_atomic(history_path, hist_payload)
                 result["history_written"] = True

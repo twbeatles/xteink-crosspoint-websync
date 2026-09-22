@@ -1,6 +1,6 @@
 """NaverBlogScraper"""
 from concurrent.futures import ThreadPoolExecutor
-from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url
+from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url, normalize_limit
 import re
 from bs4 import BeautifulSoup
 from websync.core.logger import get_logger
@@ -19,7 +19,7 @@ class NaverBlogScraper(BaseScraper):
     def fetch_articles(self, site_config: dict) -> list:
         self.last_fetch_stats = {"skipped": 0, "reasons": []}
         url = site_config.get("url")
-        limit = site_config.get("limit", 5)
+        limit = normalize_limit(site_config.get("limit", 5))
 
         # 블로그 ID 추출 (다양한 네이버 주소 유형 지원: m.blog.naver.com, blog.naver.com, ID.blog.me)
         blog_id = None

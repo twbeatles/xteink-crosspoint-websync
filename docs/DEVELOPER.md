@@ -20,9 +20,9 @@ xteink-crosspoint-websync/
 │   ├── db/                   # SyncHistoryDb
 │   ├── scrapers/             # 스크래퍼 + factory + 한국 프리셋
 │   ├── epub/                 # builder + css/cover/sanitize + themes/
-│   ├── upload/               # uploader, device_client, host, remote_path
+│   ├── upload/               # uploader, device_ids, device_client, host, remote_path
 │   ├── pipeline/             # service 파사드 + sync/preview/selected
-│   ├── backup/               # 공유 데이터 폴더 정본 (sites.json + synced_posts.json)
+│   ├── backup/               # 공유 정본 + device_registry (기기 ID↔주소)
 │   ├── integrations/         # Calibre, ToastNotifier
 │   ├── scheduler/            # schtasks / launchd / crontab
 │   ├── servers/              # OPDS + web dashboard
@@ -179,8 +179,18 @@ EXE는 실행 파일과 같은 폴더에 `config.json`, `sync_history.db`, `logs
 
 공유 JSON은 push/pull 전에 strict schema 검사를 거칩니다. 파일 없음은 초기 상태로 허용하지만 빈 파일·잘린 JSON·유효하지 않은 인코딩·필수 배열(`sites`/`posts`) 누락은 오류로 처리하여 기존 원격 파일을 덮어쓰지 않습니다. 신규 history/site/tombstone 시각은 UTC `Z` 형식이며 legacy naive 시각은 비교 시 정규화합니다. per-device EPUB 배치는 각 기기의 누락 URL 집합별로 분리됩니다.
 
-**로컬 사이드카 이어받기** (`websync/backup/local_import.py`): 실행 폴더의 `synced_posts.json`, `sites.json`, `*설정백업*.json`(kind 없는 레거시 sites export 포함)을 앱 기동 시 `import_posts_union` / `merge_sites` 로 반영합니다.  
-기기별 이력은 안정 기기 ID와 명시적 `alias_keys`로만 동일 기기를 판정합니다. 단일 기기라는 이유만으로 다른 기기의 URL 이력을 완료로 간주하지 않습니다.
+**로컬 사이드카 이어받기** (`websync/backup/local_import.py`): 실행 폴더의 `synced_posts.json`, `sites.json`, `*설정백업*.json`(kind 없는 레거시 sites export 포함)을 앱 기동 시 `import_posts_union` / `merge_sites` 로 반영합니다.
+
+**여러 PC · 같은 리더기** (`websync/backup/device_registry.py`, 테스트 `tests/test_multi_pc_history.py`):
+
+이력 행의 `device_ip`는 안정 기기 ID(`dev_…`)입니다. 이 ID는 PC마다 `config.json`에서 따로 생기므로, 공유해도 다른 PC의 `needs_sync`가 그대로 두면 이미 보낸 글을 다시 보냅니다.
+
+- `synced_posts.json`의 `devices`는 `{id, hosts, alias_ids, name}` 입니다. `hosts`는 사용자가 설정한 주소(`x3_ip`, `x3_devices[].ip`)만 사용합니다. 기본 기기의 조회용 `crosspoint.local` 별칭을 주소로 넣지 않습니다.
+- pull/push의 `reconcile_config_devices`는 **같은 정규화 주소** 또는 **같은 ID·별칭**을 한 기기로 묶습니다. 대표 ID는 묶인 ID 중 사전순으로 가장 작은 값이고, 나머지는 `x3_primary_device_alias_ids` / `x3_devices[].alias_ids`에 남습니다.
+- `build_targets_with_keys(..., primary_alias_ids=)`의 `alias_keys`에 그 별칭이 들어가 `needs_sync`가 다른 PC의 이력 행을 맞춥니다.
+- 이 PC에 등록된 기기의 공유 `hosts`는 **현재 설정 주소만** 다시 씁니다. 예전 주소를 남겨 두면 그 주소를 받은 다른 리더기까지 같은 이력으로 붙습니다. 이 PC에 없는 기기는 원격에 적힌 주소를 유지합니다.
+- `devices`가 없는 구 파일은, 그 ID를 가진 PC가 pull할 때 기존 `posts`는 유지한 채 `devices`만 채웁니다 (`BackupSyncService._publish_device_registry`).
+- 주소 문자열이 다르면 다른 기기입니다. 기기가 하나라는 이유만으로 URL 이력을 완료로 보지 않습니다. 표기가 다를 때는 `history_mode=global_url` 입니다.
 
 **스펙에서 제외되는 선택 기능** (`x3_websync.spec` excludes):
 

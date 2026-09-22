@@ -161,27 +161,81 @@ class SchedulerManager:
             print(t("scheduler.macos_register_failed", error=e))
             return False
 
-    def _register_linux(self, h_val: int, m_val: int) -> bool:
-        """Linux crontab 기반 등록"""
+    # Linux crontab 관리 블록 마커 — 이 블록 안의 줄만 도구가 관리한다.
+    CRON_BLOCK_BEGIN = "# XteinkX3WebSyncTask BEGIN"
+    CRON_BLOCK_END = "# XteinkX3WebSyncTask END"
+    _LEGACY_CRON_MARKER = "# XteinkX3WebSyncTask"
+
+    def _build_cron_line(self, h_val: int, m_val: int) -> str:
+        """crontab에 기록할 실행 줄 (등록·테스트 공용)."""
         project_q = shlex.quote(self.project_dir)
         log_path = shlex.quote(os.path.join(self.project_dir, "logs", "cron.log"))
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, "frozen", False):
             script_q = shlex.quote(self.script_path)
             run_part = f"cd {project_q} && {script_q} --sync"
         else:
             python_q = shlex.quote(sys.executable)
             script_q = shlex.quote(self.script_path)
             run_part = f"cd {project_q} && {python_q} {script_q} --sync"
-        cron_cmd = f"{m_val} {h_val} * * * {run_part} >> {log_path} 2>&1"
+        return f"{m_val} {h_val} * * * {run_part} >> {log_path} 2>&1"
+
+    @classmethod
+    def _strip_managed_cron_lines(cls, lines: list) -> list:
+        """관리 블록(BEGIN/END)과 레거시 마커(`# TASK_NAME` + 다음 줄)만 제거한다."""
+        kept = []
+        in_block = False
+        skip_next = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped == cls.CRON_BLOCK_BEGIN:
+                in_block = True
+                continue
+            if stripped == cls.CRON_BLOCK_END:
+                in_block = False
+                continue
+            if in_block:
+                continue
+            if stripped == cls._LEGACY_CRON_MARKER:
+                # 다음 줄은 도구가 예전에 기록한 실행 줄이므로 함께 제거한다.
+                skip_next = True
+                continue
+            if skip_next:
+                skip_next = False
+                if "--sync" in line:
+                    continue
+            kept.append(line)
+        return kept
+
+    def _merge_crontab(self, existing: str, cron_cmd) -> str:
+        """기존 크론탭에서 관리 줄을 정리하고 필요시 새 블록을 추가한다."""
+        lines = existing.splitlines() if isinstance(existing, str) and existing else []
+        kept = self._strip_managed_cron_lines(lines)
+        if cron_cmd:
+            kept.append(self.CRON_BLOCK_BEGIN)
+            kept.append(cron_cmd)
+            kept.append(self.CRON_BLOCK_END)
+        text = "\n".join(kept)
+        return text + "\n" if text else "\n"
+
+    def _backup_crontab(self, existing: str) -> None:
+        """덮어쓰기 전 기존 크론탭을 logs/cron.bak에 보존한다 (실패해도 무시)."""
+        try:
+            log_dir = os.path.join(self.project_dir, "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            with open(os.path.join(log_dir, "cron.bak"), "w", encoding="utf-8") as f:
+                f.write(existing if isinstance(existing, str) else "")
+        except OSError:
+            pass
+
+    def _register_linux(self, h_val: int, m_val: int) -> bool:
+        """Linux crontab 기반 등록 (마커 블록만 관리 — 사용자 크론 줄 보존)."""
+        cron_cmd = self._build_cron_line(h_val, m_val)
         try:
             # 기존 크론탭 읽기
             result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
             existing = result.stdout if result.returncode == 0 else ""
-            # 기존 등록 제거
-            lines = [l for l in existing.splitlines() if self.TASK_NAME not in l and self.script_path not in l]
-            lines.append(f"# {self.TASK_NAME}")
-            lines.append(cron_cmd)
-            new_crontab = "\n".join(lines) + "\n"
+            self._backup_crontab(existing)
+            new_crontab = self._merge_crontab(existing, cron_cmd)
             proc = subprocess.run(["crontab", "-"], input=new_crontab, text=True, capture_output=True)
             return proc.returncode == 0
         except Exception as e:
@@ -212,8 +266,8 @@ class SchedulerManager:
             try:
                 result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
                 existing = result.stdout if result.returncode == 0 else ""
-                lines = [l for l in existing.splitlines() if self.TASK_NAME not in l and self.script_path not in l]
-                new_crontab = "\n".join(lines) + "\n"
+                self._backup_crontab(existing)
+                new_crontab = self._merge_crontab(existing, None)
                 proc = subprocess.run(["crontab", "-"], input=new_crontab, text=True, capture_output=True)
                 return proc.returncode == 0
             except Exception as e:

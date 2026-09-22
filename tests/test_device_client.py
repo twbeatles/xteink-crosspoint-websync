@@ -308,3 +308,24 @@ def test_filter_old_sync_epubs():
     assert len(old) == 1
     assert old[0]["name"] == "old_2020-01-01.epub"
     assert old[0]["sync_date"] == "2020-01-01"
+
+
+def test_test_connection_fallback_requires_2xx():
+    """ISSUE-002: /api/status 실패 시 GET / 폴백도 2xx를 요구한다."""
+    c = X3DeviceClient("127.0.0.1")
+    bad = MagicMock()
+    bad.status_code = 404
+    good = MagicMock()
+    good.status_code = 200
+    with patch.object(
+        X3DeviceClient, "get_status", side_effect=DeviceClientError("no status")
+    ):
+        with patch(
+            "websync.upload.device_client.requests.get", return_value=bad
+        ):
+            assert c.test_connection() is False
+        with patch(
+            "websync.upload.device_client.requests.get", return_value=good
+        ):
+            assert c.test_connection() is True
+

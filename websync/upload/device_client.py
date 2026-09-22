@@ -472,8 +472,9 @@ class X3DeviceClient:
         except DeviceClientError:
             pass
         try:
-            requests.get(f"http://{host}/", timeout=3)
-            return True
+            response = requests.get(f"http://{host}/", timeout=3)
+            status = getattr(response, "status_code", 0) or 0
+            return 200 <= status < 300
         except Exception:
             return False
 

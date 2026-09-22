@@ -76,6 +76,7 @@ def build_history_payload(
     posts: list[dict],
     exported_at: str | None = None,
     deleted_posts: list[dict] | None = None,
+    devices: list[dict] | None = None,
 ) -> dict:
     return {
         "export_version": HISTORY_EXPORT_VERSION,
@@ -83,6 +84,7 @@ def build_history_payload(
         "exported_at": exported_at or now_iso(),
         "posts": copy.deepcopy(posts),
         "deleted_posts": copy.deepcopy(deleted_posts or []),
+        "devices": copy.deepcopy(devices or []),
     }
 
 
@@ -180,6 +182,16 @@ def apply_site_tombstones(
             kept.append(site)
             tombstones.pop(url, None)
     return kept, [tombstones[url] for url in sorted(tombstones)]
+
+
+def extract_devices(payload: Any) -> list[dict]:
+    """이력 파일의 기기 신원 목록. 없으면 빈 목록 (구버전 호환)."""
+    if not isinstance(payload, dict):
+        return []
+    devices = payload.get("devices")
+    if not isinstance(devices, list):
+        return []
+    return [item for item in devices if isinstance(item, dict)]
 
 
 def extract_deleted_posts(payload: Any) -> list[dict]:

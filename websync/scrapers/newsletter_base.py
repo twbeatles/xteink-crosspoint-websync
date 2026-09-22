@@ -29,7 +29,7 @@ from urllib.parse import urldefrag, urljoin
 
 from bs4 import BeautifulSoup
 
-from websync.scrapers.base import BaseScraper, fetch_url, maybe_strip_images, ensure_article_url
+from websync.scrapers.base import BaseScraper, fetch_url, normalize_limit, maybe_strip_images, ensure_article_url
 from websync.core.logger import get_logger
 from websync.i18n import t
 
@@ -56,7 +56,7 @@ class BaseNewsletterScraper(BaseScraper):
     def fetch_articles(self, site_config: dict) -> list:
         self.last_fetch_stats = {"skipped": 0}
         url = (site_config.get("url") or "").strip()
-        limit = int(site_config.get("limit", 5))
+        limit = normalize_limit(site_config.get("limit", 5))
         articles: list[dict] = []
         skipped = 0
 

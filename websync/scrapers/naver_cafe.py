@@ -13,7 +13,7 @@ import re
 from bs4 import BeautifulSoup
 
 from websync.core.logger import get_logger
-from websync.scrapers.base import BaseScraper, fetch_url, maybe_strip_images
+from websync.scrapers.base import BaseScraper, fetch_url, normalize_limit, maybe_strip_images
 from websync.scrapers.naver_common import clean_naver_content
 from websync.i18n import t
 
@@ -36,7 +36,7 @@ class NaverCafeScraper(BaseScraper):
 
     def fetch_articles(self, site_config: dict) -> list:
         url = (site_config.get("url") or "").strip()
-        limit = int(site_config.get("limit", 5) or 5)
+        limit = normalize_limit(site_config.get("limit", 5))
         self.last_fetch_stats = {"skipped": 0}
 
         match = re.search(r"cafe\.naver\.com/([^/?#]+)", url)

@@ -67,6 +67,7 @@ class SyncService:
             devices=self.config.get("x3_devices", []),
             remote_dir=df.get("default_upload_path", "/"),
             primary_device_id=self.config.get("x3_primary_device_id", "") or "",
+            primary_alias_ids=self.config.get("x3_primary_device_alias_ids") or [],
         )
 
     def is_pipeline_running(self) -> bool:

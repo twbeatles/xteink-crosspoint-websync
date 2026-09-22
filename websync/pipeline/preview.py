@@ -49,6 +49,7 @@ def preview_articles(
             devices=config.get("x3_devices", []),
             remote_dir=df.get("default_upload_path", "/"),
             primary_device_id=config.get("x3_primary_device_id", "") or "",
+            primary_alias_ids=config.get("x3_primary_device_alias_ids") or [],
         )
         upload_targets = uploader._build_target_list()
         from websync.backup.portable_cfg import get_portable_cfg
@@ -60,6 +61,9 @@ def preview_articles(
         preview_results = []
 
         for site_idx, site in enumerate(enabled_sites):
+            if getattr(service, "is_cancel_requested", lambda: False)():
+                log(t("pipeline.cancelled"))
+                break
             name = site.get("name", t("pipeline.unnamed_site"))
             scraper_type = site.get("type", "css")
             base_url = site.get("url", "")

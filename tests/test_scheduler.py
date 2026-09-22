@@ -106,3 +106,74 @@ def test_macos_plist_escapes_special_chars_in_path():
     content = written.get("content", "")
     assert "my &amp; project" in content
     assert "my & project" not in content
+
+
+def test_crontab_merge_preserves_user_lines_and_idempotent():
+    """ISSUE-004: 사용자 크론 줄을 보존하고 중복 등록하지 않는다."""
+    mgr = SchedulerManager(script_path="/tmp/x3_websync.py")
+    mgr.project_dir = "/tmp"
+    custom = "*/30 * * * * /tmp/x3_websync.py --sync --custom"
+    line = mgr._build_cron_line(7, 30)
+    merged = mgr._merge_crontab(custom + "\n", line)
+    assert custom in merged
+    assert SchedulerManager.CRON_BLOCK_BEGIN in merged
+    assert merged.count(line) == 1
+    assert mgr._merge_crontab(merged, line) == merged
+
+
+def test_crontab_unregister_removes_only_managed_block():
+    """ISSUE-004: 해제 시 관리 블록만 제거하고 사용자 줄은 남긴다."""
+    mgr = SchedulerManager(script_path="/tmp/x3_websync.py")
+    mgr.project_dir = "/tmp"
+    custom = "*/30 * * * * /usr/bin/uptime"
+    existing = (
+        custom + "\n"
+        + SchedulerManager.CRON_BLOCK_BEGIN + "\n"
+        + mgr._build_cron_line(7, 30) + "\n"
+        + SchedulerManager.CRON_BLOCK_END + "\n"
+    )
+    cleaned = mgr._merge_crontab(existing, None)
+    assert custom in cleaned
+    assert SchedulerManager.CRON_BLOCK_BEGIN not in cleaned
+    assert "--sync" not in cleaned
+
+
+def test_crontab_register_migrates_legacy_marker():
+    """ISSUE-004: 구 형식 마커(`# TASK_NAME` + 다음 줄)도 정리된다."""
+    mgr = SchedulerManager(script_path="/tmp/x3_websync.py")
+    mgr.project_dir = "/tmp"
+    legacy = (
+        "# " + SchedulerManager.TASK_NAME + "\n"
+        "30 7 * * * cd /tmp && python3 /tmp/x3_websync.py --sync\n"
+    )
+    merged = mgr._merge_crontab(legacy, mgr._build_cron_line(7, 30))
+    assert "# " + SchedulerManager.TASK_NAME + "\n" not in merged.splitlines()
+    assert "python3 /tmp/x3_websync.py --sync" not in merged
+    assert SchedulerManager.CRON_BLOCK_BEGIN in merged
+
+
+def test_crontab_write_backs_up_existing(tmp_path):
+    """ISSUE-004: 덮어쓰기 전 기존 크론탭을 logs/cron.bak에 보존한다."""
+    mgr = SchedulerManager(script_path=str(tmp_path / "x3_websync.py"))
+    mgr.project_dir = str(tmp_path)
+    existing = "*/15 * * * * /usr/bin/uptime\n"
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        if list(cmd[:2]) == ["crontab", "-l"]:
+            m = MagicMock()
+            m.returncode = 0
+            m.stdout = existing
+            return m
+        captured["input"] = kwargs.get("input")
+        m = MagicMock()
+        m.returncode = 0
+        return m
+
+    with patch("sys.platform", "linux"):
+        with patch("subprocess.run", side_effect=fake_run):
+            assert mgr.register_daily_task("07", "30") is True
+    assert "/usr/bin/uptime" in captured["input"]
+    bak = tmp_path / "logs" / "cron.bak"
+    assert bak.read_text(encoding="utf-8") == existing
+

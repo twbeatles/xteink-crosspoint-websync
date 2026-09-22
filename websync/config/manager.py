@@ -42,6 +42,7 @@ class ConfigManager:
         "config_version": CONFIG_VERSION,
         "x3_ip": "crosspoint.local",
         "x3_primary_device_id": "",
+        "x3_primary_device_alias_ids": [],
         "x3_devices": [],
         "output_dir": "./output",
         "calibre_path": "C:\\Program Files\\Calibre2\\calibredb.exe",

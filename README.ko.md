@@ -66,7 +66,7 @@ flowchart LR
 
 복잡한 설치 과정 없이 바로 실행할 수 있는 단일 포터블 실행 파일입니다.
 
-1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-crosspoint-websync-v1.2.2.exe` 또는 이후 버전)을 다운로드합니다.
+1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-crosspoint-websync-v1.2.3.exe` 또는 이후 버전)을 다운로드합니다.
 2. **기기 연결**: 프로그램을 실행한 후, **뉴스 동기화** 탭의 **X3 주소** 입력창에 기기의 IP 주소(예: `192.168.0.25`) 또는 `crosspoint.local`을 입력하고 **[연결 확인]**을 누릅니다.
 3. **사이트 등록 및 동기화**: **[사이트 추가]**를 눌러 추천 프리셋(토스, 카카오, 뉴닉 등)을 선택하거나 원하는 RSS 주소를 입력한 뒤, 하단의 **[즉시 전체 뉴스 스크래핑 및 X3 동기화 실행]**을 클릭합니다.
 
@@ -165,7 +165,7 @@ python x3_websync.py --smoke
 - **일간 정시 자동 동기화**: Windows 작업 스케줄러(Task Scheduler) 또는 macOS/Linux 스케줄러와 연동하여, 매일 아침 출근/등교 전 지정한 시간에 PC가 자동으로 최신 뉴스를 수집해 단말기로 쏴줍니다.
 - **공유 데이터 폴더 지원 (OneDrive / Google Drive / Dropbox)**:
   - 데스크톱과 노트북 등 여러 대의 PC를 오가며 사용하는 경우, 구독 사이트 목록(`sites.json`)과 전송 이력(`synced_posts.json`)을 클라우드 동기화 폴더에 정본으로 보관할 수 있습니다.
-  - PC가 바뀌어도 이미 읽은 글이 중복 전송되지 않으며, 구독 설정이 유지됩니다. 비어 있거나 잘린·손상된 공유 JSON은 오류로 중단하고 기존 공유 파일을 덮어쓰지 않습니다.
+  - PC가 바뀌어도 이미 읽은 글이 중복 전송되지 않으며, 구독 설정이 유지됩니다. 기기별 이력에서는 **같은 주소로 등록한 리더기**만 같은 기기로 봅니다. `192.168.1.20`과 `crosspoint.local`처럼 주소 표기가 다르면 다른 기기이므로, 그때는 URL 전역 이력을 쓰거나 주소를 맞춥니다. 비어 있거나 잘린·손상된 공유 JSON은 오류로 중단하고 기존 공유 파일을 덮어쓰지 않습니다.
 
 ### 7. 고급 서비스 & 스마트 기능
 - **표시 언어**: OS UI 언어를 따르거나(**자동**), **고급 & 서버 설정**에서 한국어/English로 고정할 수 있습니다. 바꾼 뒤 앱을 다시 시작하면 적용됩니다.

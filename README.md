@@ -66,7 +66,7 @@ flowchart LR
 
 A zero-install, single portable executable for Windows users.
 
-1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.2.2.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
+1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.2.3.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
 2. **Connect Device**: Launch the executable. In the **News Sync** tab, enter your reader's IP address (e.g., `192.168.0.25`) or `crosspoint.local` into the **X3 Address** field, then click **[Check Connection]**.
 3. **Add Sites & Sync**: Click **[Add Site]** to pick from recommended presets (tech blogs, newsletters) or enter your favorite RSS feed URL. Then click **[Run Full Scraping & Sync to X3 Immediately]** at the bottom.
 
@@ -167,7 +167,7 @@ Manage files on the XTEINK reader directly from your desktop when in `File Trans
 - **Scheduled Background Delivery**: Integrates with Windows Task Scheduler (or cron/launchd) to wake up and wirelessly sync reading materials at a set time (e.g., 7:00 AM daily).
 - **Cloud Shared Data Folder (OneDrive / Google Drive / Dropbox)**:
   - Synchronize subscription configurations (`sites.json`) and delivery history (`synced_posts.json`) via a cloud storage directory.
-  - Switch between desktop and laptop without receiving duplicate articles or losing feed settings. Empty, truncated, malformed, or schema-invalid cloud files are rejected and never overwrite the shared copy.
+  - Switch between desktop and laptop without receiving duplicate articles or losing feed settings. In per-device history, two PCs treat a reader as the same device only when the configured address string matches (`192.168.1.20` and `crosspoint.local` stay different). Use global URL history, or enter the same address on both PCs, when the strings differ. Empty, truncated, malformed, or schema-invalid cloud files are rejected and never overwrite the shared copy.
 
 ### 7. Advanced Services & Extensibility
 - **Built-in OPDS Catalog Server**: Serves generated EPUBs as a standardized OPDS feed so you can browse and download books directly from OPDS-compatible reader apps.

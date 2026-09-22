@@ -130,6 +130,10 @@ def sync_selected_articles(
 
             if pending_ips:
                 upload_results: dict[str, bool] = {}
+                if getattr(service, "is_cancel_requested", lambda: False)():
+                    log(t("pipeline.cancelled"))
+                    service._last_pipeline_result = {"status": "cancelled", "success": False}
+                    return False
                 for batch_ips, batch_articles in upload_batches:
                     batch_by_site: dict[str, list[dict]] = {}
                     batch_urls: list[tuple[str, str, str]] = []
@@ -173,6 +177,10 @@ def sync_selected_articles(
         else:
             # 사이트별 빌드
             for idx, (site_name, arts) in enumerate(articles_by_site.items()):
+                if getattr(service, "is_cancel_requested", lambda: False)():
+                    log(t("pipeline.cancelled"))
+                    service._last_pipeline_result = {"status": "cancelled", "success": False}
+                    return False
                 if progress_callback:
                     progress_callback(idx, actual_work)
 
@@ -192,6 +200,10 @@ def sync_selected_articles(
 
                 log(t("pipeline.selected.building", site=site_name))
                 upload_results: dict[str, bool] = {}
+                if getattr(service, "is_cancel_requested", lambda: False)():
+                    log(t("pipeline.cancelled"))
+                    service._last_pipeline_result = {"status": "cancelled", "success": False}
+                    return False
                 for batch_ips, batch_articles in upload_batches:
                     epub_path = epub_builder.build(
                         site_name, batch_articles, generate_cover=generate_cover

@@ -1,5 +1,5 @@
 """TistoryScraper"""
-from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url
+from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url, normalize_limit
 from bs4 import BeautifulSoup
 from websync.core.logger import get_logger
 from websync.i18n import t
@@ -15,7 +15,7 @@ class TistoryScraper(BaseScraper):
     def fetch_articles(self, site_config: dict) -> list:
         self.last_fetch_stats = {"skipped": 0}
         url = site_config.get("url", "")
-        limit = site_config.get("limit", 5)
+        limit = normalize_limit(site_config.get("limit", 5))
         articles = []
         skipped = 0
         try:
