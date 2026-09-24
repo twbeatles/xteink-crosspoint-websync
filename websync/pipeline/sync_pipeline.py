@@ -204,6 +204,11 @@ def run_sync_pipeline_locked(
 
                 upload_results: dict[str, bool] = {}
                 for batch_ips, batch_articles in upload_batches:
+                    if getattr(service, "is_cancel_requested", lambda: False)():
+                        log(t("pipeline.cancelled"))
+                        service._last_pipeline_result = {"status": "cancelled", "success": False}
+                        ToastNotifier.show_toast(t("toast.cancel_title"), t("toast.cancelled"), is_error=True)
+                        return False
                     log(t("pipeline.building_epub", site=name))
                     epub_path = epub_builder.build(
                         name, batch_articles, generate_cover=generate_cover
@@ -296,6 +301,11 @@ def run_sync_pipeline_locked(
                 ))
                 upload_results: dict[str, bool] = {}
                 for batch_ips, batch_articles in upload_batches:
+                    if getattr(service, "is_cancel_requested", lambda: False)():
+                        log(t("pipeline.cancelled"))
+                        service._last_pipeline_result = {"status": "cancelled", "success": False}
+                        ToastNotifier.show_toast(t("toast.cancel_title"), t("toast.cancelled"), is_error=True)
+                        return False
                     batch_by_site: dict[str, list[dict]] = {}
                     batch_triples: list[tuple[str, str, str]] = []
                     for art in batch_articles:

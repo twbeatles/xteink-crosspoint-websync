@@ -61,6 +61,18 @@ def test_selected_sync_returns_false_when_no_articles():
     assert result is False
 
 
+def test_selected_sync_stops_when_shared_history_pull_fails():
+    svc = _make_svc()
+    selected = [
+        {"site_name": "A", "title": "t", "url": "https://ex.com/1", "content": "<p>x</p>"},
+    ]
+    with patch.object(svc, "maybe_backup_pull", return_value={"ok": False, "message": "cloud unavailable"}), \
+         patch.object(svc.uploader, "upload_to_targets") as upload:
+        assert sync_selected_articles(svc, selected) is False
+    upload.assert_not_called()
+    assert svc.get_last_pipeline_result()["status"] == "backup_pull_failed"
+
+
 def test_selected_sync_marks_only_successful_ips():
     """일부 기기 실패 시 성공 IP만 mark_synced_many 에 들어가는지."""
     svc = _make_svc(devices=[{"name": "추가", "ip": "10.0.0.2"}])
@@ -126,4 +138,32 @@ def test_selected_sync_returns_false_when_cancelled():
     mock_upload.assert_not_called()
     svc.db.mark_synced_many.assert_not_called()
     assert svc.get_last_pipeline_result() == {"status": "cancelled", "success": False}
+
+
+def test_selected_sync_cancel_after_first_device_batch_skips_remaining_batch():
+    svc = _make_svc(devices=[{"name": "B", "ip": "10.0.0.2"}])
+    selected = [
+        {"site_name": "A", "title": "one", "url": "https://ex.com/1", "content": "<p>one</p>"},
+    ]
+
+    def first_upload(_path, *, only_ips):
+        svc.request_cancel()
+        return {only_ips[0]: True}
+
+    with patch.object(svc, "_reload_config"), \
+         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
+         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
+         patch("websync.upload.device_ids.group_articles_by_pending_targets", return_value=[
+             (["127.0.0.1"], selected), (["10.0.0.2"], selected),
+         ]), \
+         patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub"), \
+         patch.object(svc.uploader, "upload_to_targets", side_effect=first_upload) as upload, \
+         patch("websync.pipeline.selected_sync.Summarizer") as summarizer, \
+         patch("websync.pipeline.selected_sync.Translator") as translator:
+        summarizer.return_value.is_available.return_value = False
+        translator.return_value.is_available_for_site.return_value = False
+        assert sync_selected_articles(svc, selected) is False
+
+    assert svc.get_last_pipeline_result()["status"] == "cancelled"
+    assert upload.call_count == 1
 

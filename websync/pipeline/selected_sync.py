@@ -45,7 +45,14 @@ def sync_selected_articles(
 
     try:
         # 공유 데이터 폴더 pull — 본 파이프라인과 동일하게 정본 반영 (N3)
-        service.maybe_backup_pull(log_callback=log)
+        pull_result = service.maybe_backup_pull(log_callback=log)
+        if pull_result.get("ok") is False:
+            service._last_pipeline_result = {
+                "status": "backup_pull_failed",
+                "success": False,
+                "message": pull_result.get("message", ""),
+            }
+            return False
         service._reload_config()
         config = copy.deepcopy(service.config)
         uploader = service.uploader
@@ -135,6 +142,10 @@ def sync_selected_articles(
                     service._last_pipeline_result = {"status": "cancelled", "success": False}
                     return False
                 for batch_ips, batch_articles in upload_batches:
+                    if getattr(service, "is_cancel_requested", lambda: False)():
+                        log(t("pipeline.cancelled"))
+                        service._last_pipeline_result = {"status": "cancelled", "success": False}
+                        return False
                     batch_by_site: dict[str, list[dict]] = {}
                     batch_urls: list[tuple[str, str, str]] = []
                     for art in batch_articles:
@@ -205,6 +216,10 @@ def sync_selected_articles(
                     service._last_pipeline_result = {"status": "cancelled", "success": False}
                     return False
                 for batch_ips, batch_articles in upload_batches:
+                    if getattr(service, "is_cancel_requested", lambda: False)():
+                        log(t("pipeline.cancelled"))
+                        service._last_pipeline_result = {"status": "cancelled", "success": False}
+                        return False
                     epub_path = epub_builder.build(
                         site_name, batch_articles, generate_cover=generate_cover
                     )
@@ -247,9 +262,24 @@ def sync_selected_articles(
             "site_errors": 0,
         }
         try:
-            service.maybe_backup_push(log_callback=log_callback)
+            push_result = service.maybe_backup_push(log_callback=log_callback)
+            if push_result.get("ok") is False:
+                service._last_pipeline_result = {
+                    **service._last_pipeline_result,
+                    "status": "backup_push_failed",
+                    "success": False,
+                    "backup_push": push_result,
+                }
+                return False
         except Exception as e:
             service.logger.warning(t("pipeline.selected.backup_push_fail", error=e))
+            service._last_pipeline_result = {
+                **service._last_pipeline_result,
+                "status": "backup_push_failed",
+                "success": False,
+                "message": str(e),
+            }
+            return False
         return overall_ok
     finally:
         service._release_pipeline_locks()

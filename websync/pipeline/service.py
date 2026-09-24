@@ -260,9 +260,24 @@ class SyncService:
         progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> bool:
         """락 보유 전제 하에 pull → 동기화 → push 실행."""
-        self.maybe_backup_pull(log_callback=log_callback)
+        pull_result = self.maybe_backup_pull(log_callback=log_callback)
+        if pull_result.get("ok") is False:
+            self._last_pipeline_result = {
+                "status": "backup_pull_failed",
+                "success": False,
+                "message": pull_result.get("message", ""),
+            }
+            return False
         ok = self._run_sync_pipeline_locked(log_callback, progress_callback)
-        self.maybe_backup_push(log_callback=log_callback)
+        push_result = self.maybe_backup_push(log_callback=log_callback)
+        if push_result.get("ok") is False:
+            self._last_pipeline_result = {
+                **self._last_pipeline_result,
+                "status": "backup_push_failed" if ok else self._last_pipeline_result.get("status", "failed"),
+                "success": False,
+                "backup_push": push_result,
+            }
+            return False
         return ok
 
     def begin_sync_pipeline_async(

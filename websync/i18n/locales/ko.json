@@ -863,11 +863,13 @@
     "pull_failed": "가져오기 실패: {error}",
     "auto_export_off": "자동 내보내기가 비활성화되어 있습니다.",
     "history_export_failed": "이력 내보내기 실패: {error}",
-    "push_merge_failed": "push 전 이력 병합 실패(로컬만 기록): {error}",
+    "push_merge_failed": "push 전 이력 병합 실패(공유 파일 유지): {error}",
+    "push_skipped_after_pull_failure": "공유 데이터 가져오기가 실패하여 내보내기를 건너뛰었습니다.",
     "export_done_at": "내보내기 완료 ({at})",
     "export_done": "내보내기 완료: 사이트 {n}개",
     "export_history": ", 이력 {n}건",
-    "export_failed": "내보내기 실패: {error}"
+    "export_failed": "내보내기 실패: {error}",
+    "export_partial_failed": "{files} 기록 후 내보내기 실패; 완료하려면 재시도하세요: {error}"
   },
   "local_import": {
     "history_applied": "로컬 {name}: 이력 {total}건 중 {n}건 반영",

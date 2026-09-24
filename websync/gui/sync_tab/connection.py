@@ -89,7 +89,8 @@ class SyncConnectionMixin:
         if not file_path or not os.path.exists(file_path):
             messagebox.showwarning(t("dialog.warning"), t("gui.sync.invalid_file_path"))
             return
-        self.app._save_ui_settings()
+        if not self.app._save_ui_settings():
+            return
         self.app._log_message(t("gui.sync.log_uploading", filename=os.path.basename(file_path)))
         self.direct_upload_btn.configure(state="disabled")
 

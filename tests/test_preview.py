@@ -1,6 +1,9 @@
 """ISSUE-003: preview 취소 계약 회귀 테스트."""
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from websync.backup.service import BackupSyncError
 from websync.pipeline.preview import preview_articles
 
 
@@ -45,4 +48,15 @@ def test_preview_returns_partial_results_when_cancelled():
 
     assert [r["site_name"] for r in results] == ["A"]
     scraper_b.fetch_articles.assert_not_called()
+    svc._release_pipeline_locks.assert_called_once()
+
+
+def test_preview_does_not_scrape_when_shared_history_pull_fails():
+    svc = _make_preview_svc(_sites(), [False])
+    svc.maybe_backup_pull.return_value = {"ok": False, "message": "cloud unavailable"}
+    with patch("websync.pipeline.preview.ScraperFactory") as factory:
+        with pytest.raises(BackupSyncError, match="cloud unavailable"):
+            preview_articles(svc)
+    factory.get_scraper.assert_not_called()
+    assert svc._last_pipeline_result["status"] == "backup_pull_failed"
     svc._release_pipeline_locks.assert_called_once()

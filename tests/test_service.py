@@ -91,6 +91,33 @@ def _base_config(sites=None):
     }
 
 
+def test_pipeline_does_not_deliver_when_shared_history_pull_fails():
+    cm = MagicMock(spec=ConfigManager)
+    cm.load_config.return_value = _base_config()
+    cm.get_resolved_output_dir.return_value = "./output"
+    svc = SyncService(cm)
+    with patch.object(svc, "maybe_backup_pull", return_value={"ok": False, "message": "cloud unavailable"}), \
+         patch.object(svc, "_run_sync_pipeline_locked") as run, \
+         patch.object(svc, "maybe_backup_push") as push:
+        assert svc.run_sync_pipeline() is False
+    run.assert_not_called()
+    push.assert_not_called()
+    assert svc.get_last_pipeline_result()["status"] == "backup_pull_failed"
+
+
+def test_pipeline_reports_shared_history_push_failure_after_delivery():
+    cm = MagicMock(spec=ConfigManager)
+    cm.load_config.return_value = _base_config()
+    cm.get_resolved_output_dir.return_value = "./output"
+    svc = SyncService(cm)
+    with patch.object(svc, "maybe_backup_pull", return_value={"ok": True}), \
+         patch.object(svc, "_run_sync_pipeline_locked", return_value=True), \
+         patch.object(svc, "maybe_backup_push", return_value={"ok": False, "message": "cloud full"}):
+        assert svc.run_sync_pipeline() is False
+    assert svc.get_last_pipeline_result()["status"] == "backup_push_failed"
+    assert svc.get_last_pipeline_result()["backup_push"]["message"] == "cloud full"
+
+
 def test_pipeline_all_site_errors_returns_false():
     cm = MagicMock(spec=ConfigManager)
     cm.load_config.return_value = _base_config([
@@ -161,6 +188,40 @@ def test_pipeline_partial_upload_marks_only_successful_devices():
     assert entries[0]["device_ip"] == "127.0.0.1"
     # only_ips 에 미전송 기기 전달
     assert mock_upload.call_args.kwargs.get("only_ips") == ["127.0.0.1", "10.0.0.2"]
+
+
+def test_pipeline_cancel_after_first_device_batch_skips_remaining_batch():
+    cm = MagicMock(spec=ConfigManager)
+    cfg = _base_config([
+        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True},
+    ])
+    cfg["x3_devices"] = [{"name": "B", "ip": "10.0.0.2"}]
+    cm.load_config.return_value = cfg
+    cm.get_resolved_output_dir.return_value = "./output"
+    svc = SyncService(cm)
+    svc.db.needs_sync = MagicMock(return_value=True)
+    svc.db.mark_synced_many = MagicMock(return_value=1)
+    article = {"title": "one", "content": "<p>one</p>", "url": "https://ex.com/1"}
+
+    def first_upload(_path, *, only_ips):
+        svc.request_cancel()
+        return {only_ips[0]: True}
+
+    with patch.object(svc, "_reload_config"), \
+         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
+         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
+         patch.object(ScraperFactory, "get_scraper") as factory, \
+         patch("websync.pipeline.sync_pipeline.group_articles_by_pending_targets", return_value=[
+             (["127.0.0.1"], [article]), (["10.0.0.2"], [article]),
+         ]), \
+         patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub"), \
+         patch.object(svc.uploader, "upload_to_targets", side_effect=first_upload) as upload, \
+         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+        factory.return_value.fetch_articles.return_value = [dict(article)]
+        assert svc.run_sync_pipeline() is False
+
+    assert svc.get_last_pipeline_result()["status"] == "cancelled"
+    assert upload.call_count == 1
 
 
 def test_pipeline_skips_already_synced_device_on_retry():

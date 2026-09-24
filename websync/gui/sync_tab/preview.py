@@ -27,15 +27,10 @@ class SyncPreviewMixin:
             log_cb = self.app._make_log_callback()
             prog_cb = self.app._make_progress_callback()
             self._preview_data = self.service.preview_articles(log_callback=log_cb, progress_callback=prog_cb)
-            
-            try:
-                self.master.after(0, self._show_preview_results)
-            except tk.TclError:
-                return
 
-        worker = self.app._make_background_thread(run, name="sync-preview")
-        self.service.attach_pipeline_thread(worker)
-        worker.start()
+        self.app._start_pipeline_ui_task(
+            run, name="sync-preview", on_success=self._show_preview_results
+        )
 
     def _show_preview_results(self):
         self.app._set_sync_ui_busy(False)
@@ -130,12 +125,8 @@ class SyncPreviewMixin:
             log_cb = self.app._make_log_callback()
             prog_cb = self.app._make_progress_callback()
             self.service.sync_selected_articles(selected_articles, log_callback=log_cb, progress_callback=prog_cb)
-            try:
-                self.master.after(0, self.app._sync_finished_ui)
-            except tk.TclError:
-                return
 
-        worker = self.app._make_background_thread(task, name="selected-sync")
-        self.service.attach_pipeline_thread(worker)
-        worker.start()
+        self.app._start_pipeline_ui_task(
+            task, name="selected-sync", on_success=self.app._sync_finished_ui
+        )
 

@@ -18,7 +18,8 @@ from websync.i18n import t
 
 class SyncScheduleMixin:
     def _register_schedule(self):
-        self.app._save_ui_settings()
+        if not self.app._save_ui_settings():
+            return
         h, m = self.hour_cb.get(), self.min_cb.get()
         if self.scheduler.register_daily_task(h, m):
             messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.registered", hour=h, minute=m))

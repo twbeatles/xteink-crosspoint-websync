@@ -109,7 +109,8 @@ python -m pytest tests/test_scraper_fixtures.py tests/test_brunch_scraper.py -q
 | GUI ↔ `--sync` | 프로세스 파일 락으로 직렬화 |
 | 프리뷰/선택 동기화 | 동일 파이프라인 락 사용(`service._try_acquire_pipeline_locks`). 백업 pull → 처리 순서로 정본 일치 |
 | 웹 대시보드 동기화 | `begin_sync_pipeline_async` — 락 선점 후 수락/거부를 즉시 반환 (`POST /api/sync` → 202/409). 취소는 `POST /api/cancel` → `request_cancel()` |
-| 동기화 취소 | GUI **취소** 또는 `SyncService.request_cancel()` — 사이트 경계에서 중단 (`status=cancelled`) |
+| 동기화 취소 | GUI **취소** 또는 `SyncService.request_cancel()` — 사이트 경계와 기기별 업로드 배치 시작 전에 중단 (`status=cancelled`) |
+| GUI 워커 복구 | `_start_pipeline_ui_task` — 동기화·프리뷰·선택 동기화 워커 예외 시에도 버튼·진행률을 복구하고 오류 대화상자 표시. `_save_ui_settings()`가 False(검증·저장 실패)면 동기화·예약·전송을 시작하지 않으며 실행 중 설정도 바꾸지 않음 |
 | 프로세스 락 경로 | `PROJECT_ROOT/x3_websync_pipeline.lock` (휴대용 다중 설치가 서로 막히지 않음) |
 | 스크래핑 URL | `fetch_url` 은 http(s)만 허용, 본문 16MB 상한. 잘못된 스킴 사이트는 파이프라인에서 스킵 |
 | 번역 | 전역 `translation.enabled` 가 꺼져 있으면 사이트 `translate_to` 도 무시 |
@@ -178,6 +179,8 @@ EXE는 실행 파일과 같은 폴더에 `config.json`, `sync_history.db`, `logs
 공유 데이터 폴더(`portable_data` / 하위 호환 `backup_sync`): 사이트·이력 **정본**은 OneDrive 등 폴더의 `sites.json` + `synced_posts.json` 입니다. 두 파일은 삭제 tombstone을 포함하며, 로컬 `sync_history.db` 는 작업 캐시이므로 클라우드 경로에 직접 두지 마세요. 이력 모드 `history_mode`: `per_device` | `global_url`.
 
 공유 JSON은 push/pull 전에 strict schema 검사를 거칩니다. 파일 없음은 초기 상태로 허용하지만 빈 파일·잘린 JSON·유효하지 않은 인코딩·필수 배열(`sites`/`posts`) 누락은 오류로 처리하여 기존 원격 파일을 덮어쓰지 않습니다. 신규 history/site/tombstone 시각은 UTC `Z` 형식이며 legacy naive 시각은 비교 시 정규화합니다. per-device EPUB 배치는 각 기기의 누락 URL 집합별로 분리됩니다.
+
+공유 폴더 가져오기에 실패하면 전체·선택 동기화는 업로드 전에 중단합니다. 내보내기에서는 DB 이력 병합과 재조회가 성공한 뒤에만 공유 JSON을 쓰고, 실패하면 원격 파일을 그대로 두며 실패 결과를 반환합니다. 이후 개별 파일 쓰기에서 실패하면 결과의 `sites_written`·`history_written`·`manifest_written`과 오류 메시지에 부분 게시 상태를 남깁니다. 파일별 원자 교체와 병합 때문에 원인을 제거한 뒤 push를 재시도할 수 있습니다. 수동 양방향 동기화에서도 pull 실패 뒤 push를 실행하지 않습니다.
 
 **로컬 사이드카 이어받기** (`websync/backup/local_import.py`): 실행 폴더의 `synced_posts.json`, `sites.json`, `*설정백업*.json`(kind 없는 레거시 sites export 포함)을 앱 기동 시 `import_posts_union` / `merge_sites` 로 반영합니다.
 

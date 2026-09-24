@@ -58,6 +58,48 @@ class AppSyncControlMixin:
         worker.start()
         return worker
 
+    def _start_pipeline_ui_task(self, task, *, name, on_success):
+        """Run a pipeline worker and always restore the GUI after it finishes."""
+        def run():
+            error = None
+            try:
+                task()
+            except Exception as exc:
+                error = str(exc)
+                self.service.logger.exception(
+                    t("pipeline.bg_sync_fail_log", error=exc)
+                )
+            finally:
+                callback = (
+                    on_success if error is None
+                    else lambda message=error: self._pipeline_failed_ui(message)
+                )
+                try:
+                    self.root.after(0, callback)
+                except (tk.TclError, RuntimeError):
+                    pass  # The window has already closed.
+
+        worker = self._make_background_thread(run, name=name)
+        self.service.attach_pipeline_thread(worker)
+        worker.start()
+        return worker
+
+    def _pipeline_failed_ui(self, error: str) -> None:
+        try:
+            if not self.root.winfo_exists():
+                return
+            self._set_sync_ui_busy(False)
+            bar = self.bottom_bar.progress_bar
+            if hasattr(bar, "set"):
+                bar.set(0)
+            else:
+                bar["value"] = 0
+            message = t("pipeline.bg_sync_fail", error=error)
+            self._log_message(message)
+            messagebox.showerror(t("dialog.error"), message, parent=self.root)
+        except tk.TclError:
+            return
+
     def _wait_for_background_tasks(self, timeout: float = 5.0) -> None:
         deadline = time.monotonic() + max(0.0, timeout)
         current = threading.current_thread()
@@ -80,7 +122,8 @@ class AppSyncControlMixin:
             self._log_message(t("gui.app.cancel_requested"))
 
     def _run_immediate_sync(self):
-        self._save_ui_settings()
+        if not self._save_ui_settings():
+            return
         self._set_sync_ui_busy(True)
         self.bottom_bar.progress_bar["value"] = 0
         self._log_message(t("gui.app.sync_requested"))
@@ -90,14 +133,10 @@ class AppSyncControlMixin:
                 log_callback=self._make_log_callback(),
                 progress_callback=self._make_progress_callback(),
             )
-            try:
-                self.root.after(0, self._sync_finished_ui)
-            except tk.TclError:
-                return
 
-        worker = self._make_background_thread(run, name="sync-pipeline")
-        self.service.attach_pipeline_thread(worker)
-        worker.start()
+        self._start_pipeline_ui_task(
+            run, name="sync-pipeline", on_success=self._sync_finished_ui
+        )
 
     def _sync_finished_ui(self):
         try:

@@ -161,7 +161,15 @@ class BackupSyncService:
         """양방향: pull 후 push."""
         with self._lock:
             pull_result = self._pull_unlocked(force=True)
-            push_result = self._push_unlocked(force=True)
+            if pull_result.get("ok"):
+                push_result = self._push_unlocked(force=True)
+            else:
+                # pull이 실패한 상태에서는 로컬 캐시를 정본으로 게시하지 않는다.
+                push_result = {
+                    "ok": False,
+                    "skipped": True,
+                    "message": t("backup.push_skipped_after_pull_failure"),
+                }
             result = {
                 "ok": pull_result.get("ok", False) and push_result.get("ok", False),
                 "pull": pull_result,
@@ -374,6 +382,7 @@ class BackupSyncService:
             "action": "push",
             "sites_written": False,
             "history_written": False,
+            "manifest_written": False,
             "history_count": 0,
             "skipped": False,
             "message": "",
@@ -419,6 +428,35 @@ class BackupSyncService:
                 else None
             )
 
+            # 공유 파일을 변경하기 전에 로컬 이력과 원격 정본의 합집합을 확정한다.
+            # DB 병합이 실패하면 기존 sites/history/manifest를 그대로 보존한다.
+            include_history = bool(bs.get("include_history", True))
+            posts: list[dict] = []
+            deleted_posts: list[dict] = []
+            if include_history:
+                try:
+                    posts = self.db.export_all_posts()
+                    deleted_posts = self.db.export_deleted_posts()
+                except SyncHistoryDbError as e:
+                    result["message"] = t("backup.history_export_failed", error=e)
+                    self.logger.error(result["message"])
+                    self.last_result = result
+                    return result
+
+                remote_posts, _ = extract_posts(remote_history_payload)
+                remote_deleted = extract_deleted_posts(remote_history_payload)
+                if remote_posts or remote_deleted:
+                    try:
+                        self.db.import_deleted_posts(remote_deleted)
+                        self.db.import_posts_union(remote_posts)
+                        posts = self.db.export_all_posts()
+                        deleted_posts = self.db.export_deleted_posts()
+                    except SyncHistoryDbError as e:
+                        result["message"] = t("backup.push_merge_failed", error=e)
+                        self.logger.error(result["message"])
+                        self.last_result = result
+                        return result
+
             # sites — 원격 변경과 삭제 표식을 먼저 병합해 다른 PC 변경을 보존
             sites = config.get("sites") if isinstance(config.get("sites"), list) else []
             deleted_sites = bs.get("deleted_sites", [])
@@ -427,7 +465,6 @@ class BackupSyncService:
             sites = merge_sites(sites, remote_sites, remote_wins_same_url=False)
             deleted_sites = merge_site_tombstones(deleted_sites, remote_deleted_sites)
             sites, deleted_sites = apply_site_tombstones(sites, deleted_sites)
-            include_history = bool(bs.get("include_history", True))
             remote_devices = extract_devices(remote_history_payload) if include_history else []
             devices_export: list[dict] = []
 
@@ -449,25 +486,6 @@ class BackupSyncService:
 
             # history
             if bs.get("include_history", True):
-                try:
-                    posts = self.db.export_all_posts()
-                    deleted_posts = self.db.export_deleted_posts()
-                except SyncHistoryDbError as e:
-                    result["message"] = t("backup.history_export_failed", error=e)
-                    self.logger.error(result["message"])
-                    self.last_result = result
-                    return result
-                # push 전 remote와 union 해서 쓴다 (다른 PC 이력 보존)
-                remote_posts, _ = extract_posts(remote_history_payload)
-                remote_deleted = extract_deleted_posts(remote_history_payload)
-                if remote_posts or remote_deleted:
-                    try:
-                        self.db.import_deleted_posts(remote_deleted)
-                        self.db.import_posts_union(remote_posts)
-                        posts = self.db.export_all_posts()
-                        deleted_posts = self.db.export_deleted_posts()
-                    except SyncHistoryDbError as e:
-                        self.logger.warning(t("backup.push_merge_failed", error=e))
                 hist_payload = build_history_payload(
                     posts,
                     exported_at=exported_at,
@@ -483,6 +501,7 @@ class BackupSyncService:
                 os.path.join(folder, MANIFEST_FILENAME),
                 build_manifest(exported_at=exported_at, components=components),
             )
+            result["manifest_written"] = True
 
             # 메타 기록 (LWW 기준) — RMW 로 다른 설정 덮어쓰기 방지
             hist_written = result["history_written"]
@@ -509,7 +528,17 @@ class BackupSyncService:
             self.last_result = result
             return result
         except Exception as e:
-            result["message"] = t("backup.export_failed", error=e)
+            written = [
+                name for name, field in (
+                    ("sites.json", "sites_written"),
+                    ("synced_posts.json", "history_written"),
+                    ("manifest.json", "manifest_written"),
+                ) if result[field]
+            ]
+            result["message"] = (
+                t("backup.export_partial_failed", files=", ".join(written), error=e)
+                if written else t("backup.export_failed", error=e)
+            )
             self.logger.exception(result["message"])
             self.last_result = result
             return result

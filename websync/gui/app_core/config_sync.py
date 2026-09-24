@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import copy
 import hashlib
 import subprocess
 import threading
@@ -111,8 +112,9 @@ class AppConfigSyncMixin:
         # 클라우드 백업 동기화
         self.tab_settings._load_backup_sync_from_config(config)
 
-    def _save_ui_settings(self):
-        config = self.service.config
+    def _save_ui_settings(self) -> bool:
+        # 검증/디스크 저장이 실패해도 실행 중인 서비스 설정은 바꾸지 않는다.
+        config = copy.deepcopy(self.service.config)
         
         # 1. SyncTab에서 정보 가져옴
         config["x3_ip"] = normalize_device_host(self.tab_sync.ip_entry.get())
@@ -161,12 +163,13 @@ class AppConfigSyncMixin:
 
         # 저장 실행
         if not self._safe_save_config(config, reload=True):
-            return
+            return False
         
         self.calibre.calibre_path = config["calibre_path"]
         self.calibre.library_path = config["calibre_library_path"]
         if hasattr(self.tab_settings, "_refresh_backup_status_label"):
             self.tab_settings._refresh_backup_status_label()
+        return True
 
     # ------------------------------------------------------------------
     # 즉시 동기화 실행

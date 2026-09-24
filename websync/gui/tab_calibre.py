@@ -144,7 +144,8 @@ class CalibreTab(ctk.CTkFrame):
         if not selected_items:
             messagebox.showwarning(t("gui.calibre.select_missing_title"), t("gui.calibre.select_missing"))
             return
-        self.app._save_ui_settings()
+        if not self.app._save_ui_settings():
+            return
         self.calibre_send_btn.configure(state="disabled")
         self.app._log_message(t("gui.calibre.log_send_start", count=len(selected_items)))
 

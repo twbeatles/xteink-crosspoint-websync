@@ -234,7 +234,8 @@ main()
 | 중복 필터 | `needs_sync(url, target_ips)` — 기기 중 하나라도 미전송이면 포함 |
 | 재전송 | `upload_to_targets(..., only_ips=pending)` — **미전송 기기만** 업로드 |
 | 결과 반환 | `bool` — True: 신규 없음·전체 성공 / False: 오류·부분 실패·이미 실행 중·취소 |
-| 취소 | `request_cancel()` — 사이트 경계에서 `status=cancelled` |
+| 취소 | `request_cancel()` — 사이트 경계 및 기기별 업로드 배치 전에 `status=cancelled` |
+| 공유 폴더 | pull 실패 → 전송 전 `status=backup_pull_failed`; push 실패 → `status=backup_push_failed`, 결과 False |
 | 종료 | `shutdown_pipeline(timeout)` — cancel 후 워커 join, GUI `_on_close`에서 호출 |
 | 상태 API | `get_last_pipeline_result()` — 웹 대시보드 `/api/status` 연동 |
 
@@ -331,7 +332,7 @@ run_sync_pipeline()
 
 | 항목 | 내용 |
 |------|------|
-| 역할 | Windows `schtasks` 기반 일간 스케줄 등록/해제 |
+| 역할 | Windows `schtasks`, macOS `launchd`, Linux `crontab` 기반 일간 스케줄 등록/해제 |
 | 보안 | `hour/minute` 입력 정수 범위 검증, `shell=False` 인자 리스트 실행 |
 | 경로 고정 | `cmd.exe /c "cd /d <project_dir> && pythonw ..."` |
 

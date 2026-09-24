@@ -863,11 +863,13 @@
     "pull_failed": "Import failed: {error}",
     "auto_export_off": "Automatic export is disabled.",
     "history_export_failed": "Failed to export history: {error}",
-    "push_merge_failed": "History merge before push failed (writing local only): {error}",
+    "push_merge_failed": "History merge before push failed; shared files were left unchanged: {error}",
+    "push_skipped_after_pull_failure": "Export skipped because shared data import failed.",
     "export_done_at": "Export complete ({at})",
     "export_done": "Export complete: {n} site(s)",
     "export_history": ", {n} history row(s)",
-    "export_failed": "Export failed: {error}"
+    "export_failed": "Export failed: {error}",
+    "export_partial_failed": "Export failed after writing {files}; retry to finish: {error}"
   },
   "local_import": {
     "history_applied": "Local {name}: applied {n} of {total} history row(s)",

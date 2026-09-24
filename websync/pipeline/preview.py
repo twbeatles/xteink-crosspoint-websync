@@ -5,6 +5,7 @@ from typing import Callable, Optional
 
 from websync.scrapers import ScraperFactory
 from websync.scrapers.base import is_allowed_fetch_url
+from websync.backup.service import BackupSyncError
 from websync.upload.uploader import X3Uploader
 from websync.pipeline.article_keys import article_sync_key
 from websync.i18n import t
@@ -34,7 +35,14 @@ def preview_articles(
 
     try:
         # 공유 데이터 폴더 pull — 본 파이프라인과 동일하게 정본 반영 후 최신 config 사용 (N4)
-        service.maybe_backup_pull(log_callback=log)
+        pull_result = service.maybe_backup_pull(log_callback=log)
+        if pull_result.get("ok") is False:
+            service._last_pipeline_result = {
+                "status": "backup_pull_failed",
+                "success": False,
+                "message": pull_result.get("message", ""),
+            }
+            raise BackupSyncError(pull_result.get("message") or "Shared data import failed")
         # config 스냅샷 사용 — 실행 중 service.config 교체로 인한 stale 참조 방지
         config = service.config_manager.load_config()
         enabled_sites = [s for s in config.get("sites", []) if s.get("enabled", True)]
