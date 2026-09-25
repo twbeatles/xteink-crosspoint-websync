@@ -155,8 +155,8 @@ class NewneekScraper(BaseScraper):
             content_soup = BeautifulSoup(html, "lxml")
             container = content_soup.body or content_soup
             for tag_name in ("script", "style", "nav", "footer", "form"):
-                for t in container.find_all(tag_name):
-                    t.decompose()
+                for _el in container.find_all(tag_name):
+                    _el.decompose()
             for tag in container.find_all(True):
                 tag.attrs = {
                     k: v for k, v in tag.attrs.items() if k in ("href", "src", "alt", "title")
