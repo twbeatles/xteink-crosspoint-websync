@@ -1,9 +1,15 @@
 """공유 폴더의 기기 신원.
 
 전송 이력 키는 PC마다 config.json 에만 있는 안정 기기 ID입니다.
-같은 리더기를 다른 PC에 같은 주소로 등록하면 ID가 달라 이미 보낸 글이
-다시 전송됩니다. 공유 이력의 devices 목록으로 주소가 같은 기기를
-하나의 ID로 맞추고, 나머지 ID는 조회 별칭으로 남깁니다.
+같은 리더기를 여러 PC에 등록하면 ID가 달라 이미 보낸 글이 다시 전송됩니다.
+공유 이력의 devices 목록으로 같은 리더기를 하나의 ID로 맞추고,
+나머지 ID는 조회 별칭으로 남깁니다.
+
+같은 리더기 판정:
+- 각 PC의 기본 기기(x3_ip)는 모든 PC에서 같은 리더기입니다 (``primary``).
+  리더기 IP는 네트워크·DHCP에 따라 PC마다 다르게 적히므로 주소로 묶지 않습니다.
+- 추가 기기(x3_devices)는 설정 주소가 같을 때만 묶습니다.
+- 같은 ID·별칭을 공유하면 묶습니다.
 """
 from __future__ import annotations
 
@@ -40,6 +46,7 @@ def _local_records(config: dict) -> list[dict[str, Any]]:
                 "alias_ids": _text_list(config.get("x3_primary_device_alias_ids")),
                 "name": "",
                 "slot": ("primary",),
+                "primary": True,
             }
         )
     devices = config.get("x3_devices")
@@ -57,6 +64,7 @@ def _local_records(config: dict) -> list[dict[str, Any]]:
                     "alias_ids": _text_list(dev.get("alias_ids")),
                     "name": (dev.get("name") or "").strip(),
                     "slot": ("device", index),
+                    "primary": False,
                 }
             )
     return records
@@ -85,6 +93,7 @@ def _remote_records(remote_devices: list | None) -> list[dict[str, Any]]:
                 "alias_ids": [a for a in _text_list(item.get("alias_ids")) if a != did],
                 "name": (item.get("name") or "").strip(),
                 "slot": None,
+                "primary": item.get("primary") is True,
             }
         )
     return records
@@ -93,10 +102,11 @@ def _remote_records(remote_devices: list | None) -> list[dict[str, Any]]:
 def reconcile_config_devices(
     config: dict, remote_devices: list | None
 ) -> tuple[list[dict], bool]:
-    """같은 설정 주소·같은 ID를 한 기기로 묶고 config 이력 키를 맞춥니다.
+    """같은 리더기(기본 기기·같은 설정 주소·같은 ID)를 한 기기로 묶고 config 이력 키를 맞춥니다.
 
     Returns:
         (공유 파일에 쓸 devices, 로컬 config 변경 여부)
+    기본 기기는 주소와 관계없이 모든 PC에서 하나로 묶습니다. 추가 기기는
     설정된 주소만 동일 기기 판정에 씁니다. 기본 기기의 조회용
     ``crosspoint.local`` 별칭은 주소로 넣지 않습니다.
     """
@@ -133,6 +143,22 @@ def reconcile_config_devices(
         head = group[0]
         for other in group[1:]:
             union(head, other)
+
+    # 기본 기기끼리 묶는다. 이 PC의 서로 다른 두 기기(기본·추가)는 다른 리더기이므로
+    # 기본 기기 묶음이 이 PC의 다른 기기 묶음을 삼키지 않게 한다.
+    local_slots = [index for index, node in enumerate(nodes) if node["slot"] is not None]
+
+    def local_slot_count(root: int) -> int:
+        return sum(1 for index in local_slots if find(index) == root)
+
+    primaries = [index for index, node in enumerate(nodes) if node["primary"]]
+    for index in primaries[1:]:
+        head_root, other_root = find(primaries[0]), find(index)
+        if head_root == other_root:
+            continue
+        if local_slot_count(head_root) + local_slot_count(other_root) > 1:
+            continue
+        union(primaries[0], index)
 
     clusters: dict[int, list[int]] = {}
     for index in range(len(nodes)):
@@ -172,14 +198,15 @@ def reconcile_config_devices(
                     host_out.append(host)
         aliases = sorted(a for a in aliases if a != canonical)
         hosts = (local_hosts or remote_hosts)[:_MAX_HOSTS]
-        export.append(
-            {
-                "id": canonical,
-                "hosts": hosts,
-                "alias_ids": aliases,
-                "name": name,
-            }
-        )
+        entry: dict[str, Any] = {
+            "id": canonical,
+            "hosts": hosts,
+            "alias_ids": aliases,
+            "name": name,
+        }
+        if any(node["primary"] for node in group):
+            entry["primary"] = True
+        export.append(entry)
         for node in group:
             slot = node["slot"]
             if not slot:

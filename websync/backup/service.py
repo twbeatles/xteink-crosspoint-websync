@@ -57,6 +57,7 @@ def _same_device_registry(export: list[dict], remote: list[dict]) -> bool:
                     tuple(item.get("hosts") or []),
                     tuple(item.get("alias_ids") or []),
                     (item.get("name") or ""),
+                    item.get("primary") is True,
                 )
             )
         return tuple(sorted(rows))

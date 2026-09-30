@@ -148,7 +148,20 @@ python -m pytest tests/ -q --tb=short -ra
 ```
 
 주요 영역: config, db, pipeline, scrapers(픽스처), epub, uploader, servers, process_lock, backup, scheduler 등.  
-정확한 수는 `pytest --collect-only -q` 로 확인 (2026-08-19 감사 개선 반영 후 260+).
+정확한 수는 `pytest --collect-only -q` 로 확인 (v1.2.5 기준 350+).
+
+### 여러 PC 중복 전송 회귀 테스트 (v1.2.5)
+
+증상: 여러 PC가 공유 폴더를 쓰면 다른 PC가 이미 보낸 글이 새 글과 섞여 다시 전송됨.
+원인: 기기 ID는 PC마다 따로 생기고, v1.2.4까지는 **설정 주소 문자열이 같을 때만** 한 리더기로 묶었음. 리더기 주소는 PC·네트워크마다 다르게 적히기 쉬움(DHCP IP, `crosspoint.local`).
+수정: 공유 `devices`에 `primary` 표시를 남기고 모든 PC의 기본 기기를 한 리더기로 묶음. 한 PC의 기본·추가 기기는 서로 합치지 않음.
+
+| 테스트 | 막는 것 |
+|--------|---------|
+| `tests/test_multi_pc_pipeline.py` | 두 PC가 주소를 다르게 적은 상태로 **실제 `run_sync_pipeline`** 을 번갈아 실행. 각 실행의 EPUB에 새 글만 들어가는지 확인 |
+| `tests/test_multi_pc_history.py` | `reconcile_config_devices`·pull/push 단위: 주소가 달라도 기본 기기 병합, 추가 기기는 주소 일치만, 이 PC의 두 리더기는 병합 금지, `primary` 표시 게시 |
+
+기기 신원 규칙(`device_registry.py`)을 바꿀 때는 위 두 파일을 반드시 통과시키세요. 특히 "주소가 다르면 다른 기기"로 되돌리면 `test_multi_pc_pipeline.py`가 실패해야 정상입니다.
 
 ### 허메틱(격리) 규칙 — CI 재발 방지
 
@@ -188,12 +201,12 @@ EXE는 실행 파일과 같은 폴더에 `config.json`, `sync_history.db`, `logs
 
 이력 행의 `device_ip`는 안정 기기 ID(`dev_…`)입니다. 이 ID는 PC마다 `config.json`에서 따로 생기므로, 공유해도 다른 PC의 `needs_sync`가 그대로 두면 이미 보낸 글을 다시 보냅니다.
 
-- `synced_posts.json`의 `devices`는 `{id, hosts, alias_ids, name}` 입니다. `hosts`는 사용자가 설정한 주소(`x3_ip`, `x3_devices[].ip`)만 사용합니다. 기본 기기의 조회용 `crosspoint.local` 별칭을 주소로 넣지 않습니다.
-- pull/push의 `reconcile_config_devices`는 **같은 정규화 주소** 또는 **같은 ID·별칭**을 한 기기로 묶습니다. 대표 ID는 묶인 ID 중 사전순으로 가장 작은 값이고, 나머지는 `x3_primary_device_alias_ids` / `x3_devices[].alias_ids`에 남습니다.
+- `synced_posts.json`의 `devices`는 `{id, hosts, alias_ids, name, primary?}` 입니다. `primary: true`는 어느 PC의 기본 기기(`x3_ip`)가 속한 묶음입니다. `hosts`는 사용자가 설정한 주소(`x3_ip`, `x3_devices[].ip`)만 사용합니다. 기본 기기의 조회용 `crosspoint.local` 별칭을 주소로 넣지 않습니다.
+- pull/push의 `reconcile_config_devices`는 **모든 PC의 기본 기기**, **같은 정규화 주소**, **같은 ID·별칭**을 한 기기로 묶습니다. 리더기 IP는 네트워크·DHCP에 따라 PC마다 다르게 적히므로 기본 기기는 주소와 관계없이 같은 리더기로 봅니다. 대표 ID는 묶인 ID 중 사전순으로 가장 작은 값이고, 나머지는 `x3_primary_device_alias_ids` / `x3_devices[].alias_ids`에 남습니다.
 - `build_targets_with_keys(..., primary_alias_ids=)`의 `alias_keys`에 그 별칭이 들어가 `needs_sync`가 다른 PC의 이력 행을 맞춥니다.
 - 이 PC에 등록된 기기의 공유 `hosts`는 **현재 설정 주소만** 다시 씁니다. 예전 주소를 남겨 두면 그 주소를 받은 다른 리더기까지 같은 이력으로 붙습니다. 이 PC에 없는 기기는 원격에 적힌 주소를 유지합니다.
 - `devices`가 없는 구 파일은, 그 ID를 가진 PC가 pull할 때 기존 `posts`는 유지한 채 `devices`만 채웁니다 (`BackupSyncService._publish_device_registry`).
-- 주소 문자열이 다르면 다른 기기입니다. 기기가 하나라는 이유만으로 URL 이력을 완료로 보지 않습니다. 표기가 다를 때는 `history_mode=global_url` 입니다.
+- 추가 기기(`x3_devices`)는 주소 문자열이 같을 때만 같은 기기입니다. PC마다 기본 기기가 서로 다른 리더기라면 `history_mode`로 구분할 수 없으니, 한 리더기를 기본 기기로 두고 나머지는 추가 기기로 등록합니다.
 
 **스펙에서 제외되는 선택 기능** (`x3_websync.spec` excludes):
 

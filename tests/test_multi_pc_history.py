@@ -128,23 +128,92 @@ def test_owner_pull_publishes_device_for_legacy_history_file():
             pass
 
 
-def test_different_reader_address_stays_pending():
+def test_same_reader_with_different_address_on_each_pc_skips_sent_posts():
+    """리더기 IP는 PC(네트워크·DHCP)마다 다르게 적혀도 기본 기기는 같은 리더기입니다."""
+    url = "https://blog.example/sent-from-other-network"
+    tmp = tempfile.mkdtemp()
+    cloud = os.path.join(tmp, "cloud")
+    os.makedirs(cloud)
+    try:
+        cm1, db1, svc1 = _service(tmp, "pc1", "192.168.219.113", "dev_bbbb", cloud)
+        db1.mark_synced(url, "Blog", "이미 보낸 글", device_ip="dev_bbbb")
+        assert svc1.push(force=True)["ok"] is True
+
+        cm2, db2, svc2 = _service(tmp, "pc2", "crosspoint.local", "dev_aaaa", cloud)
+        assert svc2.pull(force=True)["ok"] is True
+        assert _needs_sync(cm2, db2, url) is False
+
+        # pc2 가 보낸 글도 pc1 에서 다시 보내지 않는다.
+        url2 = "https://blog.example/sent-by-pc2"
+        db2.mark_synced(url2, "Blog", "pc2 글", device_ip="dev_aaaa")
+        assert svc2.push(force=True)["ok"] is True
+        assert svc1.pull(force=True)["ok"] is True
+        assert _needs_sync(cm1, db1, url2) is False
+        cfg1 = cm1.load_config()
+        assert cfg1["x3_primary_device_id"] == "dev_aaaa"
+        assert "dev_bbbb" in (cfg1.get("x3_primary_device_alias_ids") or [])
+    finally:
+        try:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+        except OSError:
+            pass
+
+
+def test_primary_devices_merge_even_when_both_pcs_already_published():
+    """두 PC가 각각 기기 목록을 이미 올린 뒤에도 다음 pull에서 합쳐집니다."""
+    url_a = "https://blog.example/a"
+    url_b = "https://blog.example/b"
+    tmp = tempfile.mkdtemp()
+    cloud = os.path.join(tmp, "cloud")
+    os.makedirs(cloud)
+    try:
+        cm1, db1, svc1 = _service(tmp, "pc1", "192.168.31.54", "dev_bbbb", cloud)
+        cm2, db2, svc2 = _service(tmp, "pc2", "192.168.219.113", "dev_aaaa", cloud)
+        db1.mark_synced(url_a, "Blog", "A", device_ip="dev_bbbb")
+        db2.mark_synced(url_b, "Blog", "B", device_ip="dev_aaaa")
+        assert svc1.push(force=True)["ok"] is True
+        assert svc2.sync_now()["ok"] is True
+        assert svc1.sync_now()["ok"] is True
+
+        for cm, db in ((cm1, db1), (cm2, db2)):
+            assert _needs_sync(cm, db, url_a) is False
+            assert _needs_sync(cm, db, url_b) is False
+
+        with open(os.path.join(cloud, "synced_posts.json"), encoding="utf-8") as handle:
+            devices = json.load(handle)["devices"]
+        primaries = [d for d in devices if d.get("primary")]
+        assert len(primaries) == 1
+        assert primaries[0]["id"] == "dev_aaaa"
+        assert primaries[0]["alias_ids"] == ["dev_bbbb"]
+    finally:
+        try:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+        except OSError:
+            pass
+
+
+def test_other_pc_extra_reader_with_different_address_stays_pending():
+    """다른 PC의 추가 기기(다른 주소)는 이 PC 기본 기기와 다른 리더기입니다."""
     url = "https://blog.example/for-other-device"
     tmp = tempfile.mkdtemp()
     cloud = os.path.join(tmp, "cloud")
     os.makedirs(cloud)
     try:
         cm1, db1, svc1 = _service(tmp, "pc1", "192.168.1.20", "dev_bbbb", cloud)
-        db1.mark_synced(url, "Blog", "다른 기기 글", device_ip="dev_bbbb")
+        cfg1 = cm1.load_config()
+        cfg1["x3_devices"] = [{"name": "서재", "ip": "10.0.0.9", "id": "dev_study"}]
+        cm1.save_config(cfg1)
+        db1.mark_synced(url, "Blog", "다른 기기 글", device_ip="dev_study")
         assert svc1.push(force=True)["ok"] is True
 
-        cm2, db2, svc2 = _service(tmp, "pc2", "10.0.0.9", "dev_aaaa", cloud)
+        cm2, db2, svc2 = _service(tmp, "pc2", "10.0.0.50", "dev_aaaa", cloud)
         assert svc2.pull(force=True)["ok"] is True
 
         assert _needs_sync(cm2, db2, url) is True
         adopted = cm2.load_config()
-        assert adopted["x3_primary_device_id"] == "dev_aaaa"
-        assert "dev_bbbb" not in (adopted.get("x3_primary_device_alias_ids") or [])
+        assert "dev_study" not in (adopted.get("x3_primary_device_alias_ids") or [])
     finally:
         try:
             import shutil
@@ -177,3 +246,34 @@ def test_reconcile_keeps_current_host_and_other_devices():
     assert by_id["dev_aaaa"]["hosts"] == ["192.168.1.30"]
     assert by_id["dev_local_other"]["hosts"] == ["10.0.0.5"]
     assert by_id["dev_bedroom"]["hosts"] == ["10.1.1.1"]
+
+
+def test_primary_merge_never_collapses_this_pcs_two_readers():
+    """다른 PC의 기본 기기가 이 PC 추가 기기 주소와 같으면, 이 PC의 기본·추가 기기는 분리 유지."""
+    config = {
+        "x3_ip": "192.168.0.10",
+        "x3_primary_device_id": "dev_mine",
+        "x3_devices": [{"name": "서재", "ip": "192.168.0.20", "id": "dev_study"}],
+    }
+    remote = [{"id": "dev_other", "hosts": ["192.168.0.20"], "alias_ids": [], "primary": True}]
+    export, _changed = reconcile_config_devices(config, remote)
+    assert config["x3_primary_device_id"] != config["x3_devices"][0]["id"]
+    assert "dev_study" not in (config.get("x3_primary_device_alias_ids") or [])
+    assert len([item for item in export if item.get("primary")]) == 2
+
+
+def test_export_marks_primary_reader_for_other_pcs():
+    """새 버전 PC는 공유 devices 에 기본 기기 표시(primary)를 남깁니다."""
+    config = {
+        "x3_ip": "192.168.0.10",
+        "x3_primary_device_id": "dev_mine",
+        "x3_devices": [{"name": "서재", "ip": "192.168.0.20", "id": "dev_study"}],
+    }
+    legacy_remote = [{"id": "dev_old", "hosts": ["10.0.0.1"], "alias_ids": []}]
+    export, _changed = reconcile_config_devices(config, legacy_remote)
+    by_id = {item["id"]: item for item in export}
+    assert by_id["dev_mine"].get("primary") is True
+    assert "primary" not in by_id["dev_study"]
+    # 표시 없는 예전 항목은 주소가 다르면 합치지 않는다 (추가 기기일 수 있음).
+    assert "primary" not in by_id["dev_old"]
+    assert config["x3_primary_device_id"] == "dev_mine"
