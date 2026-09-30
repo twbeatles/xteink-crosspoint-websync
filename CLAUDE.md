@@ -69,6 +69,7 @@ xteink-crosspoint-websync/
 │   │   ├── sync_pipeline.py   # 전체 사이트 동기화 실행
 │   │   ├── preview.py         # 프리뷰(스크래핑만, 파이프라인 락 공유)
 │   │   ├── selected_sync.py   # 선택 기사 동기화
+│   │   ├── epub_only.py       # 선택 기사로 EPUB만 생성 (전송·이력 없음, 프리뷰 "EPUB만 만들기")
 │   │   ├── article_keys.py    # 기사 URL 키
 │   │   ├── summarizer.py      # AI 요약
 │   │   └── translator.py      # 번역
@@ -92,9 +93,9 @@ xteink-crosspoint-websync/
 │   └── gui/
 │       ├── widgets.py         # 공통 위젯 및 테마 색상 상수
 │       ├── app_core/          # SyncAppGui (layout/helpers/config_sync/sync_control)
-│       ├── sync_tab/          # 뉴스 동기화 탭 (connection/devices/sites/site_dialog/schedule/preview/selector_wizard)
+│       ├── sync_tab/          # 뉴스 동기화 탭 (시작 안내/sites/site_dialog/epub_options/connection/devices/schedule/preview/selector_wizard)
 │       ├── device_files/      # 기기 파일 탭 (browser/actions/cleanup/settings)
-│       ├── settings_tab/      # 고급 설정 (epub/servers/watch/ai_translation/backup_sync)
+│       ├── settings_tab/      # 고급 설정 (servers/watch/ai_translation/backup_sync; EPUB 옵션은 sync_tab/epub_options)
 │       ├── tab_*.py           # 하위 호환 re-export (sync/device_files/settings)
 │       ├── app.py             # 하위 호환 re-export → app_core
 │       ├── tab_calibre.py     # Calibre 서재 탭
@@ -370,6 +371,9 @@ run_sync_pipeline()
 | 탭 구조 | 뉴스 동기화 / Calibre / 이력 / 기기 파일 / 고급·서버 설정 |
 | 비동기 | `threading.Thread(daemon=True)` + `root.after(0, callback)` 패턴 |
 | 호환 | `gui/app.py`, `tab_sync.py` 등은 re-export 유지 |
+| 첫 실행 흐름 | 켜진 소스가 없으면 뉴스 동기화 탭 상단 "시작하기" 체크리스트, 동기화·미리보기 버튼은 소스 추가로 안내 (`_ensure_sites_ready`) |
+| 하단 바 | 실행 버튼 + 상태 줄(`_set_status(text, kind)`) + 접이식 로그. 취소 버튼은 작업 중에만 표시 |
+| 공통 위젯 | `widgets.make_button(kind=primary/secondary/danger)`, `Tooltip`, `CardFrame.header_right` 슬롯 |
 
 ---
 

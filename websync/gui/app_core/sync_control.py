@@ -89,12 +89,9 @@ class AppSyncControlMixin:
             if not self.root.winfo_exists():
                 return
             self._set_sync_ui_busy(False)
-            bar = self.bottom_bar.progress_bar
-            if hasattr(bar, "set"):
-                bar.set(0)
-            else:
-                bar["value"] = 0
+            self._reset_progress()
             message = t("pipeline.bg_sync_fail", error=error)
+            self._set_status(t("gui.bottom.status_failed"), "error")
             self._log_message(message)
             messagebox.showerror(t("dialog.error"), message, parent=self.root)
         except tk.TclError:
@@ -116,16 +113,65 @@ class AppSyncControlMixin:
                 return
             workers[0].join(min(0.2, remaining))
 
+    def _set_status(self, text: str, kind: str = "idle") -> None:
+        """하단 상태 줄 갱신 (busy / ok / warn / error / idle)."""
+        bar = getattr(self, "bottom_bar", None)
+        if bar is not None and hasattr(bar, "set_status"):
+            bar.set_status(text, kind)
+
+    def _reset_progress(self) -> None:
+        bar = getattr(self, "bottom_bar", None)
+        if bar is None:
+            return
+        if hasattr(bar, "reset_progress"):
+            bar.reset_progress()
+            return
+        progress = getattr(bar, "progress_bar", None)
+        if hasattr(progress, "set"):
+            progress.set(0)
+        elif progress is not None:
+            progress["value"] = 0
+
     def _request_sync_cancel(self):
         if hasattr(self, "service") and self.service:
             self.service.request_cancel()
             self._log_message(t("gui.app.cancel_requested"))
+            self._set_status(t("gui.bottom.status_cancelling"), "warn")
+
+    def _has_enabled_sites(self) -> bool:
+        sites = (self.service.config or {}).get("sites") or []
+        return any(s.get("enabled", True) for s in sites if isinstance(s, dict))
+
+    def _ensure_sites_ready(self) -> bool:
+        """활성 소스가 없으면 안내하고 소스 추가로 유도한다."""
+        if self._has_enabled_sites():
+            return True
+        has_any = bool((self.service.config or {}).get("sites"))
+        key = "gui.app.no_enabled_sites" if has_any else "gui.app.no_sites_yet"
+        self._show_tab(0)
+        if messagebox.askyesno(t("dialog.info"), t(key), parent=self.root):
+            if has_any:
+                self.tab_sync.focus_site_list()
+            else:
+                self.tab_sync._add_site_popup()
+        return False
+
+    def _show_tab(self, index: int) -> None:
+        try:
+            names = list(getattr(self.tabview, "_name_list", []))
+            if 0 <= index < len(names):
+                self.tabview.set(names[index])
+        except Exception:
+            pass
 
     def _run_immediate_sync(self):
+        if not self._ensure_sites_ready():
+            return
         if not self._save_ui_settings():
             return
         self._set_sync_ui_busy(True)
-        self.bottom_bar.progress_bar["value"] = 0
+        self._reset_progress()
+        self._set_status(t("gui.bottom.status_syncing"), "busy")
         self._log_message(t("gui.app.sync_requested"))
 
         def run():
@@ -138,18 +184,39 @@ class AppSyncControlMixin:
             run, name="sync-pipeline", on_success=self._sync_finished_ui
         )
 
+    def _describe_last_result(self) -> tuple[str, str]:
+        """마지막 파이프라인 결과를 (상태 문구, 종류)로 변환."""
+        try:
+            result = self.service.get_last_pipeline_result() or {}
+        except Exception:
+            result = {}
+        status = result.get("status") or ""
+        stamp = time.strftime("%H:%M")
+        if status == "no_new":
+            return t("gui.bottom.result_no_new", time=stamp), "ok"
+        if status == "completed":
+            if result.get("success"):
+                return t("gui.bottom.result_ok", time=stamp), "ok"
+            return t("gui.bottom.result_partial", time=stamp), "warn"
+        if status == "cancelled":
+            return t("gui.bottom.result_cancelled", time=stamp), "warn"
+        if status == "no_targets":
+            return t("gui.bottom.result_no_targets"), "error"
+        if status == "no_sites":
+            return t("gui.bottom.result_no_sites"), "warn"
+        if status in ("errors", "empty_fetch", "db_error", "backup_pull_failed", "backup_push_failed", "failed"):
+            return t("gui.bottom.result_error", time=stamp), "error"
+        return t("gui.bottom.result_done", time=stamp), "ok"
+
     def _sync_finished_ui(self):
         try:
             if not self.root.winfo_exists():
                 return
-            bar = self.bottom_bar.progress_bar
-            if hasattr(bar, "set"):
-                bar.set(0)
-            else:
-                maximum = float(bar["maximum"] or 0)
-                bar["value"] = maximum if maximum > 0 else 0
+            self._reset_progress()
             self._set_sync_ui_busy(False)
             self._log_message(t("gui.app.sync_finished"))
+            text, kind = self._describe_last_result()
+            self._set_status(text, kind)
             self.tab_history._refresh_history()
         except tk.TclError:
             return

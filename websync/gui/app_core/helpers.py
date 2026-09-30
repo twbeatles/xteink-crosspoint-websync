@@ -36,12 +36,13 @@ class AppHelpersMixin:
     def _set_sync_ui_busy(self, busy: bool) -> None:
         self._sync_busy = busy
         state = "disabled" if busy else "normal"
-        
+
         # 각 탭의 활성 버튼 상태 제어
-        self.bottom_bar.sync_now_btn.configure(state=state)
-        if hasattr(self.bottom_bar, "cancel_sync_btn"):
-            self.bottom_bar.cancel_sync_btn.configure(state="normal" if busy else "disabled")
-        self.bottom_bar.preview_btn.configure(state=state)
+        if hasattr(self.bottom_bar, "set_busy"):
+            self.bottom_bar.set_busy(busy)
+        else:
+            self.bottom_bar.sync_now_btn.configure(state=state)
+            self.bottom_bar.preview_btn.configure(state=state)
         self.tab_sync.direct_upload_btn.configure(state=state)
         self.tab_sync.test_conn_btn.configure(state=state)
         self.tab_calibre.calibre_send_btn.configure(state=state)
@@ -62,17 +63,16 @@ class AppHelpersMixin:
         try:
             if not getattr(self, "root", None) or not self.root.winfo_exists():
                 return
+            bar = self.bottom_bar.progress_bar
             if total > 0:
-                if hasattr(self.bottom_bar.progress_bar, "set"):
-                    self.bottom_bar.progress_bar.set(min(1.0, max(0.0, current / total)))
-                else:
-                    self.bottom_bar.progress_bar["maximum"] = total
-                    self.bottom_bar.progress_bar["value"] = current
+                bar.set(min(1.0, max(0.0, current / total)))
+                if self._sync_busy and current < total:
+                    self._set_status(
+                        t("gui.bottom.status_progress", current=current + 1, total=total),
+                        "busy",
+                    )
             else:
-                if hasattr(self.bottom_bar.progress_bar, "set"):
-                    self.bottom_bar.progress_bar.set(0)
-                else:
-                    self.bottom_bar.progress_bar["value"] = 0
+                bar.set(0)
         except tk.TclError:
             return
 

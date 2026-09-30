@@ -26,6 +26,7 @@ from websync.gui.tab_history import HistoryTab
 from websync.gui.tab_device_files import DeviceFilesTab
 from websync.gui.tab_settings import SettingsTab
 from websync.gui.bottom_bar import BottomBar
+from websync.gui.sync_tab.epub_options import parse_font_size, parse_line_height
 
 
 def _set_entry_val(widget, val):
@@ -44,10 +45,16 @@ class AppConfigSyncMixin:
         # 1. SyncTab 설정 로드
         _set_entry_val(self.tab_sync.ip_entry, config.get("x3_ip", "crosspoint.local"))
         _set_entry_val(self.tab_sync.dir_entry, config.get("output_dir", "./output"))
-        self.tab_sync.font_cb.set(config.get("font_family", "serif"))
+        # EPUB 만들기 옵션 (글꼴·테마·병합 방식 — 뉴스 동기화 탭 한 카드)
+        self.tab_sync.set_font_family(config.get("font_family", "serif"))
         _set_entry_val(self.tab_sync.font_size_sp, config.get("font_size", 16))
         _set_entry_val(self.tab_sync.line_height_sp, config.get("line_height", 1.7))
         self.tab_sync.cover_var.set(config.get("epub_cover", True))
+        self.tab_sync.merge_mode_var.set(config.get("epub_merge_mode", "per_site"))
+        self.tab_sync.custom_css_entry.configure(state="normal")
+        _set_entry_val(self.tab_sync.custom_css_entry, config.get("epub_custom_css", ""))
+        # 테마 적용은 저장 없이 입력 상태만 갱신 (시작 시 불필요한 저장 방지)
+        self.tab_sync.set_epub_theme(config.get("epub_theme", "default"))
 
         sched_conf = config.get("schedule", {})
         self.tab_sync.hour_cb.set(sched_conf.get("hour", "07"))
@@ -74,12 +81,6 @@ class AppConfigSyncMixin:
         self.tab_device_files.refresh_device_list()
 
         # 4. SettingsTab 설정 로드
-        # M4 & M7 설정 로드
-        self.tab_settings.merge_mode_var.set(config.get("epub_merge_mode", "per_site"))
-        self.tab_settings.epub_theme_cb.set(config.get("epub_theme", "default"))
-        _set_entry_val(self.tab_settings.custom_css_entry, config.get("epub_custom_css", ""))
-        self.tab_settings._on_theme_changed()
-
         opds_conf = config.get("opds_server", {})
         _set_entry_val(self.tab_settings.opds_port_sp, opds_conf.get("port", 8765))
         self.tab_settings.opds_allow_lan_var.set(opds_conf.get("allow_lan", False))
@@ -119,16 +120,24 @@ class AppConfigSyncMixin:
         # 1. SyncTab에서 정보 가져옴
         config["x3_ip"] = normalize_device_host(self.tab_sync.ip_entry.get())
         config["output_dir"] = self.tab_sync.dir_entry.get().strip()
-        config["font_family"] = self.tab_sync.font_cb.get()
+        config["font_family"] = (self.tab_sync.font_cb.get() or "").strip() or "serif"
         config["epub_cover"] = self.tab_sync.cover_var.get()
+        # 범위 밖·숫자가 아닌 값은 조용히 버리지 않고 보정한 값을 입력칸에도 되돌려 준다
+        raw_size = str(self.tab_sync.font_size_sp.get()).strip()
+        config["font_size"] = parse_font_size(raw_size, default=int(config.get("font_size") or 16))
+        if raw_size != str(config["font_size"]):
+            _set_entry_val(self.tab_sync.font_size_sp, config["font_size"])
+        raw_lh = str(self.tab_sync.line_height_sp.get()).strip()
+        config["line_height"] = parse_line_height(raw_lh, default=float(config.get("line_height") or 1.7))
         try:
-            config["font_size"] = int(self.tab_sync.font_size_sp.get())
+            lh_changed = float(raw_lh) != config["line_height"]
         except ValueError:
-            config["font_size"] = 16
-        try:
-            config["line_height"] = float(self.tab_sync.line_height_sp.get())
-        except ValueError:
-            config["line_height"] = 1.7
+            lh_changed = True
+        if lh_changed:
+            _set_entry_val(self.tab_sync.line_height_sp, config["line_height"])
+        config["epub_merge_mode"] = self.tab_sync.merge_mode_var.get()
+        config["epub_theme"] = self.tab_sync.get_epub_theme()
+        config["epub_custom_css"] = self.tab_sync.custom_css_entry.get().strip()
         
         config.setdefault("schedule", {})
         config["schedule"]["hour"] = self.tab_sync.hour_cb.get()
@@ -139,11 +148,6 @@ class AppConfigSyncMixin:
         config["calibre_library_path"] = self.tab_calibre.calibre_lib_entry.get().strip()
 
         # 3. SettingsTab에서 정보 가져옴
-        # M4 & M7 가져옴
-        config["epub_merge_mode"] = self.tab_settings.merge_mode_var.get()
-        config["epub_theme"] = self.tab_settings.epub_theme_cb.get()
-        config["epub_custom_css"] = self.tab_settings.custom_css_entry.get().strip()
-
         try:
             config.setdefault("opds_server", {})["port"] = int(self.tab_settings.opds_port_sp.get())
             config["opds_server"]["allow_lan"] = self.tab_settings.opds_allow_lan_var.get()

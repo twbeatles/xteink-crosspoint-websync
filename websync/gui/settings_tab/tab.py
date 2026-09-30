@@ -85,38 +85,7 @@ class SettingsTab(
             curr_lang = "auto"
         self.ui_lang_menu.set(lang_labels[curr_lang])
 
-        # 1. EPUB 병합 모드 및 빌드 테마 카드
-        epub_style_card = CardFrame(body, title=t("gui.settings.epub.card_title"), subtitle=t("gui.settings.epub.card_sub"))
-        epub_style_card.pack(fill="x", padx=8, pady=6)
-
-        epub_inner = ctk.CTkFrame(epub_style_card, fg_color="transparent")
-        epub_inner.pack(fill="x", padx=12, pady=10)
-        epub_inner.columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(epub_inner, text=t("gui.settings.epub.merge_label"), font=get_font(13)).grid(row=0, column=0, padx=(0, 8), pady=6, sticky="w")
-        self.merge_mode_var = tk.StringVar(value="per_site")
-        self.per_site_rb = ctk.CTkRadioButton(
-            epub_inner, text=t("gui.settings.epub.per_site"), font=get_font(12), variable=self.merge_mode_var, value="per_site", command=self._save_epub_settings
-        )
-        self.per_site_rb.grid(row=0, column=1, padx=4, pady=6, sticky="w")
-        self.digest_rb = ctk.CTkRadioButton(
-            epub_inner, text=t("gui.settings.epub.digest"), font=get_font(12), variable=self.merge_mode_var, value="daily_digest", command=self._save_epub_settings
-        )
-        self.digest_rb.grid(row=0, column=2, padx=4, pady=6, sticky="w")
-
-        ctk.CTkLabel(epub_inner, text=t("gui.settings.epub.theme_label"), font=get_font(13)).grid(row=1, column=0, padx=(0, 8), pady=6, sticky="w")
-        self.epub_theme_cb = ctk.CTkOptionMenu(
-            epub_inner, values=["default", "serif_classic", "sans_modern", "dark_eink", "custom"], font=get_font(12), width=160, command=self._on_theme_changed
-        )
-        self.epub_theme_cb.grid(row=1, column=1, padx=4, pady=6, sticky="w")
-        self.epub_theme_cb.set("default")
-
-        ctk.CTkLabel(epub_inner, text=t("gui.settings.epub.custom_css"), font=get_font(13)).grid(row=2, column=0, padx=(0, 8), pady=6, sticky="w")
-        self.custom_css_entry = ctk.CTkEntry(epub_inner, font=get_font(12), height=34)
-        self.custom_css_entry.grid(row=2, column=1, padx=4, pady=6, sticky="we")
-        self.custom_css_btn = ctk.CTkButton(epub_inner, text=t("gui.settings.epub.browse"), font=get_font(12), width=90, height=34, command=self._browse_custom_css)
-        self.custom_css_btn.grid(row=2, column=2, padx=4, pady=6)
-        self.app._bind_autosave(self.custom_css_entry)
+        # EPUB 테마·병합 방식은 뉴스 동기화 탭의 "EPUB 만들기 옵션" 카드로 이동했다.
 
         # 2. OPDS 서버 카드
         opds_card = CardFrame(body, title=t("gui.settings.opds.card_title"), subtitle=t("gui.settings.opds.card_sub"))

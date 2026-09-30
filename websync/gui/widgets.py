@@ -25,6 +25,10 @@ COLOR_ACCENT        = ("#0d6efd", "#3d8bfd")  # 포인트 파랑
 COLOR_SUCCESS       = ("#198754", "#20c997")  # 성공/초록
 COLOR_DANGER        = ("#dc3545", "#ea868f")  # 에러/빨강
 COLOR_WARNING       = ("#fd7e14", "#ff922b")  # 경고/주황
+COLOR_NEUTRAL       = ("#e9ecef", "#343a40")  # 보조 버튼 배경
+COLOR_NEUTRAL_HOVER = ("#ced4da", "#495057")  # 보조 버튼 hover
+COLOR_DANGER_HOVER  = ("#bb2d3b", "#d16b74")
+COLOR_ACCENT_SOFT   = ("#e7f1ff", "#1f2d44")  # 안내 배너 배경
 
 # 기존 호환성용 단일 값 상수
 BG_COLOR      = "#f8f9fa"
@@ -86,6 +90,7 @@ class CardFrame(ctk.CTkFrame):
         kwargs.setdefault("border_width", 1)
         kwargs.setdefault("corner_radius", 10)
         super().__init__(master, **kwargs)
+        self.header_right: ctk.CTkFrame | None = None
 
         if title:
             title_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -98,7 +103,7 @@ class CardFrame(ctk.CTkFrame):
                 text_color=COLOR_FG,
                 anchor="w"
             )
-            title_lbl.pack(side="left", fill="x", expand=True)
+            title_lbl.pack(side="left")
 
             if subtitle:
                 sub_lbl = ctk.CTkLabel(
@@ -109,6 +114,105 @@ class CardFrame(ctk.CTkFrame):
                     anchor="w"
                 )
                 sub_lbl.pack(side="left", padx=(10, 0))
+            # 제목 줄 오른쪽 슬롯 (요약 배지·보조 버튼 배치용)
+            self.header_right = ctk.CTkFrame(title_frame, fg_color="transparent", width=1, height=1)
+            self.header_right.pack(side="right")
+
+
+def make_button(
+    parent,
+    text: str,
+    command=None,
+    *,
+    kind: str = "primary",
+    width: int = 100,
+    height: int = 32,
+    bold: bool = False,
+    **kwargs,
+) -> ctk.CTkButton:
+    """일관된 스타일의 버튼 (kind: primary / secondary / danger)."""
+    if kind == "secondary":
+        kwargs.setdefault("fg_color", COLOR_NEUTRAL)
+        kwargs.setdefault("hover_color", COLOR_NEUTRAL_HOVER)
+        kwargs.setdefault("text_color", COLOR_FG)
+    elif kind == "danger":
+        kwargs.setdefault("fg_color", COLOR_DANGER)
+        kwargs.setdefault("hover_color", COLOR_DANGER_HOVER)
+    else:
+        kwargs.setdefault("fg_color", COLOR_ACCENT)
+    return ctk.CTkButton(
+        parent,
+        text=text,
+        command=command,
+        font=get_font(12, "bold" if bold else "normal"),
+        width=width,
+        height=height,
+        corner_radius=kwargs.pop("corner_radius", 6),
+        **kwargs,
+    )
+
+
+class Tooltip:
+    """마우스를 올리면 짧은 도움말을 띄우는 가벼운 툴팁."""
+
+    def __init__(self, widget: tk.Misc, text: str, *, delay_ms: int = 450):
+        self.widget = widget
+        self.text = text
+        self.delay_ms = delay_ms
+        self._after_id: str | None = None
+        self._tip: tk.Toplevel | None = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _schedule(self, _event=None) -> None:
+        self._cancel()
+        try:
+            self._after_id = self.widget.after(self.delay_ms, self._show)
+        except tk.TclError:
+            self._after_id = None
+
+    def _cancel(self) -> None:
+        if self._after_id:
+            try:
+                self.widget.after_cancel(self._after_id)
+            except tk.TclError:
+                pass
+            self._after_id = None
+
+    def _show(self) -> None:
+        self._after_id = None
+        if self._tip is not None or not self.text:
+            return
+        try:
+            x = self.widget.winfo_rootx() + 12
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+            tip = tk.Toplevel(self.widget)
+            tip.wm_overrideredirect(True)
+            tip.wm_geometry(f"+{x}+{y}")
+            tk.Label(
+                tip,
+                text=self.text,
+                justify="left",
+                background="#333a40",
+                foreground="#ffffff",
+                padx=8,
+                pady=5,
+                wraplength=360,
+                font=(FONT_FAMILY, 10),
+            ).pack()
+            self._tip = tip
+        except tk.TclError:
+            self._tip = None
+
+    def _hide(self, _event=None) -> None:
+        self._cancel()
+        if self._tip is not None:
+            try:
+                self._tip.destroy()
+            except tk.TclError:
+                pass
+            self._tip = None
 
 
 def apply_treeview_style(tree: ttk.Treeview) -> None:

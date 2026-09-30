@@ -13,6 +13,7 @@ from websync.pipeline.article_keys import article_sync_key
 from websync.pipeline.sync_pipeline import run_sync_pipeline_locked
 from websync.pipeline.preview import preview_articles as run_preview_articles
 from websync.pipeline.selected_sync import sync_selected_articles as run_sync_selected_articles
+from websync.pipeline.epub_only import build_selected_epubs as run_build_selected_epubs
 from websync.i18n import t
 
 
@@ -350,5 +351,16 @@ class SyncService:
         progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> bool:
         return run_sync_selected_articles(
+            self, selected_articles, log_callback, progress_callback
+        )
+
+    def build_selected_epubs(
+        self,
+        selected_articles: list[dict],
+        log_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None
+    ) -> list[str]:
+        """선택 기사로 EPUB 만 생성 (전송·이력 기록 없음)."""
+        return run_build_selected_epubs(
             self, selected_articles, log_callback, progress_callback
         )

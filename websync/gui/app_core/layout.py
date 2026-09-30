@@ -67,7 +67,6 @@ class AppLayoutMixin:
         )
         if hasattr(self.tabview, "_segmented_button"):
             self.tabview._segmented_button.configure(font=get_font(13, "bold"))
-        self.tabview.pack(fill="both", expand=True, pady=(0, 10))
 
         # 하위 호환성을 위해 self.notebook 래퍼 지정
         self.notebook = self.tabview
@@ -96,12 +95,11 @@ class AppLayoutMixin:
         self.tab_settings.pack(fill="both", expand=True)
 
         # 하단 동기화 컨트롤 및 로그 바 (BottomBar)
-        self.bottom_container = ctk.CTkFrame(
-            self.main_container,
-            fg_color="transparent",
-            height=230
-        )
+        # 하단 바를 먼저 pack 해야 창이 작아져도 실행 버튼이 잘리지 않는다.
+        self.bottom_container = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.bottom_container.pack(fill="x", side="bottom")
 
         self.bottom_bar = BottomBar(self.bottom_container, self)
         self.bottom_bar.pack(fill="both", expand=True)
+
+        self.tabview.pack(fill="both", expand=True, pady=(0, 8))

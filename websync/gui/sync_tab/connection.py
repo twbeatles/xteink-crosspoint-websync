@@ -18,6 +18,9 @@ from websync.i18n import t
 
 class SyncConnectionMixin:
     def _test_connection(self):
+        # 입력칸의 주소를 먼저 저장해야 방금 고친 주소로 확인한다
+        if hasattr(self.app, "_save_ui_settings") and not self.app._save_ui_settings():
+            return
         self.conn_status_label.configure(text=t("gui.sync.connecting"), text_color=COLOR_WARNING[0])
         self.test_conn_btn.configure(state="disabled")
 
@@ -36,8 +39,10 @@ class SyncConnectionMixin:
             self.test_conn_btn.configure(state="normal")
         if not results:
             self.conn_status_label.configure(text=t("gui.sync.no_devices"), text_color=COLOR_DANGER[0])
+            self._set_conn_ok(False)
             return
         ok_count = sum(1 for _, _, ok in results if ok)
+        self._set_conn_ok(ok_count > 0)
         if ok_count == len(results):
             self.conn_status_label.configure(
                 text=t("gui.sync.all_connected", count=len(results)),
@@ -54,6 +59,13 @@ class SyncConnectionMixin:
         for name, ip, ok in results:
             status = "✅" if ok else "❌"
             self.app._log_message(f"   {status} [{name}] {ip}")
+        if ok_count == 0:
+            self.app._log_message(t("gui.sync.conn_fail_hint"))
+
+    def _set_conn_ok(self, ok: bool) -> None:
+        self._conn_ok = ok
+        if hasattr(self, "_refresh_getting_started"):
+            self._refresh_getting_started()
 
     def _browse_directory(self):
         d = filedialog.askdirectory(initialdir=self.dir_entry.get())
