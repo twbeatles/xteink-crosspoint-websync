@@ -40,7 +40,7 @@ xteink-crosspoint-websync/
 | `websync.cli` | `--apply-update` 헬퍼 (`update_apply`) |
 | `websync.i18n` | UI 언어 감지(`auto`/`ko`/`en`)와 JSON 카탈로그 `t()` |
 | `websync.config` | `config.json` CRUD, 검증, secrets 마스킹 유틸 |
-| `websync.pipeline` | 동기화·프리뷰·선택 전송 오케스트레이션 (`upload_results` 공통 헬퍼) |
+| `websync.pipeline` | 동기화·프리뷰·선택 전송 오케스트레이션 (`upload_results` 공통 헬퍼), `epub_only` — 선택 기사로 EPUB만 생성(전송·이력 없음) |
 | `websync.scrapers` | 사이트별 수집기 + `ScraperFactory` + 프리셋 |
 | `websync.epub` | EPUB 빌드 (테마·표지·정제) |
 | `websync.upload` | 무선 업로드, 기기 파일 API |
@@ -62,7 +62,7 @@ GUI·validator·factory 가 이 목록을 공유합니다.
 |------|------|------|
 | `css` | `css.py` | 사용자 CSS 선택자 (`link_selector`, 상세 본문 폴백, 폴백 통계) |
 | (도우미) | `selector_assistant/` | 페이지 분석·선택자 추천·RSS 프로브·사설 URL 감지 (GUI 비의존) |
-| (GUI) | `gui/sync_tab/selector_wizard.py` | 사이트 등록 시 분석/테스트/미리보기 패널 (스레드 안전) |
+| (GUI) | `gui/sync_tab/selector_wizard.py` | 소스 추가 창의 접이식 분석/테스트/미리보기 패널 (스레드 안전, "자동 감지"가 분석 호출) |
 | `rss` | `rss.py` | RSS/Atom |
 | `velog` | `velog.py` | 프로필 URL → Velog RSS |
 | `naver` | `naver.py` | 네이버 블로그 |
@@ -108,6 +108,9 @@ python -m pytest tests/test_scraper_fixtures.py tests/test_brunch_scraper.py -q
 | 부분 재시도 | 미수신 기기만 재업로드 |
 | GUI ↔ `--sync` | 프로세스 파일 락으로 직렬화 |
 | 프리뷰/선택 동기화 | 동일 파이프라인 락 사용(`service._try_acquire_pipeline_locks`). 백업 pull → 처리 순서로 정본 일치 |
+| EPUB만 만들기 | `SyncService.build_selected_epubs` → `pipeline/epub_only.py`. 현재 병합 방식·테마·표지로 빌드만 하고 업로드·`mark_synced` 없음. 번역·AI 요약 생략. 파이프라인 락은 잡지 않으며 GUI는 `_sync_busy` 로 동시 실행을 막음 |
+| GUI 첫 실행 흐름 | 켜진 소스가 없으면 "시작하기" 체크리스트 표시, 동기화·프리뷰는 `_ensure_sites_ready()` 로 소스 추가/켜기 안내 후 중단 |
+| GUI EPUB 옵션 | 글꼴·크기·줄 간격·표지·테마·사용자 CSS·병합 방식은 `gui/sync_tab/epub_options.py` 한 카드. 범위 밖 값은 `parse_font_size`/`parse_line_height` 로 보정 후 입력칸에 반영. 설정 로드 시에는 저장하지 않음 |
 | 웹 대시보드 동기화 | `begin_sync_pipeline_async` — 락 선점 후 수락/거부를 즉시 반환 (`POST /api/sync` → 202/409). 취소는 `POST /api/cancel` → `request_cancel()` |
 | 동기화 취소 | GUI **취소** 또는 `SyncService.request_cancel()` — 사이트 경계와 기기별 업로드 배치 시작 전에 중단 (`status=cancelled`) |
 | GUI 워커 복구 | `_start_pipeline_ui_task` — 동기화·프리뷰·선택 동기화 워커 예외 시에도 버튼·진행률을 복구하고 오류 대화상자 표시. `_save_ui_settings()`가 False(검증·저장 실패)면 동기화·예약·전송을 시작하지 않으며 실행 중 설정도 바꾸지 않음 |

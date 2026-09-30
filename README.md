@@ -142,14 +142,14 @@ Collect text from virtually any web source reliably:
 ### 2. E-ink Optimized EPUB Builder
 Engineered specifically for superior readability on monochrome electronic ink screens:
 - **Tailored E-ink Themes**: Choose between `default`, `serif_classic`, `sans_modern`, and `dark_eink` typography themes.
-- **Custom Styling**: Support for user custom CSS, custom fonts, adjustable font size, and line height settings.
+- **Custom Styling**: Support for user custom CSS, custom fonts, adjustable font size, and line height settings — all EPUB options live in one **EPUB options** card on the News Sync tab.
 - **Daily Compilation (Daily Digest)**: Choose between individual EPUB files per subscription or combine all newly scraped articles from the day into a unified **Daily Digest EPUB**.
 - **Content Sanitization & Cover Generator**: Automatically strips distracting ads, social sharing widgets, tracking scripts, and invalid markup. Generates elegant, minimal cover images.
 
 ### 3. Smart Wireless Sync & Zero Duplicates
 - **Wi-Fi Direct Upload**: Delivers EPUBs straight to the reader via CrossPoint's HTTP file management API.
 - **Incremental Deduplication**: Tracks synced article URLs and hashes in an embedded SQLite database (`sync_history.db`). Only delivers genuinely new articles, conserving battery and storage.
-- **News Preview (Selective Sync)**: Review freshly fetched articles in a preview modal before syncing. Selectively check only the stories you wish to read today.
+- **Preview and Pick (Selective Sync)**: Review freshly fetched articles (with a body excerpt) before syncing, send only the stories you want, or **Build EPUB only** to check fonts/theme/cover without sending or recording history.
 - **Multi-Device Support**: Configure multiple XTEINK X3/X4 readers. In per-device history mode, each generated EPUB contains only the articles missing from its target device, preventing cross-device duplicate delivery.
 
 ### 4. Calibre Library Integration & Direct File Transfer
@@ -190,15 +190,15 @@ The desktop interface is organized into **5 dedicated tabs** with a persistent b
 │  [News Sync]   [Calibre Library]   [History]   [Device Files]   [Advanced]   │
 ├────────────────────────────────────────────────────────────────────────┤
 │                                                                        │
-│  • News Sync       : Device IP, Subscribed sites & presets, Scheduler │
+│  • News Sync       : Getting started, Sources, EPUB options, Device   │
 │  • Calibre Library : Search PC Calibre books and upload wirelessly     │
 │  • History         : View sent articles, delete entries to re-sync     │
 │  • Device Files    : Browse XTEINK SD card, upload/download, cleanup   │
-│  • Advanced        : EPUB themes, OPDS, Web Dashboard, AI/Cloud sync   │
+│  • Advanced        : App theme/language, OPDS, Dashboard, AI, Sharing │
 │                                                                        │
 ├────────────────────────────────────────────────────────────────────────┤
-│  [Run Full Scraping & Sync Immediately]     [News Preview]     [Cancel]│
-│  Progress: [████████████████░░░░░░] 75% - Naver blog sync complete    │
+│  [▶ Sync now (collect → EPUB → send)]  [🔍 Preview and pick] [Cancel]│
+│  ⏳ Processing source 3/4…  [██████████████░░░░]   [Hide log ▾]       │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
