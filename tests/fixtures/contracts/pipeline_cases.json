@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "note": "Independent oracle: human-fixed input articles x physical devices x prior history. Do not compute expected with needs_sync()/group_articles_by_pending_targets()/merge_sites().",
+  "articles": {
+    "A": {"title": "아침 글 A", "url": "https://news.example/a", "content": "<p>본문 A 안녕</p>"},
+    "B": {"title": "점심 글 B", "url": "https://news.example/b", "content": "<p>본문 B 안녕</p>"},
+    "C": {"title": "저녁 글 C", "url": "https://news.example/c", "content": "<p>본문 C 안녕</p>"}
+  },
+  "cases": [
+    {"id": "PIPE-01", "input": ["A", "B"], "devices": 1, "inject": "none",
+     "expected_uploads": 1, "expected_epub_contains": ["A", "B"], "expected_history": {"A": 1, "B": 1}},
+    {"id": "PIPE-02", "input": ["A", "B"], "devices": 1, "inject": "rerun-same",
+     "expected_uploads": 0, "expected_history_new_rows": 0},
+    {"id": "PIPE-03", "input": ["A", "B", "C"], "devices": 1, "inject": "after-PIPE-01",
+     "expected_uploads": 1, "expected_epub_contains": ["C"], "expected_epub_excludes": ["A", "B"]},
+    {"id": "PIPE-04", "input": ["A", "B"], "devices": 2, "inject": "second-device-500",
+     "expected_uploads": 1, "expected_history": {"first": ["A", "B"], "second": []}},
+    {"id": "PIPE-05", "input": ["A", "B"], "devices": 2, "inject": "second-device-recovered",
+     "expected_uploads": 1, "expected_resend_to_first": 0},
+    {"id": "PIPE-10", "input": ["A", "B", "C"], "select": ["A", "C"],
+     "expected_epub_contains": ["A", "C"], "expected_epub_excludes": ["B"]},
+    {"id": "PIPE-11", "input": ["A", "B"], "epub_only": true,
+     "expected_uploads": 0, "expected_db_writes": 0},
+    {"id": "PIPE-12", "input": ["A", "B"], "devices": 2, "merge_mode": "daily_digest",
+     "expected_uploads_per_device": 1}
+  ]
+}

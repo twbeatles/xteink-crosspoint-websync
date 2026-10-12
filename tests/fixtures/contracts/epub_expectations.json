@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "required_entries": ["mimetype", "META-INF/container.xml", ".opf", ".xhtml", "toc.ncx", "nav"],
+  "forbidden_body_patterns": ["<script", "onerror=", "onclick=", "javascript:"],
+  "note": "Byte-for-byte comparison is forbidden (zip timestamps/metadata differ); assert meaning-structure."
+}

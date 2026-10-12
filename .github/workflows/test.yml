@@ -7,25 +7,73 @@ on:
     branches: [main]
 
 jobs:
-  pytest:
+  unit-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.15"
           cache: pip
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Sanity — no dist artifacts required by tests
-        # dist/ 는 gitignore. 클론 직후 없어야 정상 (로컬 전용 데이터 유입 방지 확인)
         run: |
           if [ -d dist ] && [ -n "$(find dist -type f 2>/dev/null | head -1)" ]; then
             echo "::warning::Unexpected files under dist/ in CI checkout"
           fi
           test ! -f dist/synced_posts.json
-      - name: Run tests
-        # -q: 요약, --tb=short: CI 로그 가독성, -ra: 스킵/실패 사유
+      - name: Run hermetic + unit tests
+        run: python -m pytest tests/ -q --tb=short -ra --ignore=tests/test_pipeline_http_integration.py --ignore=tests/test_pipeline_failure_recovery.py --ignore=tests/test_backup_interleavings.py
+
+  contract-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.15"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run loopback HTTP/SQLite/EPUB contract + integration
+        run: python -m pytest tests/test_crosspoint_http_contract.py tests/test_crosspoint_upload_failure_matrix.py tests/test_device_client_branches.py tests/test_device_path_properties.py tests/test_pipeline_http_integration.py tests/test_pipeline_failure_recovery.py tests/test_backup_interleavings.py tests/test_backup_crash_consistency.py tests/test_history_state_machine.py tests/test_device_identity_properties.py tests/test_epub_structural_contract.py tests/test_scraper_sanitization.py tests/test_scraper_metamorphic.py tests/test_http_server_lifecycle.py tests/test_opds_security_contract.py tests/test_gui_user_journey.py tests/test_pipeline_multiprocess_lock.py tests/test_release_frozen_contract.py -q --tb=short -ra
+
+  integration-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.15"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run full suite (temp paths, subprocess, loopback HTTP)
         run: python -m pytest tests/ -q --tb=short -ra
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.15"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest-cov
+      - name: Coverage (branch, core paths)
+        run: python -m pytest tests/ -q --tb=short --cov=websync --cov-branch --cov-report=term-missing --cov-report=xml:artifacts/coverage.xml
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: artifacts/coverage.xml
