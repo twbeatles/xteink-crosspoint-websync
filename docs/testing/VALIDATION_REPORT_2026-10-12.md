@@ -138,8 +138,14 @@ Key module branch coverages (core): `sync_pipeline` 90%, `upload_results` 87%, `
   helper bundles that one stub DLL at the bundle root. Rebuilt EXE: `--smoke` OK, `--version` OK.
   Regression pinned by `test_spec_collects_cryptography_rust_extension`.
 - Release: `chore: bump version to 1.3.1` + tag `v1.3.1` pushed; GitHub `Release` workflow
-  (3.15 build → frozen smoke → signed manifest → GitHub Release → `updates/latest.json`
-  publish) is running. CI `Tests` on the hardening commit is already green (success, ~2m).
+  completed success (~3m). Evidence: Release v1.3.1 carries
+  `xteink-crosspoint-websync-v1.3.1.exe` (28,030,880 bytes,
+  sha256 `03fd410a…`) + `latest.json`; bot commit `172b3ca` updated
+  `updates/latest.json` on main to 1.3.1 with matching URL/size/hash.
+  Independently verified locally: manifest Ed25519 signature validates in-app
+  (`verify_release_manifest`, current 1.3.0 → newer 1.3.1), and the downloaded
+  release EXE matches the manifest size and sha256 byte-for-byte.
+  CI `Tests` on the hardening commit is green (success, ~2m).
 
 ## CI & Release Decision
 
