@@ -85,3 +85,18 @@ def test_spec_keeps_locales_and_epub_resources():
     spec = pathlib.Path("x3_websync.spec").read_text(encoding="utf-8")
     assert "locales" in spec
     assert "hiddenimports" in spec
+
+
+def test_spec_collects_cryptography_rust_extension():
+    """Frozen EXE died with 'DLL load failed while importing _rust' because the
+    _rust/ stub dir shadows _rust.pyd. The spec must collect it explicitly."""
+    import pathlib
+
+    spec = pathlib.Path("x3_websync.spec").read_text(encoding="utf-8")
+    assert "cryptography.hazmat.bindings._rust" in spec
+    assert "_rust.pyd" in spec
+    assert "binaries=cryptography_binaries" in spec
+    # _rust.pyd links 3.15's abi3t-compat python3t.dll, which dependency
+    # analysis misses; without it the frozen EXE fails at import.
+    assert "python3t.dll" in spec
+    assert "abi3t-compat" in spec

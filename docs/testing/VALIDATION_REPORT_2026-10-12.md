@@ -126,7 +126,17 @@ Key module branch coverages (core): `sync_pipeline` 90%, `upload_results` 87%, `
 - Full suite after all changes: **472 passed, 0 failed** on Python 3.15.0
   (`python -m pytest tests/ -q --tb=short -ra`), `python x3_websync.py --smoke` OK.
 - Local frozen build: `pyinstaller --clean x3_websync.spec` on Python 3.15.0, frozen EXE
-  `--smoke` exit 0 (see command log below). `dist/`/`build/` are gitignored, not committed.
+  `--smoke` exit 0, `--version` exit 0. `dist/`/`build/` are gitignored, not committed.
+- Frozen-build defect found and fixed (product packaging, not app logic): first 3.15-frozen EXE
+  died with `ImportError: DLL load failed while importing _rust`. Root cause, verified step by step:
+  `PKG-00.toc` lacked `_rust.pyd` because `hazmat/bindings/_rust/` ships `.pyi` stubs that shadow
+  the native module from modulegraph (fixed via explicit `binaries`+`hiddenimports` in
+  `x3_websync.spec`); then still failing because `_rust.pyd` links 3.15's
+  `<prefix>/abi3t-compat/python3t.dll`, which dependency analysis misses and which exists
+  nowhere else on disk (proven via pefile import table + runtime module enumeration).
+  A repo-wide `.pyd` scan showed `_rust.pyd` is the sole `python3t.dll` consumer, so the spec
+  helper bundles that one stub DLL at the bundle root. Rebuilt EXE: `--smoke` OK, `--version` OK.
+  Regression pinned by `test_spec_collects_cryptography_rust_extension`.
 
 ## CI & Release Decision
 

@@ -5,6 +5,36 @@ import customtkinter
 
 block_cipher = None
 
+# cryptography>=44 ships hazmat/bindings/_rust/ as .pyi stubs next to the real
+# _rust.pyd extension; modulegraph resolves the stub dir and silently drops the
+# native module, so frozen EXEs die with "DLL load failed while importing _rust".
+# Collect the extension explicitly (verified on Python 3.15 + cryptography 50).
+def _cryptography_rust_binary():
+    import sys
+    try:
+        import cryptography
+    except ImportError:
+        return []
+    out = []
+    pyd = os.path.join(
+        os.path.dirname(cryptography.__file__), 'hazmat', 'bindings', '_rust.pyd'
+    )
+    if os.path.isfile(pyd):
+        out.append((pyd, os.path.join('cryptography', 'hazmat', 'bindings')))
+    # _rust.pyd links the 3.15 free-threaded-compatible stable ABI
+    # (python3t.dll), which lives under <prefix>/abi3t-compat and which
+    # PyInstaller dependency analysis does not pick up. Without it the
+    # frozen EXE dies with "DLL load failed while importing _rust".
+    for prefix in {sys.base_prefix, sys.exec_prefix}:
+        stub = os.path.join(prefix, 'abi3t-compat', 'python3t.dll')
+        if os.path.isfile(stub):
+            out.append((stub, '.'))
+            break
+    return out
+
+
+cryptography_binaries = _cryptography_rust_binary()
+
 # 빌드 용량 경량화를 위해 선택적 의존성 및 무거운 라이브러리를 제외합니다.
 excludes = [
     # X3 WebSync의 선택적 기능 의존성 (경량화 빌드를 위해 제외)
@@ -34,7 +64,7 @@ excludes = [
 a = Analysis(
     ['x3_websync.py'],
     pathex=[],
-    binaries=[],
+    binaries=cryptography_binaries,
     datas=[
         ('websync/servers/templates/*.html', 'websync/servers/templates'),
         ('websync/epub/themes/*.css', 'websync/epub/themes'),
@@ -43,7 +73,8 @@ a = Analysis(
     ],
     hiddenimports=[
         'customtkinter', 'lxml', 'lxml.etree', 'ebooklib', 'bs4', 'requests',
-        'cryptography', 'cryptography.hazmat.primitives.asymmetric.ed25519',
+        'cryptography', 'cryptography.hazmat.bindings._rust',
+        'cryptography.hazmat.primitives.asymmetric.ed25519',
         'websync', 'websync.core', 'websync.core.paths', 'websync.core.logger',
         'websync.core.process_lock', 'websync.core.article', 'websync.core.types',
         'websync.core.update_constants', 'websync.core.update_manifest',
