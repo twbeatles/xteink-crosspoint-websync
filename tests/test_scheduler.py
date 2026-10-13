@@ -19,9 +19,13 @@ def test_resolve_script_path_preserves_windows_abs_on_any_host():
     assert SchedulerManager._dirname_for_script(resolved) == _WIN_PROJECT
 
 
-def test_linux_cron_quotes_paths_with_spaces():
-    mgr = SchedulerManager(script_path="/tmp/my project/x3_websync.py")
-    mgr.project_dir = "/tmp/my project"
+def test_linux_cron_quotes_paths_with_spaces(tmp_path):
+    # Real I/O goes through _backup_crontab, so use isolated storage instead
+    # of a hardcoded /tmp path (forbidden by the storage guard, meaningless
+    # on Windows). The "my project" space keeps the quoting purpose intact.
+    project = tmp_path / "my project"
+    mgr = SchedulerManager(script_path=str(project / "x3_websync.py"))
+    mgr.project_dir = str(project)
 
     with patch.object(mgr, "_register_windows"):
         with patch("sys.platform", "linux"):
