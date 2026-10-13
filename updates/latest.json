@@ -1,10 +1,10 @@
 {
   "payload": {
-    "artifact_url": "https://github.com/twbeatles/xteink-crosspoint-websync/releases/download/v1.3.1/xteink-crosspoint-websync-v1.3.1.exe",
-    "expires_at": "2027-10-12T03:19:54Z",
-    "sha256": "03fd410a5220e3303435f8df29c00c3617d091ce55ffee520d776d24079ca66a",
-    "size": 28030880,
-    "version": "1.3.1"
+    "artifact_url": "https://github.com/twbeatles/xteink-crosspoint-websync/releases/download/v1.3.2/xteink-crosspoint-websync-v1.3.2.exe",
+    "expires_at": "2027-10-13T07:14:23Z",
+    "sha256": "4876c91ab71723ea83f19bb09b7382376c1cf99001967d843acb025e3f694928",
+    "size": 28046709,
+    "version": "1.3.2"
   },
-  "signature": "1O9NjACY4WXPm/3KMsdft0PmBNawGeRHyTzK9NaKAqOHMWC3BOhZIWPxbtptAJtWd6YpHwSy2kJaaCDjb6clAQ=="
+  "signature": "LJsPKWMQ63r/HX37HIhWP8XxdHfOvEOcmYIpNBd+DvwAhUHgAH3qIajcQjygiWATT07hiwjOIvSYR1mN+1fUDA=="
 }
