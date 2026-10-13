@@ -281,5 +281,8 @@ def sync_selected_articles(
             }
             return False
         return overall_ok
+    except Exception as error:
+        service.record_job_failure(error)
+        raise
     finally:
         service._release_pipeline_locks()

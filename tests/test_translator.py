@@ -3,8 +3,13 @@
 외부 번역 API 호출은 mock 하고, logger 주입 동작만 검증한다.
 """
 from io import BytesIO
+import asyncio
 import json
+import threading
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from websync.pipeline.translator import Translator
 
@@ -96,3 +101,100 @@ def test_translator_libretranslate_success():
     with patch("urllib.request.urlopen", return_value=fake_resp):
         result = t._do_translate("hello", "ko", "en")
     assert result == "안녕하세요"
+
+
+class _AsyncGoogleClient:
+    def __init__(self, *, timeout, raise_exception):
+        assert timeout == 10.0
+        assert raise_exception is True
+        self.loop = asyncio.get_running_loop()
+        self.thread = threading.get_ident()
+        self.calls = []
+        self.closed = False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        assert asyncio.get_running_loop() is self.loop
+        self.closed = True
+
+    async def translate(self, text, *, dest, src):
+        assert asyncio.get_running_loop() is self.loop
+        self.calls.append((text, dest, src))
+        return SimpleNamespace(text="번역된 문장")
+
+
+def _google_factory(translator):
+    clients = []
+
+    def factory(**kwargs):
+        client = _AsyncGoogleClient(**kwargs)
+        clients.append(client)
+        return client
+
+    translator._gtrans = factory
+    return clients
+
+
+def test_googletrans_awaits_nodes_preserves_tags_and_closes_client():
+    translator = Translator(_config(provider="googletrans"))
+    clients = _google_factory(translator)
+    result = translator.translate_html('<p class="keep"> hello world </p><b>another sentence</b>')
+    assert result == '<p class="keep"> 번역된 문장 </p><b>번역된 문장</b>'
+    assert len(clients) == 1
+    assert clients[0].calls == [("hello world", "ko", "auto"), ("another sentence", "ko", "auto")]
+    assert clients[0].closed
+
+
+def test_googletrans_creates_and_closes_client_for_each_call():
+    translator = Translator(_config(provider="googletrans"))
+    clients = _google_factory(translator)
+    for _ in range(2):
+        assert translator.translate_html("<p>hello world</p>", "ja", "en") == "<p>번역된 문장</p>"
+    assert len(clients) == 2
+    assert clients[0].loop is not clients[1].loop
+    assert all(client.closed and client.loop.is_closed() for client in clients)
+    assert all(client.calls == [("hello world", "ja", "en")] for client in clients)
+
+
+def test_googletrans_sync_api_from_running_event_loop():
+    translator = Translator(_config(provider="googletrans"))
+    clients = _google_factory(translator)
+
+    async def caller():
+        host_loop = asyncio.get_running_loop()
+        host_thread = threading.get_ident()
+        assert translator.translate_html("<p>hello world</p>") == "<p>번역된 문장</p>"
+        assert clients[0].loop is not host_loop
+        assert clients[0].thread != host_thread
+        assert asyncio.get_running_loop() is host_loop
+
+    asyncio.run(caller())
+    assert clients[0].closed
+
+
+def test_googletrans_failure_closes_client_logs_and_returns_entire_original():
+    logger = MagicMock()
+    translator = Translator(_config(provider="googletrans"), logger=logger)
+    clients = _google_factory(translator)
+    original_translate = _AsyncGoogleClient.translate
+
+    async def fail_second(self, text, **kwargs):
+        if self.calls:
+            raise TimeoutError("translation timeout")
+        return await original_translate(self, text, **kwargs)
+
+    html = "<p>first sentence</p><p>second sentence</p>"
+    with patch.object(_AsyncGoogleClient, "translate", fail_second):
+        assert translator.translate_html(html) == html
+    assert clients[0].closed
+    assert clients[0].loop.is_closed()
+    logger.warning.assert_called_once()
+
+
+def test_googletrans_availability_does_not_construct_client():
+    translator = Translator(_config(provider="googletrans"))
+    clients = _google_factory(translator)
+    assert translator.is_available_for_site("ko")
+    assert not clients

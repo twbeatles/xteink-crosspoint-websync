@@ -48,6 +48,7 @@ def preview_articles(
         enabled_sites = [s for s in config.get("sites", []) if s.get("enabled", True)]
         if not enabled_sites:
             log(t("pipeline.preview.no_sites"))
+            service._last_pipeline_result = {"status": "no_sites", "success": False}
             return []
 
         total_sites = len(enabled_sites)
@@ -67,10 +68,13 @@ def preview_articles(
         key_aliases = alias_key_groups(upload_targets)
         history_mode = get_portable_cfg(config).get("history_mode", "per_device")
         preview_results = []
+        cancelled = False
+        errors = 0
 
         for site_idx, site in enumerate(enabled_sites):
             if getattr(service, "is_cancel_requested", lambda: False)():
                 log(t("pipeline.cancelled"))
+                cancelled = True
                 break
             name = site.get("name", t("pipeline.unnamed_site"))
             scraper_type = site.get("type", "css")
@@ -115,9 +119,11 @@ def preview_articles(
                         "title": art.get("title", t("pipeline.preview.untitled")),
                         "url": art.get("url", ""),
                         "content": art.get("content", ""),
-                        "scraper_type": scraper_type
+                        "scraper_type": scraper_type,
+                        "include_images": bool(site.get("include_images", False)),
                     })
             except Exception as e:
+                errors += 1
                 service.logger.exception(t("pipeline.preview.error_log", site=name, error=e))
                 log(t("pipeline.preview.scrape_fail", site=name, error=e))
 
@@ -125,6 +131,15 @@ def preview_articles(
             progress_callback(total_sites, total_sites)
 
         log(t("pipeline.preview.summary", n=len(preview_results)))
+        service._last_pipeline_result = {
+            "status": "cancelled" if cancelled else ("errors" if errors else "completed"),
+            "success": not cancelled and not errors, "article_count": len(preview_results),
+            "site_errors": errors,
+        }
         return preview_results
+    except Exception as error:
+        if not isinstance(error, BackupSyncError):
+            service.record_job_failure(error)
+        raise
     finally:
         service._release_pipeline_locks()

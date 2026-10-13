@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 import http.cookies
-from http.server import BaseHTTPRequestHandler
+from websync.servers.http_lifecycle import GracefulHTTPHandler
 from typing import TYPE_CHECKING
 
 from websync.servers.dashboard.session import (
@@ -21,9 +21,11 @@ if TYPE_CHECKING:
     from websync.servers.dashboard.http_server import DashboardHTTPServer
 
 
-class DashboardHandler(BaseHTTPRequestHandler):
+class DashboardHandler(GracefulHTTPHandler):
     protocol_version = "HTTP/1.0"
     timeout = 2
+    protocol_version = "HTTP/1.1"
+    MAX_POST_BYTES = 64 * 1024
 
     @property
     def _ctx(self) -> "DashboardHTTPServer":
@@ -124,6 +126,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self):
+        # Consume bounded request bodies before responding, including rejected
+        # requests. This keeps persistent HTTP framing intact on every route.
+        try:
+            if self.headers.get("Transfer-Encoding"):
+                raise ValueError("Transfer-Encoding is not supported")
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 0 or length > self.MAX_POST_BYTES:
+                raise ValueError("Invalid request body size")
+            body_bytes = self.rfile.read(length) if length else b""
+            if len(body_bytes) != length:
+                raise ValueError("Incomplete request body")
+        except (ValueError, OSError) as error:
+            self.close_connection = True
+            self._send_json(400, {"error": str(error)})
+            return
         if self.path == "/api/login":
             token = self._ctx.api_token
             if not token:
@@ -133,8 +150,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             token_ok = auth.startswith("Bearer ") and token_matches(auth[7:].strip(), token)
             if not token_ok:
                 try:
-                    length = int(self.headers.get("Content-Length", 0))
-                    body = self.rfile.read(length).decode("utf-8") if length else "{}"
+                    body = body_bytes.decode("utf-8") if body_bytes else "{}"
                     data = json.loads(body or "{}")
                     token_ok = token_matches(str(data.get("token") or ""), token)
                 except Exception:

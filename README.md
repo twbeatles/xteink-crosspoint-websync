@@ -173,7 +173,7 @@ Manage files on the XTEINK reader directly from your desktop when in `File Trans
 ### 7. Advanced Services & Extensibility
 - **Built-in OPDS Catalog Server**: Serves generated EPUBs as a standardized OPDS feed so you can browse and download books directly from OPDS-compatible reader apps.
 - **Display language**: Follows the OS UI language (`auto`) or lock to Korean / English in **Advanced**. Restart the app after changing it.
-- **Remote Web Dashboard**: Control sync operations, cancel tasks, and monitor live streaming logs from any smartphone, tablet, or secondary PC on the same Wi-Fi network.
+- **Remote Web Dashboard**: Control sync operations, cancel tasks, and monitor automatically refreshed logs from any smartphone, tablet, or secondary PC on the same Wi-Fi network.
 - **AI Summary & Translation**:
   - Summarize long articles into concise bullet points using OpenAI or local Ollama models.
   - Automatically translate foreign articles into your native language using LibreTranslate or googletrans.
@@ -250,3 +250,14 @@ All user data is stored locally in the application directory:
 ## 📄 License
  
 This project is licensed under the [MIT License](LICENSE) — see the [LICENSE](LICENSE) file for details.
+
+
+## Reliability and offline reading
+
+[Audit implementation and verification](docs/AUDIT_IMPLEMENTATION.md) records the fixes and test scope.
+
+- Site image inclusion packages PNG/JPEG/GIF into EPUB for offline reading; Pillow remains optional for covers. Failed/unsupported/oversized images use alternate text.
+- Closing the GUI cancels and drains accepted work before destroying the window. A new preview or selective sync starts with a fresh cancellation scope.
+- The dashboard includes cancel and refreshes both status and logs every five seconds. An uncertain request result should be checked through status before submitting again.
+- Cloud replicas reconcile per-installation snapshots in `.websync-replicas` alongside canonical JSON. Keep this directory in cloud sync. Only one PC should automatically deliver to the same reader; local cloud-folder locks do not provide cross-PC delivery exclusion.
+- Transfer filenames use ASCII plus an original-name hash; EPUB titles preserve their original language.

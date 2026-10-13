@@ -20,7 +20,8 @@
 <h1>{{i18n.dashboard.heading}}</h1>
 <div class="card">
   <h2>{{i18n.dashboard.sync_control}}</h2>
-  <button onclick="runSync()">{{i18n.dashboard.run_sync}}</button>
+  <button id="sync-button" onclick="runSync()">{{i18n.dashboard.run_sync}}</button>
+  <button id="cancel-button" onclick="cancelSync()" disabled>{{i18n.dashboard.cancel_sync}}</button>
   <button onclick="refreshStatus()">{{i18n.dashboard.refresh_status}}</button>
   <div id="sync-result"></div>
   <div id="status-area"></div>
@@ -31,35 +32,64 @@
   <div id="log-area">{{i18n.dashboard.log_loading}}</div>
 </div>
 <script>
+let refreshing = false;
 async function apiFetch(url, opts={}) {
-  const r = await fetch(url, {credentials: 'same-origin', ...opts});
-  if (r.status === 401) { window.location.href = '/'; return null; }
-  return r;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const r = await fetch(url, {credentials: 'same-origin', signal: controller.signal, ...opts});
+    if (r.status === 401) { window.location.href = '/'; return null; }
+    return r;
+  } finally { clearTimeout(timer); }
 }
-async function runSync() {
-  document.getElementById('sync-result').textContent = '{{i18n.dashboard.syncing}}';
-  const r = await apiFetch('/api/sync', {method: 'POST'});
-  if (!r) return;
-  const d = await r.json();
-  document.getElementById('sync-result').textContent = d.message || d.error || '{{i18n.dialog.info}}';
-  refreshStatus();
+async function controlSync(path) {
+  const buttons = [document.getElementById('sync-button'), document.getElementById('cancel-button')];
+  buttons.forEach(button => button.disabled = true);
+  try {
+    const r = await apiFetch(path, {method: 'POST'});
+    if (!r) return;
+    const d = await r.json();
+    document.getElementById('sync-result').textContent = d.message || d.error || '{{i18n.dialog.info}}';
+  } catch (error) {
+    document.getElementById('sync-result').textContent = '{{i18n.dashboard.request_error}}';
+  } finally { await refreshAll(); }
 }
+async function runSync() { await controlSync('/api/sync'); }
+async function cancelSync() { await controlSync('/api/cancel'); }
 async function refreshStatus() {
-  const r = await apiFetch('/api/status');
-  if (!r) return;
-  const d = await r.json();
-  document.getElementById('status-area').textContent = JSON.stringify(d, null, 2);
+  try {
+    const r = await apiFetch('/api/status');
+    if (!r) return;
+    const d = await r.json();
+    document.getElementById('status-area').textContent = JSON.stringify(d, null, 2);
+    document.getElementById('sync-button').disabled = !!d.running;
+    document.getElementById('cancel-button').disabled = !d.running;
+  } catch (error) {
+    document.getElementById('status-area').textContent = '{{i18n.dashboard.request_error}}';
+    document.getElementById('sync-button').disabled = false;
+    document.getElementById('cancel-button').disabled = false;
+  }
 }
 async function refreshLog() {
-  const r = await apiFetch('/api/log');
-  if (!r) return;
-  const d = await r.json();
-  document.getElementById('log-area').textContent = d.log || '{{i18n.dashboard.no_log}}';
-  document.getElementById('log-area').scrollTop = document.getElementById('log-area').scrollHeight;
+  try {
+    const r = await apiFetch('/api/log');
+    if (!r) return;
+    const d = await r.json();
+    const area = document.getElementById('log-area');
+    area.textContent = d.log || '{{i18n.dashboard.no_log}}';
+    area.scrollTop = area.scrollHeight;
+  } catch (error) {
+    document.getElementById('log-area').textContent = '{{i18n.dashboard.request_error}}';
+  }
 }
-refreshLog();
-refreshStatus();
-setInterval(refreshStatus, 5000);
+async function refreshAll() {
+  if (refreshing) return;
+  refreshing = true;
+  try { await Promise.all([refreshStatus(), refreshLog()]); }
+  finally { refreshing = false; }
+}
+refreshAll();
+setInterval(refreshAll, 5000);
 </script>
 </body>
 </html>

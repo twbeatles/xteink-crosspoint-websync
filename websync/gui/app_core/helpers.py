@@ -34,6 +34,7 @@ class AppHelpersMixin:
         widget.bind("<FocusOut>", lambda _e: self._save_ui_settings())
 
     def _set_sync_ui_busy(self, busy: bool) -> None:
+        busy = busy or getattr(self, "_closing", False)
         self._sync_busy = busy
         state = "disabled" if busy else "normal"
 
@@ -121,6 +122,8 @@ class AppHelpersMixin:
 
     def _safe_save_config(self, config: dict, *, parent=None, reload: bool = False) -> bool:
         """설정을 저장합니다. revision CAS로 동시 갱신(백업 pull 등)과 충돌을 감지·재시도합니다."""
+        if getattr(self, "_closing", False):
+            return False
         max_conflict_retries = 3
         try:
             # 치명적 검증 오류 시 저장 거부

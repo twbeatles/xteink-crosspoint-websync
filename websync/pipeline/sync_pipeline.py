@@ -40,8 +40,6 @@ def run_sync_pipeline_locked(
             print(msg)
 
     log(t("pipeline.start"))
-    if hasattr(service, "clear_cancel"):
-        service.clear_cancel()
     service._reload_config()
 
     # 한 번의 실행은 시작 시점의 설정과 구성요소를 일관되게 사용합니다.
@@ -143,6 +141,7 @@ def run_sync_pipeline_locked(
 
             for art in articles:
                 art["url"] = article_sync_key(art, name, base_url)
+                art["include_images"] = bool(site.get("include_images", False))
 
             new_articles = []
             for art in articles:

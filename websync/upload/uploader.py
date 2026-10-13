@@ -43,7 +43,7 @@ class X3Uploader:
         base, ext = os.path.splitext(os.path.basename(file_path))
         # hashlib.md5 기반 6자리 short hash 생성하여 파일명 중복 덮어쓰기 방지
         h = hashlib.md5(base.encode("utf-8", errors="replace")).hexdigest()[:6]
-        safe_base = "".join([c if c.isalnum() or c in ("-", "_") else "_" for c in base])
+        safe_base = "".join([c if (c.isascii() and c.isalnum()) or c in ("-", "_") else "_" for c in base])
         while "__" in safe_base:
             safe_base = safe_base.replace("__", "_")
         safe_base = safe_base.strip("_")

@@ -28,37 +28,53 @@ def build_selected_epubs(
         log(t("pipeline.selected.none"))
         return []
 
-    service._reload_config()
-    config = service.config
-    builder = service.epub_builder
-    generate_cover = bool(config.get("epub_cover", True))
+    if not service._try_acquire_pipeline_locks(log):
+        return []
+    try:
+        service._reload_config()
+        config = service.config
+        builder = service.epub_builder
+        generate_cover = bool(config.get("epub_cover", True))
 
-    articles_by_site: dict[str, list[dict]] = {}
-    for art in selected_articles:
-        site_name = art.get("site_name") or t("pipeline.selected.other_site")
-        clean = {k: v for k, v in art.items() if k not in ("site_name", "scraper_type")}
-        articles_by_site.setdefault(site_name, []).append(clean)
+        articles_by_site: dict[str, list[dict]] = {}
+        for art in selected_articles:
+            site_name = art.get("site_name") or t("pipeline.selected.other_site")
+            clean = {k: v for k, v in art.items() if k not in ("site_name", "scraper_type")}
+            articles_by_site.setdefault(site_name, []).append(clean)
 
-    paths: list[str] = []
-    if config.get("epub_merge_mode", "per_site") == "daily_digest":
-        if progress_callback:
-            progress_callback(0, 1)
-        paths.append(builder.build_digest(articles_by_site, generate_cover=generate_cover))
-        if progress_callback:
-            progress_callback(1, 1)
-    else:
-        total = len(articles_by_site)
-        for idx, (site_name, arts) in enumerate(articles_by_site.items()):
-            if getattr(service, "is_cancel_requested", lambda: False)():
-                log(t("pipeline.cancelled"))
-                break
+        paths: list[str] = []
+        cancelled = False
+        if service.is_cancel_requested():
+            cancelled = True
+        elif config.get("epub_merge_mode", "per_site") == "daily_digest":
             if progress_callback:
-                progress_callback(idx, total)
-            paths.append(builder.build(site_name, arts, generate_cover=generate_cover))
-        if progress_callback:
-            progress_callback(total, total)
+                progress_callback(0, 1)
+            paths.append(builder.build_digest(articles_by_site, generate_cover=generate_cover))
+            if progress_callback:
+                progress_callback(1, 1)
+        else:
+            total = len(articles_by_site)
+            for idx, (site_name, arts) in enumerate(articles_by_site.items()):
+                if getattr(service, "is_cancel_requested", lambda: False)():
+                    log(t("pipeline.cancelled"))
+                    cancelled = True
+                    break
+                if progress_callback:
+                    progress_callback(idx, total)
+                paths.append(builder.build(site_name, arts, generate_cover=generate_cover))
+            if progress_callback:
+                progress_callback(total, total)
 
-    for path in paths:
-        log(t("pipeline.file_created", filename=os.path.basename(path)))
-    log(t("pipeline.epub_only.done", count=len(paths), folder=os.path.dirname(paths[0]) if paths else ""))
-    return paths
+        for path in paths:
+            log(t("pipeline.file_created", filename=os.path.basename(path)))
+        log(t("pipeline.epub_only.done", count=len(paths), folder=os.path.dirname(paths[0]) if paths else ""))
+        service._last_pipeline_result = {
+            "status": "cancelled" if cancelled else "completed",
+            "success": not cancelled, "paths": paths,
+        }
+        return paths
+    except Exception as error:
+        service.record_job_failure(error)
+        raise
+    finally:
+        service._release_pipeline_locks()

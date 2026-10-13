@@ -51,6 +51,9 @@ class SyncService:
         self.backup_sync = BackupSyncService(self.config_manager, self.db, self.logger)
         self._last_pipeline_result: dict = {}
         self._cancel_event = threading.Event()
+        self._job_active = threading.Event()
+        self._job_state_lock = threading.Lock()
+        self._shutting_down = False
         self._backup_push_timer: threading.Timer | None = None
         self._backup_timer_lock = threading.Lock()
         self._pipeline_thread: threading.Thread | None = None
@@ -116,9 +119,15 @@ class SyncService:
         thread = self._pipeline_thread
         if thread is not None and thread.is_alive() and thread is not threading.current_thread():
             thread.join(timeout=max(0.0, deadline - time.monotonic()))
-        while self.is_pipeline_running() and time.monotonic() < deadline:
+        while self._job_active.is_set() and time.monotonic() < deadline:
             time.sleep(0.05)
-        return not self.is_pipeline_running()
+        return not self._job_active.is_set() and not (thread and thread.is_alive())
+
+    def prepare_shutdown(self) -> None:
+        """Reject new local jobs while accepted work drains."""
+        with self._job_state_lock:
+            self._shutting_down = True
+            self.request_cancel()
 
     def clear_cancel(self) -> None:
         self._cancel_event.clear()
@@ -251,6 +260,8 @@ class SyncService:
         log_callback: Optional[Callable[[str], None]] = None,
     ) -> bool:
         """파이프라인 스레드·프로세스 락을 비차단 획득. 실패 시 False."""
+        if self._shutting_down:
+            return False
         if not self._pipeline_lock.acquire(blocking=False):
             msg = t("pipeline.lock.already_running")
             self.logger.warning(msg)
@@ -269,13 +280,29 @@ class SyncService:
             else:
                 print(msg)
             return False
+        # Only accepted work gets a fresh cancellation scope. A rejected busy
+        # request must never clear the running job's cancellation.
+        with self._job_state_lock:
+            if self._shutting_down:
+                self._process_lock.release()
+                self._pipeline_lock.release()
+                return False
+            self.clear_cancel()
+            self._job_active.set()
+            self._last_pipeline_result = {"status": "running", "success": False}
         return True
 
     def _release_pipeline_locks(self) -> None:
         try:
             self._process_lock.release()
         finally:
+            self._job_active.clear()
             self._pipeline_lock.release()
+
+    def record_job_failure(self, error: Exception) -> None:
+        self._last_pipeline_result = {
+            "status": "failed", "success": False, "message": str(error),
+        }
 
     def _run_pipeline_body(
         self,
@@ -320,6 +347,7 @@ class SyncService:
             try:
                 self._run_pipeline_body(log_callback, progress_callback)
             except Exception as e:
+                self.record_job_failure(e)
                 self.logger.exception(t("pipeline.bg_sync_fail_log", error=e))
                 if log_callback:
                     try:
@@ -331,7 +359,12 @@ class SyncService:
 
         thread = threading.Thread(target=_run, daemon=True)
         self._pipeline_thread = thread
-        thread.start()
+        try:
+            thread.start()
+        except Exception as error:
+            self.record_job_failure(error)
+            self._release_pipeline_locks()
+            raise
         return True
 
     def run_sync_pipeline(
@@ -349,6 +382,9 @@ class SyncService:
 
         try:
             return self._run_pipeline_body(log_callback, progress_callback)
+        except Exception as error:
+            self.record_job_failure(error)
+            raise
         finally:
             self._release_pipeline_locks()
 

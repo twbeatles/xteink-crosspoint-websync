@@ -91,3 +91,41 @@ jobs:
         with:
           name: coverage-xml
           path: ${{ runner.temp }}/coverage.xml
+
+  platform-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.10', '3.15']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r requirements.txt
+      - name: Storage, cancellation, HTTP, EPUB and platform contracts
+        run: python -m pytest tests/test_storage_isolation.py tests/test_job_lifecycle.py tests/test_dashboard_request_contract.py tests/test_http_server_lifecycle.py tests/test_cloud_replica_recovery.py tests/test_epub_offline_images.py tests/test_scheduler.py tests/test_calibre.py tests/test_device_path_properties.py tests/test_pipeline_multiprocess_lock.py -q --tb=short
+
+  optional-translation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.15'
+      - run: python -m pip install -r requirements.txt 'googletrans>=4.0.2,<5'
+      - run: python -m pytest tests/test_translator.py tests/test_googletrans_contract.py -q -W error::RuntimeWarning
+
+  frozen-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.15'
+      - run: python -m pip install -r requirements.txt pyinstaller
+      - run: python scripts/verify_isolated_build.py

@@ -19,9 +19,10 @@ def test_sanitize_filename_korean_and_uniqueness():
     assert sanitized2.endswith(".epub")
     assert sanitized3.endswith(".epub")
 
-    # 2. 한글 보존 및 고유 Short Hash 포함 검증
-    assert "네이버뉴스_2026-07-31" in sanitized1
-    assert "티스토리_2026-07-31" in sanitized2
+    # 2. ASCII-safe transfer names retain the date and original-name hash.
+    assert "2026-07-31" in sanitized1
+    assert sanitized1.isascii() and sanitized2.isascii()
+    assert "2026-07-31" in sanitized2
     assert "2026-07-31" in sanitized3
 
     # 3. 고유한 파일명이 생성되어 파일명 중복 덮어씌우기가 방지되는지 검증

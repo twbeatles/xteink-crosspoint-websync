@@ -6,9 +6,10 @@ from http.server import ThreadingHTTPServer
 from typing import Callable, Optional
 
 from websync.servers.dashboard.handler import DashboardHandler
+from websync.servers.http_lifecycle import ExclusiveBindMixin
 
 
-class DashboardHTTPServer(ThreadingHTTPServer):
+class DashboardHTTPServer(ExclusiveBindMixin, ThreadingHTTPServer):
     """핸들러에 대시보드 설정·콜백을 주입하는 HTTP 서버 (ThreadingHTTPServer — 동시 요청 처리, N6)"""
 
     daemon_threads = False

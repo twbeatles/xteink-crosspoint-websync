@@ -39,6 +39,8 @@ class ConfigManager:
     CONFIG_VERSION = 3
 
     DEFAULT_CONFIG = {
+        "backup_replica_id": "",
+        "backup_replica_host": "",
         "config_version": CONFIG_VERSION,
         "x3_ip": "crosspoint.local",
         "x3_primary_device_id": "",

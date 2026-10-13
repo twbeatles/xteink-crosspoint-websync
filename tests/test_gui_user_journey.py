@@ -74,6 +74,8 @@ def test_epub_only_journey_never_touches_uploader_or_db():
         config={"epub_merge_mode": "per_site", "epub_cover": False},
         epub_builder=builder, uploader=MagicMock(), db=MagicMock(),
         is_cancel_requested=lambda: False,
+        _try_acquire_pipeline_locks=lambda _log: True,
+        _release_pipeline_locks=MagicMock(),
     )
     service._reload_config = lambda: None
     arts = [

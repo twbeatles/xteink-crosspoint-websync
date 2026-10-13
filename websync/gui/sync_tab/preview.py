@@ -55,6 +55,14 @@ class SyncPreviewMixin:
         self.app._reset_progress()
         self.app._log_message(t("gui.preview.log_done"))
 
+        result = self.service.get_last_pipeline_result()
+        if not self._preview_data and result.get("status") == "cancelled":
+            self.app._set_status(t("pipeline.cancelled"), "warn")
+            return
+        if not self._preview_data and result.get("status") in ("errors", "failed", "db_error"):
+            self.app._set_status(t("gui.bottom.status_failed"), "error")
+            return
+
         if not self._preview_data:
             self.app._set_status(t("gui.bottom.result_preview_empty"), "ok")
             messagebox.showinfo(t("gui.preview.result_title"), t("gui.preview.no_articles"))

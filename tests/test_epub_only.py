@@ -19,6 +19,8 @@ def _service(merge_mode: str):
         uploader=MagicMock(),
         db=MagicMock(),
         is_cancel_requested=lambda: False,
+        _try_acquire_pipeline_locks=lambda _log: True,
+        _release_pipeline_locks=MagicMock(),
     )
     service._reload_config = lambda: None
     return service

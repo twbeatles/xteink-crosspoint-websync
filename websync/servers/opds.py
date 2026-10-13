@@ -11,9 +11,10 @@ from urllib.parse import quote, unquote, urlparse, parse_qs
 from xml.sax.saxutils import escape
 
 from websync.i18n import t
+from websync.servers.http_lifecycle import ExclusiveBindMixin, GracefulHTTPHandler
 
 
-class _OPDSHTTPServer(ThreadingHTTPServer):
+class _OPDSHTTPServer(ExclusiveBindMixin, ThreadingHTTPServer):
     """핸들러에 OPDS 설정을 주입하는 HTTP 서버 (ThreadingHTTPServer — 동시 요청 처리, N6)."""
 
     daemon_threads = False
@@ -36,11 +37,23 @@ class _OPDSHTTPServer(ThreadingHTTPServer):
         super().handle_error(request, client_address)
 
 
-class OPDSHandler(BaseHTTPRequestHandler):
+class OPDSHandler(GracefulHTTPHandler):
     """OPDS XML 카탈로그 및 파일 다운로드를 처리하는 HTTP 핸들러"""
 
-    protocol_version = "HTTP/1.0"
     timeout = 2
+    protocol_version = "HTTP/1.1"
+
+    def send_error(self, code, message=None, explain=None):
+        # Length-delimited errors preserve the same framing as catalog/files;
+        # an auth rejection need not abruptly close a reusable connection.
+        body = (message or self.responses.get(code, ("Error",))[0]).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if getattr(self, "command", "GET") != "HEAD":
+            self.wfile.write(body)
+            self.wfile.flush()
 
     @property
     def _ctx(self) -> _OPDSHTTPServer:

@@ -7,6 +7,7 @@ import time
 import pytest
 
 from websync.db.history import SyncHistoryDb, SyncHistoryDbError, LEGACY_DEVICE_IP
+from contextlib import closing
 
 
 def _make_db() -> tuple[SyncHistoryDb, str]:
@@ -78,7 +79,7 @@ def test_legacy_migration():
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     try:
-        with sqlite3.connect(path) as conn:
+        with closing(sqlite3.connect(path)) as conn, conn:
             conn.execute("""
                 CREATE TABLE synced_posts (
                     url TEXT PRIMARY KEY,

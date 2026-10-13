@@ -1,0 +1,73 @@
+# Audit Implementation
+
+2026-10-13 — PROJECT_AUDIT.md 후속 구현 및 검증 기록.
+
+## 완료한 수정
+
+| 감사 항목 | 구현 | 검증 |
+|---|---|---|
+| ISSUE-001 / 백업 변경 유실 | 최신 config transaction 안에서 사이트·삭제 표식 병합. 반환된 snapshot 게시. 진행 중 include_history 변경은 검증된 component set 유지 | test_backup_config_concurrency.py: 독립 writer의 추가/편집/삭제/재등록 및 옵션 변경 |
+| ISSUE-004 / 테스트 격리 | import 전 X3_WEBSYNC_STORAGE_ROOT 주입, 테스트별 DB/log/output/sidecar/lock 격리. Python 파일·SQLite URI·dir_fd 접근 guard. service/builder 의존성 주입 | test_storage_isolation.py: synthetic sentinel, subprocess, URI/Windows 확장 경로 및 POSIX descriptor 보호 |
+| ISSUE-002 / 번역 | googletrans>=4.0.2,<5 async adapter. HTML별 client/event loop 수명 관리, auto source, await와 close. 기존 async host에서는 별도 worker loop | test_translator.py, test_googletrans_contract.py: async stub 및 설치된 4.0.2의 fake HTTP transport |
+| ISSUE-003 / 취소 | 성공적으로 수락된 작업만 새 취소 scope로 시작. busy 요청은 현재 취소 유지. preview/selected/EPUB-only 공통 락, 예외 결과 상태 갱신 | test_job_lifecycle.py, 기존 selected/preview/service 테스트 |
+| 종료·재실행 | 새 작업 수락 중지 → 서버/Watch 정지 → 자기 워커·commit 대기 → backup flush → Tk destroy. GUI thread는 after polling으로 유지하며 다른 CLI process의 락을 기다리지 않음 | 느린 worker barrier + 실제 SQLite commit 후 root destroy; async 예외/락 해제 |
+| 대시보드 HTTP | HTTP/1.1 + 정확한 Content-Length, 모든 POST의 bounded body 소비, malformed request 거부. bounded graceful close, Windows exclusive bind. mutation 자동 재시도 제거 | body 없음/JSON 반복 POST callback 횟수, 401/409/cancel, malformed length, 기존 HTTP/OPDS 계약 |
+| 대시보드 사용자 기능 | 취소 버튼, 상태 기반 버튼 활성화, 상태·로그 5초 polling, fetch timeout 및 응답 불확실성 안내 | template/API 계약. 실제 브라우저 도구는 연결된 browser가 없어 미실행 |
+| 오프라인 이미지 | include_images 기사에 PNG/JPEG/GIF를 EPUB item으로 포함. 상대 URL 해석, SHA-256 content dedup, image/book/count budget, private-host 제한. 실패 시 alt text | per-site/digest ZIP manifest·asset·XHTML 확인, unsupported/oversize/private image 거부 |
+| 클라우드 복제본 충돌 | .websync-replicas의 설치별 snapshot과 canonical JSON 병합. URL별 최신 변경·삭제 표식, 이력 resend/tombstone 정리. 다른 PC에 복사된 config의 writer ID 재생성 | 서로 다른 local replicas의 canonical overwrite 후 데이터 수렴, corrupted snapshot fail-closed, symlink boundary |
+| 파일명 문서 불일치 | 기기 전송 이름은 ASCII 문자와 원래 basename hash 사용. EPUB title은 원래 언어 유지 | 날짜·확장자·ASCII·한글 원본 사이의 고유성 |
+| 플랫폼·배포 | Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation CI, isolated frozen build script/job, 새 모듈 hiddenimports | Windows에서 actual frozen build 및 --smoke 통과. 다른 OS 결과는 CI 실행 결과 확인 필요 |
+
+## 사용자 계약
+
+- 한 번 수락된 동기화·선택 전송·미리보기·EPUB 생성은 같은 파이프라인 락을 사용한다. 취소 후 새 작업은 독립적으로 실행된다.
+- 종료 요청은 진행 중 HTTP 요청 자체를 강제로 끊지 않는다. 현재 작업이 정리되고 성공 이력이 기록될 때까지 창과 Tk event loop를 유지한다. Watch에서 아직 전송하지 못한 파일은 pending_files에 남아 재시작 시 다시 처리한다.
+- 정상 종료는 처리 중 워커의 DB commit과 backup flush를 기다린다. 강제 process kill/전원 손실 또는 기기가 전송을 완료한 뒤 응답을 잃은 경우는 분산 transaction으로 보장하지 않으며, 실패/불확실 상태에서는 재전송될 수 있다. 사용자 이력을 추정해서 성공 처리하지 않는다.
+- 이미지 포함은 기존 사이트별 옵션으로 활성화한다. 지원 raster 형식은 PNG/JPEG/GIF, 이미지당 4MiB, book 전체 24MiB, URL 수 32개다. 새 이미지 fetch 시작 budget은 30초이며 진행 중 요청은 HTTP timeout/retry 정책에 따라 마친다. 원격 srcset은 제거한다. 이미지 포함을 끈 기사는 scraper가 이미지 태그를 제거한다.
+- EpubBuilder를 직접 호출하는 개발자는 article에 include_images=True와 URL을 제공해야 offline packaging을 요청할 수 있다. Pillow는 표지 생성용 선택 의존성이고 raster embedding에는 필요하지 않다.
+- 일반 OneDrive/Dropbox/Google Drive 로컬 복제 폴더의 파일 락은 PC 사이의 전역 전송 락이 아니다. 설치별 snapshot은 동시 게시의 변경 보존·사후 수렴을 제공한다. **같은 reader로 자동 전송하는 PC는 하나만 활성화하고 다른 PC는 전송 전 공유 동기화 완료를 기다린다.** 여러 PC의 동시/offline 전송을 정확히 한 번으로 보장하려면 별도 server CAS/lease가 필요하며 이번 구현에서 제공한다고 주장하지 않는다.
+- canonical sites.json/synced_posts.json은 유지한다. 공유 폴더의 .websync-replicas도 함께 동기화해야 한다. 설치별 UUID는 local config에 저장되고 PC 이름은 local config에만 남는다. 단일 설치의 snapshot을 갱신하며 128개를 넘는 snapshot은 fail-closed한다. 이전 설치 snapshot을 제거할 때는 모든 기록이 canonical 정본에 반영된 뒤에만 사용자가 정리한다.
+- 잘못된 replica JSON/경로는 local config/DB mutation 전에 거부한다. include_history를 끄면 새로운 이력을 export하지 않으며 이미 공유된 이전 이력을 삭제하지 않는다.
+- 테스트 보호 장치는 Python 파일/SQLite I/O 경계이며 OS sandbox가 아니다. 임의 외부 실행 파일에 대한 격리를 보장하지 않는다. native integration은 disposable runner 또는 별도 sandbox에서 수행한다.
+
+## 테스트 권고 대응표
+
+| 보고서 권고 | 확인하는 파일/흐름 |
+|---|---|
+| Unit / 번역, input validation | test_translator, test_googletrans_contract, test_config_validator, test_scraper_limits |
+| Integration / config concurrency, backup 실패 | test_backup_config_concurrency, test_backup_service, test_backup_crash_consistency, test_backup_atomic_io |
+| End-to-End / scrape→EPUB→HTTP→history | test_pipeline_http_integration, test_pipeline_failure_recovery, test_epub_structural_contract |
+| Cancellation / close / restart | test_job_lifecycle, test_gui_user_journey, test_service, test_selected_sync, test_watch_calibre |
+| Concurrency / multiprocess / multiple readers | test_pipeline_multiprocess_lock, test_config_manager, test_multi_pc_history, test_multi_pc_pipeline, test_backup_interleavings |
+| Cloud replica delay/corruption | test_cloud_replica_recovery |
+| DB migration / rollback / deletion / resend | test_db, test_history_state_machine, test_backup_service |
+| HTTP transport / auth / traversal / file failures | test_dashboard_request_contract, test_http_server_lifecycle, test_opds_security_contract, test_crosspoint_http_contract, test_crosspoint_upload_failure_matrix, test_device_client_branches |
+| Content encoding/markup / offline image | test_scraper_sanitization, test_scraper_metamorphic, test_epub_offline_images, test_epub_structural_contract |
+| Paths / native adapter quoting / Calibre | test_device_path_properties, test_scheduler, test_calibre, test_paths |
+| updater signature/hash/cancel/rollback / frozen | test_update_manifest, test_update_installer, test_update_service, test_updater_cli, test_release_frozen_contract, scripts/verify_isolated_build.py |
+
+기존 테스트와 새 회귀 테스트를 함께 사용한다. 실제 사이트·기기·네이티브 GUI 정상성을 mock/loopback 통과만으로 보장하지 않는다.
+
+## 실행 가능한 검증
+
+```powershell
+python -m pytest tests/ -q --tb=short
+python -m pytest tests/test_translator.py tests/test_googletrans_contract.py -q -W error::RuntimeWarning
+python scripts/verify_isolated_build.py
+```
+
+coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 config.json/sync_history.db가 있는 root에서 smoke를 실행할 때도 X3_WEBSYNC_STORAGE_ROOT를 임시 경로로 지정해 테스트 데이터를 분리한다.
+
+## 실제 검증 결과
+
+최종 실행 결과는 아래에 기록한다.
+
+## 외부 확인 항목
+
+- 실제 X3/X4 EPUB 표시, Korean EPUB title와 ASCII 파일명, offline raster 이미지, 파일 API의 완료/덮어쓰기 의미.
+- 실제 cloud client의 동기화/충돌 파일 정책. snapshot 디렉터리가 숨김 폴더라는 이유로 제외되지 않는지 확인.
+- macOS/Linux native scheduler/notification 및 네이티브 GUI close; CI matrix는 계약을 검사하지만 실사용 환경을 대체하지 않는다.
+- 실제 Calibre 서재, 외부 scraper 사이트, YouTube, AI 및 번역 provider 네트워크. 이번 로컬 검증은 synthetic 데이터와 mock transport/loopback만 사용.
+- 실제 브라우저 login/start/cancel/polling. browser inventory가 비어 있어 자동 UI 조작은 실행하지 못함.
+
+코드·테스트·문서·CI 개선은 위 범위에서 처리했다. 외부 확인 항목은 실행 환경이 필요하며 통과했다고 기록하지 않는다.

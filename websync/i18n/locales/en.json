@@ -1100,7 +1100,9 @@
     "refresh_log": "🔄 Refresh log",
     "log_loading": "Loading log...",
     "syncing": "⏳ Syncing...",
-    "no_log": "(no log)"
+    "no_log": "(no log)",
+    "cancel_sync": "Cancel sync",
+    "request_error": "Could not confirm the request result. Refresh status to check."
   },
   "opds": {
     "catalog_title": "X3 WebSync OPDS catalog",

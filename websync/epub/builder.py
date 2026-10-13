@@ -13,6 +13,7 @@ from websync.epub.cover import make_cover_image
 from websync.epub.css import build_default_css, load_theme_css, resolve_css
 from websync.epub.sanitize import sanitize_body_html
 from websync.i18n import t
+from websync.epub.images import ImageAssets
 
 
 class EpubBuilder:
@@ -108,11 +109,14 @@ class EpubBuilder:
         spine = ["nav"]
         toc = []
         custom_css = self._resolve_css()
+        images = ImageAssets(book, self.logger)
 
         for idx, art in enumerate(articles):
             safe_title = html.escape(art.get("title", ""), quote=True)
             summary_html = art.get("summary_html", "")
             body_html = self._sanitize_body_html(art.get("content", ""))
+            if art.get("include_images", False):
+                body_html = images.embed(body_html, art.get("url", ""))
 
             chapter = epub.EpubHtml(
                 title=art.get("title", f"Chapter {idx + 1}"),
@@ -196,6 +200,7 @@ class EpubBuilder:
                 book.set_cover("images/cover.jpg", cover_data)
 
         theme_css = self._resolve_css()
+        images = ImageAssets(book, self.logger)
 
         chapters = []
         toc_sections = []
@@ -211,6 +216,8 @@ class EpubBuilder:
                 title = art.get("title", t("epub.digest.untitled", n=chapter_num))
                 safe_title = html.escape(title, quote=True)
                 body_html = self._sanitize_body_html(art.get("content", ""))
+                if art.get("include_images", False):
+                    body_html = images.embed(body_html, art.get("url", ""))
                 summary_html = art.get("summary_html", "")
                 summary_block = (
                     f'<blockquote class="ai-summary">{summary_html}</blockquote>'

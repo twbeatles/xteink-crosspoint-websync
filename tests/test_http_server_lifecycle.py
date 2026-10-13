@@ -19,18 +19,11 @@ from websync.servers.web_dashboard import WebDashboard
 
 
 def _request(method, url, **kw):
-    # Product servers expose no readiness gate (start() returns right after
-    # thread.start()), so the harness polls + retries *connection-level*
-    # failures only. HTTP status assertions below stay strict single-shot.
-    last = None
-    for _ in range(5):
-        try:
-            s = requests.Session()
-            s.trust_env = False
-            return s.request(method, url, timeout=5, **kw)
-        except requests.ConnectionError as e:
-            last = e
-    raise last
+    # Readiness retries belong to _wait_ready. Never replay a mutation after
+    # response loss: its callback may already have been accepted.
+    with requests.Session() as session:
+        session.trust_env = False
+        return session.request(method, url, timeout=5, **kw)
 
 
 def _get(url, **headers):

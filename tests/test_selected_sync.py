@@ -116,12 +116,11 @@ def test_selected_sync_rejects_when_busy():
 def test_selected_sync_returns_false_when_cancelled():
     """ISSUE-003: 취소 요청 시 빌드·전송 없이 False + cancelled 결과."""
     svc = _make_svc()
-    svc.request_cancel()
     selected = [
         {"site_name": "A", "title": "t", "url": "https://ex.com/1", "content": "<p>x</p>"},
     ]
     with patch.object(svc, "_reload_config"), \
-         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
+         patch.object(svc, "maybe_backup_pull", side_effect=lambda **kw: (svc.request_cancel() or {"skipped": True})), \
          patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
          patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub") as mock_build, \
          patch.object(

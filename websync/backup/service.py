@@ -39,6 +39,7 @@ from websync.core.paths import resolve_path
 from websync.core.process_lock import ProcessFileLock
 from websync.db.history import SyncHistoryDb, SyncHistoryDbError
 from websync.i18n import t
+from websync.backup.replicas import merge_replica_inputs, publish_replica, ensure_replica_id
 
 
 class BackupSyncError(Exception):
@@ -225,6 +226,7 @@ class BackupSyncService:
     def _pull_unlocked(self, *, force: bool = False) -> dict[str, Any]:
         config = self._load_config()
         bs = self._backup_cfg(config)
+        include_history = bool(bs.get("include_history", True))
         folder = self.get_folder(config)
         result: dict[str, Any] = {
             "ok": False,
@@ -264,11 +266,14 @@ class BackupSyncService:
             remote_sites_payload = self._read_shared_json(sites_path, list_key="sites")
             remote_hist_payload = (
                 self._read_shared_json(history_path, list_key="posts")
-                if bs.get("include_history", True)
+                if include_history
                 else None
             )
 
             # --- sites ---
+            remote_sites_payload, remote_hist_payload = merge_replica_inputs(
+                folder, remote_sites_payload, remote_hist_payload, include_history
+            )
             remote_sites, remote_sites_at = extract_sites(remote_sites_payload)
             remote_deleted_sites = extract_deleted_sites(remote_sites_payload)
             raw_sites = config.get("sites")
@@ -332,7 +337,7 @@ class BackupSyncService:
 
             # --- history ---
             history_changed = 0
-            if bs.get("include_history", True):
+            if include_history:
                 config, devices_changed = self._adopt_shared_device_ids(
                     config, extract_devices(remote_hist_payload)
                 )
@@ -351,7 +356,7 @@ class BackupSyncService:
                         self.last_result = result
                         return result
             result["history_changed"] = history_changed
-            if bs.get("include_history", True):
+            if include_history:
                 self._publish_device_registry(folder, config, remote_hist_payload)
 
             result["ok"] = True
@@ -430,6 +435,9 @@ class BackupSyncService:
             )
 
             # 공유 파일을 변경하기 전에 로컬 이력과 원격 정본의 합집합을 확정한다.
+            remote_sites_payload, remote_history_payload = merge_replica_inputs(
+                folder, remote_sites_payload, remote_history_payload, bs.get("include_history", True)
+            )
             # DB 병합이 실패하면 기존 sites/history/manifest를 그대로 보존한다.
             include_history = bool(bs.get("include_history", True))
             posts: list[dict] = []
@@ -466,6 +474,7 @@ class BackupSyncService:
 
             def _apply_site_merge(cfg: dict) -> None:
                 nonlocal devices_export
+                ensure_replica_id(cfg)
                 current = cfg.get("sites") if isinstance(cfg.get("sites"), list) else []
                 deleted_sites = merge_site_tombstones(
                     get_portable_cfg(cfg).get("deleted_sites", []), remote_deleted_sites
@@ -505,6 +514,9 @@ class BackupSyncService:
                 build_manifest(exported_at=exported_at, components=components),
             )
             result["manifest_written"] = True
+            publish_replica(folder, config["backup_replica_id"], sites_payload,
+                            hist_payload if include_history else None)
+            result["replica_written"] = True
 
             # 메타 기록 (LWW 기준) — RMW 로 다른 설정 덮어쓰기 방지
             hist_written = result["history_written"]

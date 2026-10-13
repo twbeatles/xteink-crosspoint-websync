@@ -132,6 +132,8 @@ class SettingsWatchMixin:
 
     def _upload_single_file(self, fpath: str) -> bool:
         """Watch 감지 파일 1건을 파이프라인 락 획득 후 업로드 (타임아웃 30초)."""
+        if getattr(self.service, "_shutting_down", False) is True:
+            return False
         pipeline_acquired = False
         process_acquired = False
         try:
@@ -154,6 +156,8 @@ class SettingsWatchMixin:
                 )
                 return False
 
+            if getattr(self.service, "_shutting_down", False) is True:
+                return False
             self.app.root.after(
                 0, lambda: self.app._log_message(t("gui.settings.watch.log_upload_start", name=os.path.basename(fpath)))
             )

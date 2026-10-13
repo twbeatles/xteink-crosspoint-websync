@@ -1,6 +1,6 @@
 # 선택 기능 의존성 (core pytest와 분리)
 -r requirements.txt
 Pillow>=10.0.0
-googletrans>=4.0.0  # 4.0.2 verified on Python 3.15 (2026-10-12); rc1 predates 3.15 (httpx 0.13 lineage)
+googletrans>=4.0.2,<5  # Async context manager API; adapter contract verified with 4.0.2
 youtube-transcript-api>=0.6.0
 watchdog>=4.0.0

@@ -153,3 +153,32 @@ def test_push_history_option_change_does_not_publish_unread_history(tmp_path, mo
     else:
         payload = json.loads((shared / HISTORY_FILENAME).read_text(encoding="utf-8"))
         assert len(payload["posts"]) == 1
+
+
+@pytest.mark.parametrize("include_history", [False, True])
+def test_pull_option_change_never_publishes_unread_history(tmp_path, monkeypatch, include_history):
+    service, writer, shared = _make_service(tmp_path, include_history)
+    before = (shared / HISTORY_FILENAME).read_bytes()
+    original = service._read_shared_json
+    changed = False
+
+    def read_then_change(path, **kwargs):
+        nonlocal changed
+        payload = original(path, **kwargs)
+        if not changed:
+            changed = True
+            writer.update_config(lambda cfg: apply_portable_cfg(cfg, {
+                "include_history": not include_history,
+            }))
+        return payload
+
+    monkeypatch.setattr(service, "_read_shared_json", read_then_change)
+    result = service.pull(force=True)
+    assert result["ok"]
+    assert get_portable_cfg(writer.load_config())["include_history"] is not include_history
+    if include_history:
+        assert service.db.get_count() == 1
+        assert len(json.loads((shared / HISTORY_FILENAME).read_text())["posts"]) == 1
+    else:
+        assert service.db.get_count() == 0
+        assert (shared / HISTORY_FILENAME).read_bytes() == before

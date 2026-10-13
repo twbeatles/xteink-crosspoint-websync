@@ -52,6 +52,8 @@ class AppSyncControlMixin:
         return worker
 
     def _start_background_task(self, target, *, kwargs=None, name=None, daemon=True):
+        if getattr(self, "_closing", False):
+            raise RuntimeError("Application is shutting down")
         worker = self._make_background_thread(
             target, kwargs=kwargs, name=name, daemon=daemon
         )
@@ -60,6 +62,8 @@ class AppSyncControlMixin:
 
     def _start_pipeline_ui_task(self, task, *, name, on_success):
         """Run a pipeline worker and always restore the GUI after it finishes."""
+        if getattr(self, "_closing", False):
+            return None
         def run():
             error = None
             try:
@@ -75,7 +79,8 @@ class AppSyncControlMixin:
                     else lambda message=error: self._pipeline_failed_ui(message)
                 )
                 try:
-                    self.root.after(0, callback)
+                    if not getattr(self, "_closing", False):
+                        self.root.after(0, callback)
                 except (tk.TclError, RuntimeError):
                     pass  # The window has already closed.
 
@@ -226,27 +231,46 @@ class AppSyncControlMixin:
     # ------------------------------------------------------------------
 
     def _on_close(self):
+        if getattr(self, "_closing", False):
+            return
         self._closing = True
-        if hasattr(self, "service") and self.service:
-            self.service.request_cancel()
-        if self._opds_server:
-            self._opds_server.stop()
-        if self._web_dashboard:
-            self._web_dashboard.stop()
-        if self._calibre_watcher:
-            self._calibre_watcher.stop()
-        try:
-            self.tab_settings._stop_watch_worker(wait_timeout=3.0)
-        except Exception:
-            pass
-        try:
-            if hasattr(self, "service") and self.service:
-                self.service.shutdown_pipeline(timeout=5.0)
+        self.service.prepare_shutdown()
+        finished = threading.Event()
+
+        def drain():
+            try:
+                for attr in ("_opds_server", "_web_dashboard", "_calibre_watcher"):
+                    component = getattr(self, attr, None)
+                    if component:
+                        try:
+                            component.stop()
+                        except Exception:
+                            self.service.logger.exception("Shutdown component failed: %s", attr)
+                try:
+                    self.tab_settings._stop_watch_worker(wait_timeout=0)
+                except Exception:
+                    self.service.logger.exception("Watch shutdown failed")
+                # Keep Tk alive so workers can finish their queued UI callbacks.
+                while not self.service.shutdown_pipeline(timeout=0.25):
+                    pass
+                while True:
+                    self._wait_for_background_tasks(timeout=0.25)
+                    with self._background_threads_lock:
+                        if not any(t.is_alive() for t in self._background_threads):
+                            break
                 self.service.flush_backup_push()
-        except Exception:
-            pass
-        self._wait_for_background_tasks(timeout=5.0)
-        self.root.destroy()
+            finally:
+                finished.set()
+
+        def poll():
+            if finished.is_set():
+                self.root.destroy()
+            else:
+                self.root.after(50, poll)
+
+        self._close_thread = threading.Thread(target=drain, name="app-shutdown", daemon=False)
+        self._close_thread.start()
+        self.root.after(50, poll)
 
     def run(self):
         self.root.mainloop()

@@ -1,4 +1,6 @@
 """기사 번역 모듈 (googletrans 또는 LibreTranslate 지원)"""
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import re
 
@@ -40,11 +42,43 @@ class Translator:
         if self._gtrans is None:
             try:
                 from googletrans import Translator as GT
-                self._gtrans = GT()
+                # Cache the factory, never an AsyncClient tied to another loop.
+                # Availability checks must not open a network client.
+                self._gtrans = GT
             except Exception as e:
                 self._gtrans = None
                 self._warn(t("pipeline.translator.gtrans_fail", error=e))
         return self._gtrans
+
+    def _translate_google_parts(self, parts: list[str], target: str, source: str) -> list[str]:
+        factory = self._get_gtrans()
+        if factory is None:
+            return parts
+
+        async def translate_parts() -> list[str]:
+            # Construction, requests and close all belong to this one loop.
+            async with factory(timeout=10.0, raise_exception=True) as client:
+                translated_parts = []
+                for part in parts:
+                    stripped = part.strip()
+                    if not part.startswith("<") and len(stripped) > 5:
+                        result = await client.translate(stripped, dest=target, src=source)
+                        translated_parts.append(part.replace(stripped, result.text))
+                    else:
+                        translated_parts.append(part)
+                return translated_parts
+
+        def run() -> list[str]:
+            return asyncio.run(translate_parts())
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return run()
+        # The public API is synchronous even when called from an async host.
+        # asyncio.run cannot nest in that host's thread; own a separate loop.
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="websync-translate") as executor:
+            return executor.submit(run).result()
 
     def translate_html(self, html_content: str, target_lang: str = "ko", source_lang: str = "auto") -> str:
         """HTML 내 텍스트 노드만 번역. 태그 구조는 보존."""
@@ -52,6 +86,8 @@ class Translator:
             return html_content
         try:
             parts = re.split(r"(<[^>]+>)", html_content)
+            if self.provider == "googletrans":
+                return "".join(self._translate_google_parts(parts, target_lang, source_lang))
             translated_parts = []
             for part in parts:
                 if part.startswith("<"):
@@ -70,11 +106,7 @@ class Translator:
 
     def _do_translate(self, text: str, target: str, source: str) -> str:
         if self.provider == "googletrans":
-            gt = self._get_gtrans()
-            if gt is None:
-                return text
-            result = gt.translate(text, dest=target, src=source if source != "auto" else None)
-            return result.text
+            return self._translate_google_parts([text], target, source)[0]
         elif self.provider == "libretranslate":
             host = (self.libretranslate_host or "").strip()
             if not (host.startswith("http://") or host.startswith("https://")):
