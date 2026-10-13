@@ -51,6 +51,24 @@ class StorageGuard:
                 or first.endswith(".lock")
                 or "설정백업" in first)
 
+    def _toolchain(self, event: str, relative: Path, resolved: Path) -> bool:
+        """pytest/coverage metadata inside the checkout is not application state.
+
+        A fresh clone has no .pytest_cache, so pytest's sessionfinish creates it
+        atomically (mkdir of the checkout root, a pytest-cache-files-* staging
+        directory, then rename). Coverage.py likewise writes .coverage* data
+        files next to the invocation directory. Blocking those breaks every CI
+        run on a clean checkout even though all tests passed.
+        """
+        if event == "os.mkdir" and resolved == self.repository:
+            return True
+        first = relative.parts[0].lower() if relative.parts else ""
+        return (first == ".pytest_cache"
+                or first.startswith("pytest-cache-files-")
+                or first == ".coverage"
+                or first.startswith(".coverage.")
+                or first == "coverage.xml")
+
     def __call__(self, event: str, args: tuple) -> None:
         paths = []
         write = False
@@ -106,7 +124,10 @@ class StorageGuard:
                 "__pycache__" in relative.parts or ".pytest_cache" in relative.parts)
             temporary = resolved.is_relative_to(self.allowed_root)
             protected = relative is not None and self._mutable(relative)
-            if protected or (write and not temporary and not cache and not null_sink):
+            toolchain = (relative is not None
+                         and self._toolchain(event, relative, resolved))
+            if protected or (write and not temporary and not cache
+                             and not toolchain and not null_sink):
                 message = f"Unsafe test storage access: {event} {path}"
                 self.violations.append(message)
                 raise AssertionError(message)

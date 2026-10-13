@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+# Keep toolchain metadata out of the checkout: a fresh runner has no
+# .pytest_cache, and its sessionfinish creation (plus coverage.py data files)
+# must never depend on the tests/storage_sandbox.py allow-list to succeed.
+env:
+  PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
+  COVERAGE_FILE: "${{ runner.temp }}/.coverage"
+
 jobs:
   unit-linux:
     runs-on: ubuntu-latest
@@ -71,9 +78,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest-cov
       - name: Coverage (branch, core paths)
-        run: python -m pytest tests/ -q --tb=short --cov=websync --cov-branch --cov-report=term-missing --cov-report=xml:artifacts/coverage.xml
+        run: python -m pytest tests/ -q --tb=short --cov=websync --cov-branch --cov-report=term-missing --cov-report=xml:$RUNNER_TEMP/coverage.xml
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-xml
-          path: artifacts/coverage.xml
+          path: ${{ runner.temp }}/coverage.xml

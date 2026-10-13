@@ -167,6 +167,36 @@ print('descriptor guard OK')
     assert "descriptor guard OK" in result.stdout
 
 
+def test_guard_allows_pytest_toolchain_metadata_but_blocks_app_state(tmp_path):
+    """Regression: a clean checkout has no .pytest_cache, so pytest's own
+    sessionfinish (atomic cache creation) and coverage.py data files must not
+    trip the storage guard. Every CI job failed on this after collection."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    guard = StorageGuard(repo)
+    # pytest _make_cachedir: anchor mkdir, staging dir, atomic rename.
+    guard("os.mkdir", (str(repo), 0o777, None))
+    guard("open", (str(repo / ".pytest_cache" / "v" / "cache" / "nodeids"),
+                   "w", os.O_WRONLY | os.O_CREAT))
+    guard("open", (str(repo / "pytest-cache-files-abc123" / "CACHEDIR.TAG"),
+                   "w", os.O_WRONLY | os.O_CREAT))
+    guard("os.rename", (str(repo / "pytest-cache-files-abc123"),
+                        str(repo / ".pytest_cache"), None, None))
+    # coverage.py parallel data files and XML report next to the invocation dir.
+    coverage_data = repo / ".coverage.localhost.12345.abcdef"
+    guard("open", (str(coverage_data), "w", os.O_WRONLY | os.O_CREAT))
+    guard("os.remove", (str(coverage_data), None))
+    guard("open", (str(repo / ".coverage"), "w", os.O_WRONLY | os.O_CREAT))
+    guard("open", (str(repo / "coverage.xml"), "w", os.O_WRONLY | os.O_CREAT))
+    assert guard.violations == []
+    # Application state in the checkout is still blocked.
+    with pytest.raises(AssertionError, match="Unsafe test storage access"):
+        guard("open", (str(repo / "config.json"), "w", os.O_WRONLY | os.O_CREAT))
+    with pytest.raises(AssertionError, match="Unsafe test storage access"):
+        guard("open", (str(repo / "output" / "book.epub"),
+                       "w", os.O_WRONLY | os.O_CREAT))
+
+
 def test_descriptor_open_context_applies_to_one_matching_event(tmp_path, monkeypatch):
     user = tmp_path / "user"
     safe = tmp_path / "safe"
