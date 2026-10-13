@@ -1101,8 +1101,8 @@
     "log_loading": "로그를 로드하는 중...",
     "syncing": "⏳ 동기화 실행 중...",
     "no_log": "(로그 없음)",
-    "cancel_sync": "??? ??",
-    "request_error": "?? ??? ???? ?????. ??? ????? ?????."
+    "cancel_sync": "동기화 취소",
+    "request_error": "요청 결과를 확인하지 못했습니다. 상태를 새로고침해 확인하세요."
   },
   "opds": {
     "catalog_title": "X3 WebSync OPDS 카탈로그",

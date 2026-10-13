@@ -6,7 +6,7 @@
 
 | 감사 항목 | 구현 | 검증 |
 |---|---|---|
-| ISSUE-001 / 백업 변경 유실 | 최신 config transaction 안에서 사이트·삭제 표식 병합. 반환된 snapshot 게시. 진행 중 include_history 변경은 검증된 component set 유지 | test_backup_config_concurrency.py: 독립 writer의 추가/편집/삭제/재등록 및 옵션 변경 |
+| ISSUE-001 / 백업 변경 유실 | 최신 config transaction 안에서 사이트·삭제 표식 병합. 반환된 snapshot 게시. push/pull 진행 중 include_history 변경은 검증된 component set 유지 | test_backup_config_concurrency.py: 독립 writer의 추가/편집/삭제/재등록 및 옵션 변경 |
 | ISSUE-004 / 테스트 격리 | import 전 X3_WEBSYNC_STORAGE_ROOT 주입, 테스트별 DB/log/output/sidecar/lock 격리. Python 파일·SQLite URI·dir_fd 접근 guard. service/builder 의존성 주입 | test_storage_isolation.py: synthetic sentinel, subprocess, URI/Windows 확장 경로 및 POSIX descriptor 보호 |
 | ISSUE-002 / 번역 | googletrans>=4.0.2,<5 async adapter. HTML별 client/event loop 수명 관리, auto source, await와 close. 기존 async host에서는 별도 worker loop | test_translator.py, test_googletrans_contract.py: async stub 및 설치된 4.0.2의 fake HTTP transport |
 | ISSUE-003 / 취소 | 성공적으로 수락된 작업만 새 취소 scope로 시작. busy 요청은 현재 취소 유지. preview/selected/EPUB-only 공통 락, 예외 결과 상태 갱신 | test_job_lifecycle.py, 기존 selected/preview/service 테스트 |
@@ -16,7 +16,7 @@
 | 오프라인 이미지 | include_images 기사에 PNG/JPEG/GIF를 EPUB item으로 포함. 상대 URL 해석, SHA-256 content dedup, image/book/count budget, private-host 제한. 실패 시 alt text | per-site/digest ZIP manifest·asset·XHTML 확인, unsupported/oversize/private image 거부 |
 | 클라우드 복제본 충돌 | .websync-replicas의 설치별 snapshot과 canonical JSON 병합. URL별 최신 변경·삭제 표식, 이력 resend/tombstone 정리. 다른 PC에 복사된 config의 writer ID 재생성 | 서로 다른 local replicas의 canonical overwrite 후 데이터 수렴, corrupted snapshot fail-closed, symlink boundary |
 | 파일명 문서 불일치 | 기기 전송 이름은 ASCII 문자와 원래 basename hash 사용. EPUB title은 원래 언어 유지 | 날짜·확장자·ASCII·한글 원본 사이의 고유성 |
-| 플랫폼·배포 | Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation CI, isolated frozen build script/job, 새 모듈 hiddenimports | Windows에서 actual frozen build 및 --smoke 통과. 다른 OS 결과는 CI 실행 결과 확인 필요 |
+| 플랫폼·배포 | Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation CI, isolated frozen build script/job, 새 모듈 hiddenimports | Windows에서 actual frozen build 및 --smoke 통과. Linux/Windows/macOS × Python 3.10/3.15 CI 계약 모두 통과 |
 
 ## 사용자 계약
 
@@ -60,7 +60,17 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 
 ## 실제 검증 결과
 
-최종 실행 결과는 아래에 기록한다.
+- 전체 suite: **528 passed, 1 skipped**, exit 0, Windows / Python 3.15.0, 74.88초. 한국어 문구와 문서 UTF-8 회귀를 포함한다.
+- 분기 포함 전체 coverage: **55%** (직전 522개 테스트 실행에서 측정). 실제 native GUI와 외부 서비스 검증을 의미하지 않는다.
+- 마지막 pull 옵션 경합 추가 후 backup/multi-PC 묶음: **41 passed**.
+- 무재시도 HTTP/OPDS 묶음: **19 passed**.
+- 실제 frozen EXE를 임시 source/work/dist에서 빌드하고 --smoke exit 0 확인. 사용자 dist나 config/DB를 사용하지 않는다.
+- 코드 commit 88ed2c3의 [GitHub Actions](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38352328901)는 **12개 job 모두 성공**: unit-linux, contract-linux, integration-windows, coverage, OS/Python 조합 6개, optional-translation, frozen-smoke.
+- Linux/Windows/macOS × Python 3.10/3.15의 계약은 실제 CI runner에서 실행했다. native scheduler 등록·GUI 실사용·실기기 검증은 별개다.
+- 실제 config.json, config.json.bak, sync_history.db SHA256은 수정 시작 전 값과 모두 동일하다. 감사 이전 이력 상태를 추정 복구하지 않았다.
+- 브라우저 inventory가 비어 있어 실제 UI 조작은 미실행. 로컬 mock 서버는 정지했다.
+- PowerShell 파이프에서 새 한국어 문구가 물음표로 바뀐 부분을 UTF-8로 다시 저장하고, ko/en 렌더링 문구 회귀를 추가했다.
+- ISSUE-001/002/003/004 수정 완료. 테스트 권고는 기존 계약과 새 회귀의 대응표로 정리했고 외부 확인은 아래 별도로 남긴다.
 
 ## 외부 확인 항목
 
@@ -71,3 +81,5 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 - 실제 브라우저 login/start/cancel/polling. browser inventory가 비어 있어 자동 UI 조작은 실행하지 못함.
 
 코드·테스트·문서·CI 개선은 위 범위에서 처리했다. 외부 확인 항목은 실행 환경이 필요하며 통과했다고 기록하지 않는다.
+
+검증한 최신 EXE: build/verified-audit-utf8-20261013/x3_websync.exe. 사용자 데이터가 있는 기존 dist는 변경하지 않았다.

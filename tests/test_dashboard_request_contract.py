@@ -56,3 +56,14 @@ def test_dashboard_ui_cancel_and_log_polling():
     assert "Promise.all([refreshStatus(), refreshLog()])" in html
     assert "setInterval(refreshAll, 5000)" in html
     assert "AbortController" in html
+
+
+def test_dashboard_control_translations_survive_utf8():
+    from websync.i18n import init_i18n, t
+    init_i18n("ko")
+    assert t("dashboard.cancel_sync") == "동기화 취소"
+    assert "상태를 새로고침" in t("dashboard.request_error")
+    assert "동기화 취소" in dashboard_html()
+    init_i18n("en")
+    assert t("dashboard.cancel_sync") == "Cancel sync"
+    assert "Refresh status" in t("dashboard.request_error")
