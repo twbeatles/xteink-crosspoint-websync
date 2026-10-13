@@ -83,3 +83,9 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 코드·테스트·문서·CI 개선은 위 범위에서 처리했다. 외부 확인 항목은 실행 환경이 필요하며 통과했다고 기록하지 않는다.
 
 검증한 최신 EXE: build/verified-audit-utf8-20261013/x3_websync.exe. 사용자 데이터가 있는 기존 dist는 변경하지 않았다.
+
+## v1.3.2 배포 준비
+
+이 문서의 12개 작업 결과는 감사 개선 당시의 실제 검증 기록이다. 이후 일반 CI는 Linux / Python 3.15 전체 테스트와 Windows / Python 3.10 핵심 계약, 총 2개 작업으로 줄였다. Linux 작업에서 googletrans 4.0.2 계약을 함께 실행한다. Windows 전체 테스트와 frozen EXE 빌드·smoke 및 서명 매니페스트 생성은 릴리즈 태그 워크플로에서 수행한다. macOS 정기 매트릭스와 coverage 작업은 제거했으며, 과거 통과 결과는 위 기록에 남긴다.
+
+[v1.3.2 릴리즈 노트](releases/v1.3.2.md)에 사용자에게 영향이 있는 변경 사항과 클라우드 동시 전송의 범위를 정리했다.

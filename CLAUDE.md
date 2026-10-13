@@ -630,4 +630,4 @@ feat(gui): Add sync history viewer tab with re-send capability
 - 테스트는 import 전 임시 저장 경로를 사용하고 실제 사용자 파일 접근을 차단합니다. 이 보호는 Python I/O 경계이며 OS sandbox가 아닙니다.
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
-- Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 모두 성공했습니다.
+- 2026-10-13 감사 개선 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체 테스트와 Windows 핵심 계약 2개 작업이며 frozen 빌드는 릴리즈에서 검사합니다.

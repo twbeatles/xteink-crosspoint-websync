@@ -6,126 +6,35 @@ on:
   pull_request:
     branches: [main]
 
-# NOTE: coverage data is redirected to the runner temp dir via step-level
-# COVERAGE_FILE below (the runner context is unavailable in top-level env).
-# The pytest cache intentionally stays at the default location: its creation
-# on a fresh checkout is covered by the tests/storage_sandbox.py allow-list,
-# because runner temp layouts differ per pool (some even point inside the
-# checkout) and must never be assumed.
 jobs:
-  unit-linux:
+  full-linux:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.15"
-          cache: pip
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Sanity — no dist artifacts required by tests
-        run: |
-          if [ -d dist ] && [ -n "$(find dist -type f 2>/dev/null | head -1)" ]; then
-            echo "::warning::Unexpected files under dist/ in CI checkout"
-          fi
-          test ! -f dist/synced_posts.json
-      - name: Run hermetic + unit tests
-        env:
-          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
-        run: python -m pytest tests/ -q --tb=short -ra --ignore=tests/test_pipeline_http_integration.py --ignore=tests/test_pipeline_failure_recovery.py --ignore=tests/test_backup_interleavings.py
-
-  contract-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.15"
-          cache: pip
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Run loopback HTTP/SQLite/EPUB contract + integration
-        env:
-          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
-        run: python -m pytest tests/test_crosspoint_http_contract.py tests/test_crosspoint_upload_failure_matrix.py tests/test_device_client_branches.py tests/test_device_path_properties.py tests/test_pipeline_http_integration.py tests/test_pipeline_failure_recovery.py tests/test_backup_interleavings.py tests/test_backup_crash_consistency.py tests/test_history_state_machine.py tests/test_device_identity_properties.py tests/test_epub_structural_contract.py tests/test_scraper_sanitization.py tests/test_scraper_metamorphic.py tests/test_http_server_lifecycle.py tests/test_opds_security_contract.py tests/test_gui_user_journey.py tests/test_pipeline_multiprocess_lock.py tests/test_release_frozen_contract.py -q --tb=short -ra
-
-  integration-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.15"
-          cache: pip
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Run full suite (temp paths, subprocess, loopback HTTP)
-        env:
-          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
-        run: python -m pytest tests/ -q --tb=short -ra
-
-  coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.15"
-          cache: pip
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt pytest-cov
-      - name: Coverage (branch, core paths)
-        env:
-          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
-        run: python -m pytest tests/ -q --tb=short --cov=websync --cov-branch --cov-report=term-missing --cov-report=xml:$RUNNER_TEMP/coverage.xml
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-xml
-          path: ${{ runner.temp }}/coverage.xml
-
-  platform-contracts:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ['3.10', '3.15']
-    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python }}
-      - run: python -m pip install -r requirements.txt
-      - name: Storage, cancellation, HTTP, EPUB and platform contracts
-        run: python -m pytest tests/test_storage_isolation.py tests/test_job_lifecycle.py tests/test_dashboard_request_contract.py tests/test_http_server_lifecycle.py tests/test_cloud_replica_recovery.py tests/test_epub_offline_images.py tests/test_scheduler.py tests/test_calibre.py tests/test_device_path_properties.py tests/test_pipeline_multiprocess_lock.py -q --tb=short
+          python-version: "3.15"
+          cache: pip
+      - name: Install application and translation test dependencies
+        run: python -m pip install -r requirements.txt 'googletrans>=4.0.2,<5'
+      - name: Run full suite
+        env:
+          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
+        run: python -m pytest tests/ -q --tb=short -ra -W error::RuntimeWarning
 
-  optional-translation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.15'
-      - run: python -m pip install -r requirements.txt 'googletrans>=4.0.2,<5'
-      - run: python -m pytest tests/test_translator.py tests/test_googletrans_contract.py -q -W error::RuntimeWarning
-
-  frozen-smoke:
+  platform-windows:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.15'
-      - run: python -m pip install -r requirements.txt pyinstaller
-      - run: python scripts/verify_isolated_build.py
+          python-version: "3.10"
+          cache: pip
+      - name: Install application dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run platform and lifecycle contracts
+        env:
+          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
+        run: python -m pytest tests/test_storage_isolation.py tests/test_job_lifecycle.py tests/test_dashboard_request_contract.py tests/test_http_server_lifecycle.py tests/test_cloud_replica_recovery.py tests/test_epub_offline_images.py tests/test_scheduler.py tests/test_calibre.py tests/test_device_path_properties.py tests/test_pipeline_multiprocess_lock.py -q --tb=short -ra

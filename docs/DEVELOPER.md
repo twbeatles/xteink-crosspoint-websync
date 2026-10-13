@@ -151,7 +151,9 @@ python -m pytest tests/ -q --tb=short -ra
 ```
 
 주요 영역: config, db, pipeline, scrapers(픽스처), epub, uploader, servers, process_lock, backup, scheduler 등.  
-정확한 수는 `pytest --collect-only -q` 로 확인 (v1.2.5 기준 350+).
+정확한 수는 `pytest --collect-only -q` 로 확인합니다.
+
+현재 일반 CI는 두 작업만 실행합니다. Linux / Python 3.15에서 전체 테스트와 설치된 googletrans 계약을 검사하고, Windows / Python 3.10에서 저장 경로·작업 종료·HTTP·백업·EPUB·스케줄러 핵심 계약을 검사합니다. 릴리즈 태그의 Windows 전체 테스트와 PyInstaller 빌드·`--smoke`는 `.github/workflows/release.yml`에서 수행합니다. coverage, macOS 매트릭스, 평상시 frozen 빌드는 자동 CI에서 실행하지 않습니다. 필요하면 위 전체 테스트와 `python scripts/verify_isolated_build.py`를 수동 실행하세요.
 
 ### 여러 PC 중복 전송 회귀 테스트 (v1.2.5)
 
@@ -239,8 +241,8 @@ i18n 문자열을 추가하면 `websync/i18n/locales/ko.json` 과 `en.json` 에 
   4. 이전 버전 자동 백업(`.bak`) 및 `--smoke`(핵심 모듈 import) 실패 시 자동 롤백.
 
 ### 배포 절차 (GitHub Actions)
-1. `websync/__init__.py`의 `__version__ = "X.Y.Z"` 업데이트 및 커밋.
-2. Git 태그 생성 및 푸시:
+1. `websync/__init__.py`의 `__version__ = "X.Y.Z"`와 `docs/releases/vX.Y.Z.md` 릴리즈 노트를 업데이트하고 `main`에 커밋·푸시합니다. 릴리즈 워크플로는 같은 이름의 노트 파일을 사용합니다.
+2. `main`의 두 CI 작업이 성공한 뒤 Git 태그 생성 및 푸시:
    ```bash
    git tag vX.Y.Z
    git push origin vX.Y.Z
