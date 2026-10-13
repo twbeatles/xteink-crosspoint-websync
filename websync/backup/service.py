@@ -458,26 +458,28 @@ class BackupSyncService:
                         self.last_result = result
                         return result
 
-            # sites — 원격 변경과 삭제 표식을 먼저 병합해 다른 PC 변경을 보존
-            sites = config.get("sites") if isinstance(config.get("sites"), list) else []
-            deleted_sites = bs.get("deleted_sites", [])
+            # sites — config의 최신본을 잠근 transaction 안에서 원격 변경과 병합한다.
             remote_sites, _ = extract_sites(remote_sites_payload)
             remote_deleted_sites = extract_deleted_sites(remote_sites_payload)
-            sites = merge_sites(sites, remote_sites, remote_wins_same_url=False)
-            deleted_sites = merge_site_tombstones(deleted_sites, remote_deleted_sites)
-            sites, deleted_sites = apply_site_tombstones(sites, deleted_sites)
             remote_devices = extract_devices(remote_history_payload) if include_history else []
             devices_export: list[dict] = []
 
             def _apply_site_merge(cfg: dict) -> None:
                 nonlocal devices_export
-                cfg["sites"] = sites
+                current = cfg.get("sites") if isinstance(cfg.get("sites"), list) else []
+                deleted_sites = merge_site_tombstones(
+                    get_portable_cfg(cfg).get("deleted_sites", []), remote_deleted_sites
+                )
+                merged = merge_sites(current, remote_sites, remote_wins_same_url=False)
+                cfg["sites"], deleted_sites = apply_site_tombstones(merged, deleted_sites)
                 apply_portable_cfg(cfg, {"deleted_sites": deleted_sites})
                 if include_history:
                     devices_export, _changed = reconcile_config_devices(cfg, remote_devices)
 
             config = self.config_manager.update_config(_apply_site_merge)
             bs = self._backup_cfg(config)
+            sites = config["sites"]
+            deleted_sites = bs.get("deleted_sites", [])
             sites_payload = build_sites_payload(
                 sites, exported_at=exported_at, deleted_sites=deleted_sites
             )
@@ -486,7 +488,7 @@ class BackupSyncService:
             components.append("sites")
 
             # history
-            if bs.get("include_history", True):
+            if include_history:
                 hist_payload = build_history_payload(
                     posts,
                     exported_at=exported_at,

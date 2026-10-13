@@ -1,5 +1,6 @@
 import threading
 import time
+import logging
 from typing import Callable, Optional
 
 from websync.epub.builder import EpubBuilder
@@ -23,11 +24,30 @@ class SyncService:
     _pipeline_lock = threading.Lock()
     _process_lock = ProcessFileLock()
 
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(
+        self,
+        config_manager: ConfigManager,
+        *,
+        db: SyncHistoryDb | None = None,
+        logger: logging.Logger | None = None,
+        process_lock: ProcessFileLock | None = None,
+        sidecar_root: str | None = None,
+        output_dir: str | None = None,
+    ):
+        """Optional storage dependencies are applied before any service I/O.
+
+        Omitted dependencies retain the installed application's defaults.
+        Isolated callers should supply a config manager, database, logger,
+        process lock, sidecar root and output directory in their sandbox.
+        """
         self.config_manager = config_manager
+        self._sidecar_root = sidecar_root
+        self._output_dir = output_dir
+        if process_lock is not None:
+            self._process_lock = process_lock
         self.config = self.config_manager.load_config()
-        self.db = SyncHistoryDb()
-        self.logger = get_logger()
+        self.db = db if db is not None else SyncHistoryDb()
+        self.logger = logger if logger is not None else get_logger()
         self.backup_sync = BackupSyncService(self.config_manager, self.db, self.logger)
         self._last_pipeline_result: dict = {}
         self._cancel_event = threading.Event()
@@ -44,7 +64,7 @@ class SyncService:
             from websync.backup.local_import import import_local_sidecars
 
             result = import_local_sidecars(
-                self.config_manager, self.db, logger=self.logger
+                self.config_manager, self.db, root=self._sidecar_root, logger=self.logger
             )
             if result.get("history_changed") or result.get("sites_changed"):
                 self._reload_config()
@@ -55,12 +75,14 @@ class SyncService:
 
     def _apply_config_to_components(self):
         self.epub_builder = EpubBuilder(
-            output_dir=self.config_manager.get_resolved_output_dir(self.config),
+            output_dir=(self._output_dir if self._output_dir is not None
+                        else self.config_manager.get_resolved_output_dir(self.config)),
             font_family=self.config.get("font_family", "serif"),
             font_size=self.config.get("font_size", 16),
             line_height=self.config.get("line_height", 1.7),
             epub_theme=self.config.get("epub_theme", "default"),
-            epub_custom_css=self.config.get("epub_custom_css", "")
+            epub_custom_css=self.config.get("epub_custom_css", ""),
+            logger=self.logger,
         )
         df = self.config.get("device_files") or {}
         self.uploader = X3Uploader(

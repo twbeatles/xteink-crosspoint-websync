@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import logging
 import os
 from datetime import date, datetime
 
@@ -25,8 +26,10 @@ class EpubBuilder:
         line_height: float = 1.7,
         epub_theme: str = "default",
         epub_custom_css: str = "",
+        *,
+        logger: logging.Logger | None = None,
     ):
-        self.logger = get_logger()
+        self.logger = logger if logger is not None else get_logger()
         self.output_dir = output_dir
         self.font_family = font_family
         self.font_size = font_size

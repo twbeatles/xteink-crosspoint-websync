@@ -14,7 +14,12 @@ def _detect_project_root() -> str:
     return os.path.dirname(pkg_dir)
 
 
-PROJECT_ROOT = _detect_project_root()
+# Explicit storage override must be available before package imports: config
+# validation can initialize logging while importing the application package.
+# Without an override, development and frozen locations are unchanged.
+PROJECT_ROOT = os.path.abspath(
+    os.environ.get("X3_WEBSYNC_STORAGE_ROOT") or _detect_project_root()
+)
 
 
 def resolve_path(path: str) -> str:
