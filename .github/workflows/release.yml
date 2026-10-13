@@ -22,10 +22,6 @@ jobs:
       PYTHONIOENCODING: utf-8
       X3_UPDATE_PUBLIC_KEY_B64: ${{ secrets.X3_UPDATE_PUBLIC_KEY_B64 }}
       X3_UPDATE_PRIVATE_KEY_B64: ${{ secrets.X3_UPDATE_PRIVATE_KEY_B64 }}
-      # Same as Tests workflow: keep pytest cache/coverage out of the checkout
-      # so a fresh runner never depends on the storage-sandbox allow-list.
-      PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
-      COVERAGE_FILE: "${{ runner.temp }}/.coverage"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +34,11 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Install dependencies and verify
+        # Keep pytest cache/coverage out of the checkout (fresh runners
+        # have no .pytest_cache); see Tests workflow for rationale.
+        env:
+          PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
+          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt

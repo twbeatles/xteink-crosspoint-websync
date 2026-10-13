@@ -6,13 +6,11 @@ on:
   pull_request:
     branches: [main]
 
-# Keep toolchain metadata out of the checkout: a fresh runner has no
-# .pytest_cache, and its sessionfinish creation (plus coverage.py data files)
-# must never depend on the tests/storage_sandbox.py allow-list to succeed.
-env:
-  PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
-  COVERAGE_FILE: "${{ runner.temp }}/.coverage"
-
+# NOTE: pytest cache and coverage data are redirected to ${{ runner.temp }}
+# via step-level env below (the runner context is unavailable in top-level
+# env). A fresh runner has no .pytest_cache, so this keeps toolchain
+# metadata out of the checkout instead of relying on the storage-sandbox
+# allow-list.
 jobs:
   unit-linux:
     runs-on: ubuntu-latest
@@ -33,6 +31,9 @@ jobs:
           fi
           test ! -f dist/synced_posts.json
       - name: Run hermetic + unit tests
+        env:
+          PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
+          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
         run: python -m pytest tests/ -q --tb=short -ra --ignore=tests/test_pipeline_http_integration.py --ignore=tests/test_pipeline_failure_recovery.py --ignore=tests/test_backup_interleavings.py
 
   contract-linux:
@@ -48,6 +49,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run loopback HTTP/SQLite/EPUB contract + integration
+        env:
+          PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
+          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
         run: python -m pytest tests/test_crosspoint_http_contract.py tests/test_crosspoint_upload_failure_matrix.py tests/test_device_client_branches.py tests/test_device_path_properties.py tests/test_pipeline_http_integration.py tests/test_pipeline_failure_recovery.py tests/test_backup_interleavings.py tests/test_backup_crash_consistency.py tests/test_history_state_machine.py tests/test_device_identity_properties.py tests/test_epub_structural_contract.py tests/test_scraper_sanitization.py tests/test_scraper_metamorphic.py tests/test_http_server_lifecycle.py tests/test_opds_security_contract.py tests/test_gui_user_journey.py tests/test_pipeline_multiprocess_lock.py tests/test_release_frozen_contract.py -q --tb=short -ra
 
   integration-windows:
@@ -63,6 +67,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run full suite (temp paths, subprocess, loopback HTTP)
+        env:
+          PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
+          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
         run: python -m pytest tests/ -q --tb=short -ra
 
   coverage:
@@ -78,6 +85,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest-cov
       - name: Coverage (branch, core paths)
+        env:
+          PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
+          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
         run: python -m pytest tests/ -q --tb=short --cov=websync --cov-branch --cov-report=term-missing --cov-report=xml:$RUNNER_TEMP/coverage.xml
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
