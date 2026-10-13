@@ -34,10 +34,9 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Install dependencies and verify
-        # Keep pytest cache/coverage out of the checkout (fresh runners
-        # have no .pytest_cache); see Tests workflow for rationale.
+        # Keep coverage data out of the checkout; the pytest cache stays
+        # at its default location (see Tests workflow for rationale).
         env:
-          PYTEST_ADDOPTS: "-o cache_dir=${{ runner.temp }}/pytest-cache"
           COVERAGE_FILE: "${{ runner.temp }}/.coverage"
         run: |
           python -m pip install --upgrade pip
