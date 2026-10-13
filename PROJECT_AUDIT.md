@@ -281,4 +281,4 @@ CodeGraph로 직접 확인한 주요 연결은 다음과 같다.
 
 [구현·검증 기록](docs/AUDIT_IMPLEMENTATION.md)에 현재 상태와 외부 미검증 범위를 정리했다. 실제 reader/Calibre/cloud client, native GUI와 연결된 browser 검증은 별개다. 여러 PC의 동시 전송을 전역 exactly-once로 보장한다고 주장하지 않는다.
 
-코드 commit 88ed2c3의 [CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38352328901)는 12개 job 모두 성공했다. 3개 OS와 Python 3.10/3.15 계약, optional translation 및 frozen smoke를 포함한다.
+코드 commit 774ddcd의 [CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38354390596)는 12개 job 모두 성공했다. 3개 OS와 Python 3.10/3.15 계약, optional translation 및 frozen smoke를 포함한다.

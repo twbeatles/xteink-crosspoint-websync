@@ -65,7 +65,7 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 - 마지막 pull 옵션 경합 추가 후 backup/multi-PC 묶음: **41 passed**.
 - 무재시도 HTTP/OPDS 묶음: **19 passed**.
 - 실제 frozen EXE를 임시 source/work/dist에서 빌드하고 --smoke exit 0 확인. 사용자 dist나 config/DB를 사용하지 않는다.
-- 코드 commit 88ed2c3의 [GitHub Actions](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38352328901)는 **12개 job 모두 성공**: unit-linux, contract-linux, integration-windows, coverage, OS/Python 조합 6개, optional-translation, frozen-smoke.
+- 코드 commit 774ddcd의 [GitHub Actions](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38354390596)는 **12개 job 모두 성공**: unit-linux, contract-linux, integration-windows, coverage, OS/Python 조합 6개, optional-translation, frozen-smoke.
 - Linux/Windows/macOS × Python 3.10/3.15의 계약은 실제 CI runner에서 실행했다. native scheduler 등록·GUI 실사용·실기기 검증은 별개다.
 - 실제 config.json, config.json.bak, sync_history.db SHA256은 수정 시작 전 값과 모두 동일하다. 감사 이전 이력 상태를 추정 복구하지 않았다.
 - 브라우저 inventory가 비어 있어 실제 UI 조작은 미실행. 로컬 mock 서버는 정지했다.
