@@ -89,3 +89,13 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 이 문서의 12개 작업 결과는 감사 개선 당시의 실제 검증 기록이다. 이후 일반 CI는 Linux / Python 3.15 전체 테스트와 Windows / Python 3.10 핵심 계약, 총 2개 작업으로 줄였다. Linux 작업에서 googletrans 4.0.2 계약을 함께 실행한다. Windows 전체 테스트와 frozen EXE 빌드·smoke 및 서명 매니페스트 생성은 릴리즈 태그 워크플로에서 수행한다. macOS 정기 매트릭스와 coverage 작업은 제거했으며, 과거 통과 결과는 위 기록에 남긴다.
 
 [v1.3.2 릴리즈 노트](releases/v1.3.2.md)에 사용자에게 영향이 있는 변경 사항과 클라우드 동시 전송의 범위를 정리했다.
+
+## v1.3.2 게시 검증
+
+- `a47b498`의 간소화된 [Tests CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38360935777): Linux 전체 테스트와 Windows 핵심 계약 **2개 작업 모두 성공**.
+- 로컬 Windows / Python 3.15 전체 테스트: **528 passed, 1 skipped**. 별도 임시 source/work/dist에서 `v1.3.2` EXE 빌드와 `--smoke` 성공.
+- 태그 `v1.3.2`의 [Release CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38361105350): Windows 전체 테스트, 키 검증, PyInstaller 빌드·smoke, 릴리즈 및 `updates/latest.json` 게시 단계 모두 성공.
+- [GitHub Release v1.3.2](https://github.com/twbeatles/xteink-crosspoint-websync/releases/tag/v1.3.2)는 최신 릴리즈다. 게시된 EXE 크기는 **28,046,709 bytes**, SHA-256은 `4876c91ab71723ea83f19bb09b7382376c1cf99001967d843acb025e3f694928`이다.
+- `updates/latest.json`은 `84c71cf`에서 자동 갱신됐다. 내장 공개키로 Ed25519 서명을 검증했고 매니페스트의 버전·URL·크기·해시가 게시된 EXE 메타데이터와 일치한다. 매니페스트 자체의 SHA-256도 게시 자산과 동일한 `d1a164b9656535c4eeea2f202ac4c15521d810ef82af28f40bfcae92a228eb0a`이다.
+
+로컬에서 빌드한 EXE는 릴리즈 러너에서 빌드한 EXE와 바이트 단위 재현성을 주장하지 않는다. 위 공개 해시는 릴리즈 러너가 게시한 자산의 값이다.
