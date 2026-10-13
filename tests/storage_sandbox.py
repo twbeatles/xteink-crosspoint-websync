@@ -25,12 +25,35 @@ def canonical_path(value) -> Path:
     return Path(text).resolve()
 
 
+# CI runners expose additional temp areas beyond tempfile.gettempdir():
+# RUNNER_TEMP is /home/runner/work/_temp on Linux while gettempdir() is /tmp,
+# and on some Windows pools it even points inside the checkout (a_temp).
+_TEMP_ENV_VARS = ("RUNNER_TEMP", "AGENT_TEMPDIRECTORY", "TMPDIR", "TEMP", "TMP")
+
+
+def _temp_roots() -> frozenset:
+    roots = set()
+    candidates = [tempfile.gettempdir()]
+    candidates.extend(os.environ.get(name, "") for name in _TEMP_ENV_VARS)
+    for value in candidates:
+        if not value:
+            continue
+        try:
+            roots.add(canonical_path(value))
+        except OSError:
+            continue
+    return frozenset(roots)
+
+
 class StorageGuard:
     def __init__(self, repository: str | Path):
         self.repository = canonical_path(repository)
-        self.allowed_root = canonical_path(tempfile.gettempdir())
+        self.allowed_roots = _temp_roots()
         self.violations: list[str] = []
         self._descriptor_open = threading.local()
+
+    def _temporary(self, resolved: Path) -> bool:
+        return any(resolved.is_relative_to(root) for root in self.allowed_roots)
 
     def _inside(self, value) -> Path | None:
         if not isinstance(value, (str, bytes, os.PathLike)):
@@ -122,7 +145,7 @@ class StorageGuard:
             # Python/pytest caches contain no application state.
             cache = relative is not None and (
                 "__pycache__" in relative.parts or ".pytest_cache" in relative.parts)
-            temporary = resolved.is_relative_to(self.allowed_root)
+            temporary = self._temporary(resolved)
             protected = relative is not None and self._mutable(relative)
             toolchain = (relative is not None
                          and self._toolchain(event, relative, resolved))

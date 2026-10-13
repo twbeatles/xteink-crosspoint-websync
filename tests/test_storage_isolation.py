@@ -197,6 +197,36 @@ def test_guard_allows_pytest_toolchain_metadata_but_blocks_app_state(tmp_path):
                        "w", os.O_WRONLY | os.O_CREAT))
 
 
+def test_guard_allows_runner_temp_outside_system_temp(tmp_path, monkeypatch):
+    """Regression: RUNNER_TEMP differs from tempfile.gettempdir() on CI
+    (/home/runner/work/_temp vs /tmp; a_temp inside the checkout on some
+    Windows pools). Toolchain redirects there must not trip the guard."""
+    import tempfile as tempfile_module
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    agent_temp = tmp_path / "agent-temp"
+    agent_temp.mkdir()
+    # Hide the real system temp so only the env var can cover the probes.
+    monkeypatch.setattr(tempfile_module, "gettempdir",
+                        lambda: str(tmp_path / "sys-temp"))
+    for name in ("RUNNER_TEMP", "AGENT_TEMPDIRECTORY", "TMPDIR", "TEMP", "TMP"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("RUNNER_TEMP", str(agent_temp))
+    guard = StorageGuard(repo)
+    # pytest's atomic cache creation anchored at the redirected cache dir.
+    guard("os.mkdir", (str(agent_temp), 0o777, None))
+    guard("open", (str(agent_temp / "pytest-cache" / "v" / "cache" / "nodeids"),
+                   "w", os.O_WRONLY | os.O_CREAT))
+    coverage_data = agent_temp / ".coverage.runner.1.abcdef"
+    guard("open", (str(coverage_data), "w", os.O_WRONLY | os.O_CREAT))
+    guard("os.remove", (str(coverage_data), None))
+    assert guard.violations == []
+    with pytest.raises(AssertionError, match="Unsafe test storage access"):
+        guard("open", (str(repo / "sync_history.db"),
+                       "w", os.O_WRONLY | os.O_CREAT))
+
+
 def test_descriptor_open_context_applies_to_one_matching_event(tmp_path, monkeypatch):
     user = tmp_path / "user"
     safe = tmp_path / "safe"
