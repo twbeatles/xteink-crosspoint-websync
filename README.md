@@ -9,6 +9,8 @@
 
 [🇰🇷 한국어 안내 (Korean)](README.ko.md) · [📥 Download Latest Release](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest) · [📖 User Guide](docs/USER_GUIDE.md) · [🛠️ Developer Guide](docs/DEVELOPER.md)
 
+[Development workflow and contribution guide](CONTRIBUTING.md) - Spec Kit is opt-in and is not used by default.
+
 ---
 
 **XTEINK WebSync** is an all-in-one desktop companion designed for **XTEINK X3 and X4** e-ink readers running **CrossPoint firmware**. It transforms RSS/Atom feeds, tech blogs, web articles, newsletters, and YouTube captions into beautifully formatted, e-ink-optimized **EPUB** books, delivering them wirelessly over **Wi-Fi** without requiring a physical USB cable.
@@ -66,7 +68,7 @@ flowchart LR
 
 A zero-install, single portable executable for Windows users.
 
-1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.3.4.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
+1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.3.5.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
 2. **Connect Device**: Launch the executable. In the **News Sync** tab, enter your reader's IP address (e.g., `192.168.0.25`) or `crosspoint.local` into the **X3 Address** field, then click **[Check Connection]**.
 3. **Add Sites & Sync**: Click **[Add Site]** to pick from recommended presets (tech blogs, newsletters) or enter your favorite RSS feed URL. Then click **[Run Full Scraping & Sync to X3 Immediately]** at the bottom.
 

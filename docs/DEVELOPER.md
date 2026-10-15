@@ -229,6 +229,10 @@ i18n 문자열을 추가하면 `websync/i18n/locales/ko.json` 과 `en.json` 에 
 
 ---
 
+## Development workflow default
+
+Follow the repository guidance in [CONTRIBUTING.md](../CONTRIBUTING.md) and this developer guide. Spec Kit is not the default workflow and is used only when the user explicitly requests it. For ordinary feature work, record the requested behavior directly and implement it with focused regression coverage.
+
 ## 7. 자동 업데이트 & 릴리즈 워크플로우
 
 ### 보안 서명 모델 (Ed25519)

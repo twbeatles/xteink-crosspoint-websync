@@ -3,6 +3,8 @@
 > **Xteink X3 WebSync Manager** 프로젝트의 완전한 구조 분석 및 향후 기능 확장 아이디어를 정리한 내부 개발 문서입니다.  
 > 새로운 기능 추가, 버그 수정, 구조 변경 시 이 문서를 먼저 참조하세요.
 
+> Default workflow: follow this repository guidance and `CONTRIBUTING.md`. Spec Kit is opt-in only; use it only when the user explicitly requests it.
+
 ---
 
 ## 1. 프로젝트 개요

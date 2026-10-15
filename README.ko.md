@@ -9,6 +9,8 @@
 
 [🌐 English README](README.md) · [📥 최신 Windows 릴리스 다운로드](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest) · [📖 상세 사용 설명서](docs/USER_GUIDE.md) · [🛠️ 개발자 가이드](docs/DEVELOPER.md)
 
+[개발 작업 및 기여 안내](CONTRIBUTING.md) - Spec Kit은 기본 절차가 아니며 사용자가 명시적으로 요청할 때만 사용합니다.
+
 ---
 
 **XTEINK WebSync**는 **CrossPoint 펌웨어가 탑재된 XTEINK X3 및 X4** 전자책 단말기를 위한 올인원 데스크톱 동기화 도구입니다. 뉴스, 기술 블로그, RSS/Atom 피드, 웹 아티클, YouTube 자막을 전자잉크(E-ink) 디스플레이에 최적화된 고품질 **EPUB** 전자책으로 자동 변환하고, 번거로운 USB 케이블 연결 없이 **Wi-Fi 무선 네트워크를 통해 기기로 즉시 전송**합니다.
@@ -66,7 +68,7 @@ flowchart LR
 
 복잡한 설치 과정 없이 바로 실행할 수 있는 단일 포터블 실행 파일입니다.
 
-1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-crosspoint-websync-v1.3.4.exe` 또는 이후 버전)을 다운로드합니다.
+1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-crosspoint-websync-v1.3.5.exe` 또는 이후 버전)을 다운로드합니다.
 2. **기기 연결**: 프로그램을 실행한 후, **뉴스 동기화** 탭의 **X3 주소** 입력창에 기기의 IP 주소(예: `192.168.0.25`) 또는 `crosspoint.local`을 입력하고 **[연결 확인]**을 누릅니다.
 3. **사이트 등록 및 동기화**: **[사이트 추가]**를 눌러 추천 프리셋(토스, 카카오, 뉴닉 등)을 선택하거나 원하는 RSS 주소를 입력한 뒤, 하단의 **[즉시 전체 뉴스 스크래핑 및 X3 동기화 실행]**을 클릭합니다.
 
