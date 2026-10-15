@@ -29,3 +29,22 @@ def test_sanitize_filename_korean_and_uniqueness():
     assert sanitized1 != sanitized2
     assert sanitized1 != sanitized3
     assert sanitized2 != sanitized3
+
+
+def test_sanitize_filename_keeps_romanized_site_name():
+    """한글 사이트명이 기기 전송 파일명에서 통째로 지워지지 않는다."""
+    from websync.upload.romanize import romanize_for_filename
+
+    uploader = X3Uploader("192.168.1.100")
+
+    sanitized = uploader._sanitize_filename("d:/output/네이버뉴스_2026-07-31.epub")
+    assert sanitized.startswith("neibeonyuseu_2026-07-31")
+    assert sanitized.isascii()
+
+    other = uploader._sanitize_filename("d:/output/티스토리_2026-07-31.epub")
+    assert other.startswith("tiseutori_2026-07-31")
+    assert sanitized != other
+
+    assert romanize_for_filename("네이버뉴스") == "neibeonyuseu"
+    assert romanize_for_filename("한글") == "hangeul"
+    assert romanize_for_filename("ABC-123_가") == "ABC-123_ga"

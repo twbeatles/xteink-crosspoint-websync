@@ -66,7 +66,7 @@ flowchart LR
 
 A zero-install, single portable executable for Windows users.
 
-1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.3.2.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
+1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.3.3.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
 2. **Connect Device**: Launch the executable. In the **News Sync** tab, enter your reader's IP address (e.g., `192.168.0.25`) or `crosspoint.local` into the **X3 Address** field, then click **[Check Connection]**.
 3. **Add Sites & Sync**: Click **[Add Site]** to pick from recommended presets (tech blogs, newsletters) or enter your favorite RSS feed URL. Then click **[Run Full Scraping & Sync to X3 Immediately]** at the bottom.
 
@@ -260,4 +260,4 @@ This project is licensed under the [MIT License](LICENSE) — see the [LICENSE](
 - Closing the GUI cancels and drains accepted work before destroying the window. A new preview or selective sync starts with a fresh cancellation scope.
 - The dashboard includes cancel and refreshes both status and logs every five seconds. An uncertain request result should be checked through status before submitting again.
 - Cloud replicas reconcile per-installation snapshots in `.websync-replicas` alongside canonical JSON. Keep this directory in cloud sync. Only one PC should automatically deliver to the same reader; local cloud-folder locks do not provide cross-PC delivery exclusion.
-- Transfer filenames use ASCII plus an original-name hash; EPUB titles preserve their original language.
+- Transfer filenames stay ASCII for CrossPoint firmware, but Korean site names are romanized instead of stripped (e.g. Naver News stays readable), plus an original-name hash; EPUB titles preserve their original language.
