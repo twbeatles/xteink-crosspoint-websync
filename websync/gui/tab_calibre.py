@@ -152,12 +152,20 @@ class CalibreTab(ctk.CTkFrame):
         def task():
             success_cnt = 0
             uploader = self.app._make_uploader()
+            paths = []
             for item_id in selected_items:
                 book_id = int(item_id)
                 file_path = self.calibre.get_book_file_path(book_id)
                 if not file_path or not os.path.exists(file_path):
                     self.master.after(0, lambda b=book_id: self.app._log_message(t("gui.calibre.log_path_fail", book_id=b)))
                     continue
+                paths.append(file_path)
+            try:
+                uploader.check_batch_filenames(paths)
+            except ValueError as e:
+                self.master.after(0, lambda error=str(e): self._calibre_batch_rejected(error))
+                return
+            for file_path in paths:
                 self.master.after(0, lambda p=file_path: self.app._log_message(t("gui.calibre.log_sending", name=os.path.basename(p))))
                 results = uploader.upload_to_targets(file_path)
                 all_ok, any_ok, summary = self.app._summarize_upload_results(results)
@@ -172,6 +180,12 @@ class CalibreTab(ctk.CTkFrame):
             self.master.after(0, lambda: self._calibre_send_finished(success_cnt, len(selected_items)))
 
         self.app._start_background_task(task, name="calibre-send")
+
+    def _calibre_batch_rejected(self, error: str):
+        if not self.app._sync_busy:
+            self.calibre_send_btn.configure(state="normal")
+        self.app._log_message(error)
+        messagebox.showerror(t("dialog.error"), error)
 
     def _calibre_send_finished(self, success_cnt: int, total_cnt: int):
         if not self.app._sync_busy:

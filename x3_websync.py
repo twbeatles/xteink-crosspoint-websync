@@ -26,6 +26,7 @@ if sys.platform == 'win32':
         pass
 
 from websync.config.manager import ConfigManager
+from websync.config.exceptions import ConfigLoadError
 from websync.pipeline.service import SyncService
 from websync.gui.app import SyncAppGui
 from websync.core.logger import get_logger
@@ -70,6 +71,7 @@ def main():
         help=t("cli.help.check_update"),
     )
     # 업데이터 헬퍼 전용 인자
+    parser.add_argument("--recover-config", metavar="JSON", help=t("cli.help.recover_config"))
     parser.add_argument("--apply-update", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--update-target", help=argparse.SUPPRESS)
     parser.add_argument("--update-staged", help=argparse.SUPPRESS)
@@ -121,7 +123,20 @@ def main():
 
         try:
             config_manager = ConfigManager()
-            init_from_config(config_manager.load_config())
+            if args.recover_config:
+                preserved = config_manager.restore_config(args.recover_config)
+                print(t("config.recovery_done", path=preserved or ""))
+                sys.exit(0)
+            try:
+                loaded_config = config_manager.load_config()
+            except ConfigLoadError as error:
+                if args.sync:
+                    raise
+                from websync.gui.config_recovery import offer_config_recovery
+                if not offer_config_recovery(config_manager, error):
+                    sys.exit(1)
+                loaded_config = config_manager.load_config()
+            init_from_config(loaded_config)
             service = SyncService(config_manager)
         except Exception as e:
             print(t("cli.config_load_failed", now=datetime.now(), error=e))

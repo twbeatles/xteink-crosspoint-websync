@@ -42,9 +42,10 @@ class X3Uploader:
     def _sanitize_filename(self, file_path: str) -> str:
         """CrossPoint 오작동(공백/특수문자 크래시) 우회 및 고유 식별용 파일명 클렌징"""
         base, ext = os.path.splitext(os.path.basename(file_path))
-        base = romanize_for_filename(base)
-        # hashlib.md5 기반 6자리 short hash 생성하여 파일명 중복 덮어쓰기 방지
+        # Hash the original stem: romanization is not one-to-one (가 and ga).
+        # Keep ASCII names stable; the batch preflight also guards hash collisions.
         h = hashlib.md5(base.encode("utf-8", errors="replace")).hexdigest()[:6]
+        base = romanize_for_filename(base)
         safe_base = "".join([c if (c.isascii() and c.isalnum()) or c in ("-", "_") else "_" for c in base])
         while "__" in safe_base:
             safe_base = safe_base.replace("__", "_")
@@ -54,6 +55,15 @@ class X3Uploader:
         else:
             safe_base = f"{safe_base}_{h}"
         return safe_base + ext.lower()
+
+    def check_batch_filenames(self, paths) -> None:
+        """Reject ambiguous remote names before the first network write."""
+        seen: dict[str, str] = {}
+        for path in paths:
+            name = self._sanitize_filename(path).casefold()
+            if name in seen:
+                raise ValueError(t("upload.batch_collision", first=seen[name], second=str(path), name=name))
+            seen[name] = str(path)
 
     def _guess_mime(self, file_path: str) -> str:
         mime, _ = mimetypes.guess_type(file_path)

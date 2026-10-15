@@ -101,6 +101,24 @@ def test_device_client_upload_uses_params_path_style(server, tmp_path):
     assert any("path=" in q and "Books" in q for q in queries)
 
 
+def test_romanization_collision_uploads_preserve_both_books(server, tmp_path):
+    paths = [tmp_path / "가.epub", tmp_path / "ga.epub"]
+    payloads = [b"first-book", b"second-book"]
+    uploader = X3Uploader(server.host, remote_dir="/Books")
+    client = X3DeviceClient(server.host)
+    for path, payload in zip(paths, payloads):
+        path.write_bytes(payload)
+    uploader.check_batch_filenames(paths)
+    # Both production clients must agree about the remote filename.
+    assert uploader.upload(str(paths[0]))
+    assert client.upload_to_path(str(paths[1]), "/Books")
+    with server.state.lock:
+        stored = dict(server.state.files)
+    assert len(server.state.uploads) == 2
+    for path, payload in zip(paths, payloads):
+        assert stored[f"/Books/{uploader._sanitize_filename(str(path))}"] == payload
+
+
 def test_upload_root_omits_path_query(server, tmp_path):
     local = tmp_path / "r.epub"
     local.write_bytes(b"0123456789")

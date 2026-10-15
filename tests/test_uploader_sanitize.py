@@ -48,3 +48,35 @@ def test_sanitize_filename_keeps_romanized_site_name():
     assert romanize_for_filename("네이버뉴스") == "neibeonyuseu"
     assert romanize_for_filename("한글") == "hangeul"
     assert romanize_for_filename("ABC-123_가") == "ABC-123_ga"
+
+
+@pytest.mark.parametrize("first,second", [
+    ("가", "ga"), ("낫", "낮"), ("café", "cafe"),
+])
+def test_original_name_survives_romanization_collision(first, second):
+    uploader = X3Uploader("localhost")
+    a = uploader._sanitize_filename(f"{first}_2026-10-15.EPUB")
+    b = uploader._sanitize_filename(f"{second}_2026-10-15.EPUB")
+    assert a != b
+    assert a.isascii() and b.isascii()
+    assert a.endswith(".epub") and b.endswith(".epub")
+    assert "2026-10-15" in a and "2026-10-15" in b
+    assert a == uploader._sanitize_filename(f"{first}_2026-10-15.EPUB")
+
+
+def test_batch_rejects_same_basename_in_different_directories():
+    uploader = X3Uploader("localhost")
+    with pytest.raises(ValueError):
+        uploader.check_batch_filenames(["a/book.epub", "b/book.epub"])
+    uploader.check_batch_filenames(["가.epub", "ga.epub"])
+
+
+def test_ascii_filename_remains_compatible():
+    assert X3Uploader("localhost")._sanitize_filename("ga.epub") == "ga_32d750.epub"
+
+
+def test_batch_compares_resulting_names_case_insensitively(monkeypatch):
+    uploader = X3Uploader("localhost")
+    monkeypatch.setattr(uploader, "_sanitize_filename", lambda path: path)
+    with pytest.raises(ValueError):
+        uploader.check_batch_filenames(["Book.epub", "book.epub"])

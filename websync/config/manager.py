@@ -11,7 +11,7 @@ from datetime import datetime
 from websync.core.paths import PROJECT_ROOT, resolve_path
 from websync.core.process_lock import ProcessFileLock
 from websync.config.exceptions import ConfigLoadError, ConfigSaveError, ConfigConflictError
-from websync.config.validator import log_validation_warnings, validate_config
+from websync.config.validator import log_validation_warnings, validate_config, validate_config_structure, validate_site_issues
 from websync.i18n import t
 
 class ConfigManager:
@@ -165,6 +165,43 @@ class ConfigManager:
             self.config_path = resolve_path(config_path)
         self._process_lock_path = f"{self.config_path}.lock"
 
+    @staticmethod
+    def _require_structure(config: object, error_type) -> None:
+        issues = validate_config_structure(config)
+        if issues:
+            raise error_type("\n".join(issue.message for issue in issues))
+
+    def restore_config(self, source_path: str) -> str | None:
+        """Explicit recovery only. Validate first; preserve the old file and .bak."""
+        source = resolve_path(source_path)
+        with self._lock, self._process_guard(ConfigSaveError):
+            try:
+                with open(source, "r", encoding="utf-8") as handle:
+                    candidate = json.load(handle)
+                self._require_structure(candidate, ConfigLoadError)
+                candidate, _ = self._normalize_loaded(candidate)
+                errors = validate_config(candidate)
+                if errors:
+                    raise ConfigLoadError("\n".join(errors))
+                preserved = None
+                if os.path.exists(self.config_path):
+                    preserved = f"{self.config_path}.rejected.{uuid.uuid4().hex}.json"
+                    shutil.copy2(self.config_path, preserved)
+                # Recovery must not replace a good .bak with the rejected original.
+                tmp = f"{self.config_path}.{uuid.uuid4().hex}.recovery.tmp"
+                try:
+                    with open(tmp, "w", encoding="utf-8") as handle:
+                        json.dump(candidate, handle, ensure_ascii=False, indent=4, allow_nan=False)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                    os.replace(tmp, self.config_path)
+                finally:
+                    if os.path.exists(tmp):
+                        os.remove(tmp)
+                return preserved
+            except (OSError, ValueError) as exc:
+                raise ConfigLoadError(str(exc)) from exc
+
     def _acquire_process_lock(self) -> ProcessFileLock:
         """동일 config의 프로세스 간 read-modify-write를 직렬화합니다."""
         lock = ProcessFileLock(self._process_lock_path)
@@ -235,6 +272,7 @@ class ConfigManager:
 
     def _normalize_loaded(self, config: dict) -> tuple[dict, bool]:
         """로드된 dict에 결손 키 보강. (updated 여부 반환)"""
+        self._require_structure(config, ConfigLoadError)
         config, updated = self._deep_merge(self.DEFAULT_CONFIG, config)
 
         if "sites" in config and isinstance(config["sites"], list):
@@ -282,8 +320,8 @@ class ConfigManager:
                 raise ConfigLoadError(t("config.must_be_object"))
             config, _ = self._normalize_loaded(config)
             return config
-        except json.JSONDecodeError as e:
-            corrupt_path = f"{self.config_path}.corrupt"
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            corrupt_path = f"{self.config_path}.{uuid.uuid4().hex}.corrupt"
             try:
                 shutil.copy2(self.config_path, corrupt_path)
             except OSError:
@@ -315,8 +353,8 @@ class ConfigManager:
                 log_validation_warnings(config)
                 return config
 
-            except json.JSONDecodeError as e:
-                corrupt_path = f"{self.config_path}.corrupt"
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                corrupt_path = f"{self.config_path}.{uuid.uuid4().hex}.corrupt"
                 try:
                     shutil.copy2(self.config_path, corrupt_path)
                 except OSError:
@@ -338,8 +376,8 @@ class ConfigManager:
             if expected_revision is not None:
                 try:
                     disk = self._read_raw_unlocked()
-                except ConfigLoadError:
-                    disk = copy.deepcopy(self.DEFAULT_CONFIG)
+                except ConfigLoadError as exc:
+                    raise ConfigSaveError(str(exc)) from exc
                 disk_rev = int(disk.get("_config_revision") or 0)
                 if disk_rev != int(expected_revision):
                     raise ConfigConflictError(
@@ -374,6 +412,7 @@ class ConfigManager:
 
         실패 시 ConfigSaveError를 발생시킵니다.
         """
+        self._require_structure(config_data, ConfigSaveError)
         tmp_path = (
             f"{self.config_path}.{os.getpid()}.{threading.get_ident()}."
             f"{uuid.uuid4().hex}.tmp"
@@ -461,6 +500,11 @@ class ConfigManager:
             raise ConfigLoadError(t("config.import_format"))
 
         # 임포트 후보를 미리 정규화 (mutator 밖)
+        for index, site in enumerate(imported_sites):
+            issues = validate_site_issues(site)
+            if issues:
+                raise ConfigLoadError("\n".join(f"sites[{index}].{i.field}: {i.message}" for i in issues))
+
         prepared: list[dict] = []
         from websync.backup.format import now_iso
         for site in imported_sites:

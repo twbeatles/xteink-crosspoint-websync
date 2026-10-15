@@ -293,6 +293,11 @@ class DeviceFilesActionsMixin:
         remote_dir = self._current_path
         client = self._make_client()
         uploader = X3Uploader(ip)
+        try:
+            uploader.check_batch_filenames(paths)
+        except ValueError as e:
+            messagebox.showerror(t("dialog.error"), str(e))
+            return
         warn = bool(self.warn_overwrite_var.get())
 
         # 덮어쓰기 경고 (선택 시)

@@ -17,7 +17,8 @@
     "help": {
       "sync": "GUI 없이 config.json 기준 즉시 동기화 (스케줄러 연동용)",
       "smoke": "핵심 모듈 import 무결성 스모크 체크 (성공 0, 실패 1)",
-      "check_update": "최신 버전 업데이트 존재 여부 확인"
+      "check_update": "최신 버전 업데이트 존재 여부 확인",
+      "recover_config": "선택한 JSON으로 설정 복구 (기존 설정은 별도 보존)"
     },
     "update_available": "[NEW UPDATE] v{version} 사용 가능 (현재: v{current})",
     "update_url": "다운로드 URL: {url}",
@@ -817,7 +818,12 @@
     "save_failed": "config.json 저장 실패: {error}",
     "export_failed": "사이트 설정 내보내기 실패: {error}",
     "import_read_failed": "사이트 설정 파일 읽기 실패: {error}",
-    "import_format": "올바른 사이트 설정 내보내기 파일 포맷이 아닙니다."
+    "import_format": "올바른 사이트 설정 내보내기 파일 포맷이 아닙니다.",
+    "recovery_title": "설정 복구",
+    "recovery_prompt": "설정을 읽을 수 없습니다:\n{error}\n\n백업 또는 다른 JSON에서 복구할까요? 기존 파일은 별도 보존합니다.",
+    "recovery_backup": "백업 {path}을 사용할까요? 다른 JSON을 선택하려면 아니요를 누르세요.",
+    "recovery_choose": "복구할 설정 JSON 선택",
+    "recovery_done": "설정을 복구했습니다. 이전 설정 보존 위치: {path}"
   },
   "factory": {
     "unsupported": "지원하지 않는 스크래퍼 타입: {type}"
@@ -1027,7 +1033,8 @@
     "tip_address": "💡 주소에 끝 슬래시(/)나 http:// 를 넣지 마세요. 예: 192.168.31.54",
     "no_devices": "⚠️ 등록된 기기가 없습니다.",
     "no_targets": "⚠️ 전송 대상 기기가 없습니다.",
-    "upload_exc": "❌ [{name}] 전송 예외: {error}"
+    "upload_exc": "❌ [{name}] 전송 예외: {error}",
+    "batch_collision": "전송 취소: {first}와 {second}의 기기 파일명({name})이 같습니다. 로컬 파일 하나의 이름을 바꾼 뒤 다시 시도하세요."
   },
   "device": {
     "default_name": "기본 기기",

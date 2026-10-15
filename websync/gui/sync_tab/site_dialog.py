@@ -500,6 +500,18 @@ class SiteDialogMixin:
                 new_site["link_selector"] = link_entry.get().strip() or "a[href]"
                 new_site["content_selector"] = content_sel
                 new_site["remove_selectors"] = remove_entry.get().strip()
+            from websync.config.validator import validate_site_issues
+            issues = validate_site_issues(new_site)
+            if issues:
+                messagebox.showerror(t("dialog.error"), "\n".join(issue.message for issue in issues), parent=dialog)
+                entries = {"name": name_entry, "url": url_entry, "limit": limit_entry,
+                           "item_selector": item_entry, "title_selector": title_entry,
+                           "content_selector": content_entry, "link_selector": link_entry,
+                           "remove_selectors": remove_entry}
+                entry = entries.get(issues[0].field)
+                if entry is not None:
+                    entry.focus_set()
+                return
             if idx is None:
                 sites.append(new_site)
             else:

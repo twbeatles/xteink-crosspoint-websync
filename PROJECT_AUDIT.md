@@ -1,290 +1,245 @@
-# Project Audit
+﻿# Project Audit
 
-> 후속 개선: 이 문서는 감사 당시 기록입니다. 현재 수정 상태와 검증 결과는 [구현 기록](docs/AUDIT_IMPLEMENTATION.md)을 확인하세요.
+> 후속 개선: 2026-10-15 현재 구현 진행 중. Phase 1의 설정 입력 검증·명시적 복구·전송 파일명 충돌 방지 수정을 확인했다. 전체 검증에서는 589개 통과·1개 건너뜀 외에 이 문서의 후속 개선 표식 누락 검사 1개가 실패했으며, 아래 감사 당시 발견 사항은 원래 기록으로 유지한다. 모든 개선이 완료된 상태는 아니다.
 
-> 감사일: 2026-10-13 (Asia/Seoul)
+> 감사일: 2026-10-15 (Asia/Seoul) · 기준: `main`, `78ab38400d13dc46b0554ed320b44265c90b7a3f`
 >
-> 기준: `main`, commit `b43f72d9104669205be8096525afa4e4fa4a106a`
->
-> 관점: 기능 구현, 런타임 안정성, 데이터 흐름 및 복구. 애플리케이션·테스트 코드는 수정하지 않았다.
+> 기능 구현·런타임 안정성 감사. 애플리케이션·테스트 코드 변경 없이 이 보고서만 갱신했다. 아래 이슈 번호는 이번 감사에 한정한다. 2026-10-13 감사의 같은 번호 및 후속 수정 이력은 [이전 구현 기록](docs/AUDIT_IMPLEMENTATION.md)을 참조한다.
 
 ## 1. Executive Summary
 
-핵심 기능은 상당 부분 구현되어 있다. 전체/선택 동기화, 미리보기, 사이트별·일간 합본 EPUB, 기기별 이력, 공유 데이터 폴더, Calibre/Watch, 기기 파일 관리, OPDS, 웹 대시보드 및 서명 업데이트가 실제 실행 경로에 연결되어 있다. 파이프라인 프로세스 락, 설정 파일 원자 교체·revision 검사, SQLite 트랜잭션, 성공 기기에만 이력을 기록하는 처리는 유효한 보호 장치다.
+프로젝트의 주요 기능은 실제 production 경로에 연결되어 있으며, 테스트와 안정성 방어도 상당히 갖춰져 있다. 전체/선택 동기화, 미리보기, EPUB 생성, 다중 기기별 중복 제거, 공유 폴더 병합, Calibre/Watch, 파일 관리, OPDS·대시보드 및 서명 업데이트를 확인했다.
 
-**전체 평가: Needs Work. 전체 위험도: Medium이며, 특정 조건에서 설정 유실과 개발용 테스트의 사용자 이력 변경 위험은 High다.** 광범위한 핵심 기능 장애나 Critical 보안 결함은 확인하지 않았다. 문제가 없다는 보증은 아니며, 실기기·외부 서비스·다른 OS 검증 범위는 제한적이다.
+**전체 상태는 Needs Work, 전체 위험도는 Medium이다.** 특정 입력에서 재실행을 막는 설정 오염과 전송 파일명 충돌은 High로 분류한다. Critical 결함이나 SQLite 자체의 광범위한 손상은 확인하지 않았다.
 
-| 먼저 주목할 문제 | 우선순위 / 신뢰도 | 확인된 결과 |
+| 중요한 문제 | 심각도 / 신뢰도 | 확인된 결과 |
 |---|---|---|
-| ISSUE-001: 공유 백업 push의 오래된 사이트 목록 저장 | High / Confirmed | push 도중 저장한 사이트 B가 로컬과 공유 출력에서 사라지고 push는 성공을 반환 |
-| ISSUE-004: 일부 테스트가 기본 사용자 이력 DB에 접근 | High / Confirmed | 동일 테스트 흐름을 임시 환경에서 실행하면 기존 `*` 이력이 테스트 기기 `127.0.0.1`로 이관 |
-| ISSUE-002: googletrans 비동기 API와 동기 호출의 불일치 | Medium / Confirmed | 설치된 4.0.2에서 번역 대신 원문 반환 및 미대기 coroutine 경고 |
-| ISSUE-003: 취소 상태가 다음 미리보기·선택 전송에 남음 | Medium / Confirmed | 정상 미리보기 1건 → 취소 요청 → 다음 미리보기 0건, 선택 전송은 빌드 없이 cancelled |
+| ISSUE-001: 잘못된 사이트 JSON을 저장한 뒤 검증 예외 발생 | High / Confirmed | `name: null` 가져오기 실패 후에도 잘못된 항목이 디스크에 남고, 새 ConfigManager에서도 로드 실패 |
+| ISSUE-002: 로마자 변환 이후 해시 계산으로 원본 파일명이 충돌 | High / Confirmed | `가.epub`과 `ga.epub`이 모두 `ga_32d750.epub`으로 변환 |
+| ISSUE-003: 같은 이름의 소스가 일간 합본에서 앞 소스를 대체 | Medium / Confirmed | 서로 다른 URL의 소스 두 개를 수집하지만 합본·이력에는 뒤 소스만 포함하고 성공 반환 |
 
-**데이터 손상/유실:** SQLite 파일 자체의 물리적 손상은 확인하지 않았다. ISSUE-001은 저장된 사이트 변경의 논리적 유실을 일으킨다. ISSUE-004는 사용자 이력의 기기 귀속을 바꾸거나 로컬 사이드카 이력을 병합할 수 있다. 첫 수정 영역은 백업 push의 read-modify-write 경계와 테스트의 저장 경로 격리다.
+데이터 손상·유실 가능성은 구분해야 한다. ISSUE-001은 JSON 문법 손상이 아니라 앱이 읽을 수 없는 의미적 설정 오염이다. ISSUE-002는 서로 다른 책의 원격 경로가 같아져, 같은 경로 업로드를 덮어쓰는 펌웨어에서는 이전 책이 대체될 수 있다. 실제 기기에서의 덮어쓰기 동작은 이번에 검증하지 않았다. ISSUE-003은 수집 결과 누락이며 누락한 기사를 완료 이력에 잘못 기록하지는 않는다.
 
-전체 테스트 결과는 **472 passed, 1 failed**였다. 실패한 대시보드 테스트를 단독 재실행해도 실패했으므로 전체 테스트가 정상이라고 평가할 수 없다.
+가장 먼저 외부 JSON의 **저장 전 검증**을 고치고, 전송 파일명에서 **원본 식별성을 보존**해야 한다. 이어 합본의 소스 식별자를 표시 이름과 분리해야 한다.
 
 ## 2. Project Understanding
 
 ### 목적과 실행 방식
 
-CrossPoint 펌웨어를 사용하는 XTEINK X3/X4의 데스크톱 동반 앱이다. 웹/RSS/블로그/뉴스레터/YouTube 콘텐츠를 수집하고 EPUB으로 만들어 Wi-Fi로 전송한다. SQLite 이력으로 중복을 줄이고 Calibre 서재 및 로컬 전자책도 전송한다.
+CrossPoint 펌웨어를 사용하는 XTEINK X3/X4의 데스크톱 동반 앱이다. 웹·RSS·블로그·뉴스레터·영상 자막을 EPUB으로 만들고 HTTP로 전송한다. 이미 전송한 URL은 기기별 SQLite 이력으로 제외한다. Calibre 서재와 로컬 전자책 전송도 제공한다.
 
-문서 및 설정 근거는 `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/DEVELOPER.md`, `requirements*.txt`, `pytest.ini`, `pyrightconfig.json`, `x3_websync.spec`, `.github/workflows/test.yml`, `.github/workflows/release.yml`이다. 사용자 제공 Git 규칙은 main에서 작업하도록 정한다. 과거 로드맵 항목을 미구현 기능으로 간주하지 않았다.
+README.md, CLAUDE.md, 제공된 AGENTS.md 및 디스크의 AGENTS.md를 확인했다. 개발 원칙은 역할별 모듈 분리·타입 힌트이며, 저장소 작업은 별도 지시가 없으면 main에서 수행한다. 이번에는 브랜치 전환·코드 수정·커밋·push를 하지 않았다.
 
-| 실행/기능 | 실제 흐름 |
+### 주요 entrypoint와 핵심 모듈
+
+| 진입점/모듈 | 역할 및 실행 경계 |
 |---|---|
-| CLI 전체 동기화 | `x3_websync.main(--sync)` → `SyncService.run_sync_pipeline` → thread/process lock → 공유 pull → `run_sync_pipeline_locked` → scraper → 이력 필터 → 번역/요약 → EPUB → HTTP upload → 성공 기기의 SQLite 이력 → 공유 push → bool/exit code |
-| GUI 전체 동기화 | `_run_immediate_sync` → UI 설정 검증·저장 → 추적 워커 → 위 CLI와 같은 서비스 → `root.after` → 결과 상태·이력 새로고침 |
-| 미리보기 | `open_preview_window` → `preview_articles` → 동일 파이프라인 락·공유 pull → 수집·이력 필터 → 기사 목록; 전송·전송 이력 기록 없음 |
-| 선택 전송 | `_run_selected_sync_task` → `sync_selected_articles` → 락·pull → 사이트별 기사 묶기 → 선택적인 번역/요약 → 미전송 기기별 EPUB → upload → 성공 이력·push |
-| EPUB만 만들기 | `_run_build_only_task` → `build_selected_epubs` → 설정·기사 그룹 → `EpubBuilder.build/build_digest` → 출력 파일; 전송·전송 이력·번역/요약 없음 |
-| 기기 파일 관리 | GUI 선택/확인 → `X3DeviceClient` → 원격 경로 정규화 → `/api/files`, `/upload`, `/download`, `/delete`, `/rename`, `/move` 등 → UI 결과 |
-| Calibre/Watch | `CalibreManager`의 제한시간 있는 subprocess → 경로 → uploader; Watch는 이벤트 debounce·크기 안정화 → persistent pending 목록 → 큐 워커·파이프라인 락 → upload |
-| 웹 대시보드 | 인증 POST `/api/sync` → GUI의 `sync_cb` → `begin_sync_pipeline_async`가 락 선점 → 202/409; `/api/cancel` → `request_cancel` |
-| 업데이트 | `UpdateService` → HTTPS manifest → Ed25519·버전·만료·크기 검증 → 스트리밍 SHA-256 검증 → helper → 원자 교체 → smoke 실패 시 rollback |
+| `x3_websync.py:47 main` | GUI/`--sync`/`--smoke`/`--check-update`/업데이트 헬퍼 분기, GUI 단일 인스턴스 락 |
+| `pipeline/service.py` | 설정 재로드, 작업 수락·취소·스레드/프로세스 락, 백업 pull/push 및 결과 상태 |
+| `pipeline/sync_pipeline.py`, `selected_sync.py`, `preview.py`, `epub_only.py` | 전체 수집·선택 전송·미리보기·파일만 생성 |
+| `scrapers/factory.py`, `scrapers/base.py` 및 전용 scraper | 타입별 수집, URL·limit 제한, HTTP GET retry·본문 크기 제한 |
+| `epub/builder.py`, `sanitize.py`, `images.py` | 사이트별/합본 EPUB, 본문 정제, 오프라인 이미지 포함 |
+| `upload/uploader.py`, `device_client.py` | 대상 기기별 전송, 파일 탐색·다운로드·삭제·이름/위치 변경 |
+| `config/manager.py`, `validator.py`, `db/history.py` | 설정 RMW·revision 검사, 입력 검사, 기기별 전송 이력·삭제 표식 |
+| `backup/service.py`, `format.py`, `replicas.py` | 공유 JSON 검증·병합, 기기 ID 조정, 설치별 복제본을 통한 사후 수렴 |
+| `gui/app_core/`, `gui/settings_tab/watch.py`, `watch/calibre.py` | UI 비동기 작업·종료 대기, 파일 감시 및 pending_files 보존 |
+| `servers/opds.py`, `servers/dashboard/` | EPUB 카탈로그, 인증된 상태·로그·동기화·취소 API |
+| `scheduler/manager.py`, `integrations/calibre.py`, `core/update/` | OS 스케줄러, Calibre CLI, 서명·크기·해시 검증 및 업데이트 롤백 |
 
-### 저장 방식과 공유 상태
+파일 경로는 표에서 `websync/` 접두사를 생략했다.
 
-- `config.json`: 설정 정본. 결손 키 보강, `portable_data`/`backup_sync` 호환, config 경로별 프로세스 락, revision CAS, 고유 임시 파일·fsync·replace 및 `.bak` 사용.
-- `sync_history.db`: `(url, device_ip)` 복합 PK인 전송 이력과 삭제 tombstone. `device_ip`라는 컬럼에 안정 기기 ID/alias 관련 키도 저장한다. 연결 timeout 10초, 트랜잭션 commit/rollback/close, thread lock을 사용한다.
-- `output/`: 사이트별 또는 일간 합본 EPUB. 같은 날짜의 기존 파일이 있으면 시간 suffix로 새 파일을 생성한다.
-- 공유 폴더: `sites.json`, `synced_posts.json`, manifest 및 폴더 락. 사이트·이력·삭제 표식·기기 registry를 병합한다. 잘못된 공유 JSON은 거부하고, pull 실패 시 기사 전송을 중단한다.
-- 실행 상태: `service.config`, builder/uploader 컴포넌트, `_cancel_event`, `_last_pipeline_result`, `_pipeline_thread`, GUI 워커 집합, 백업 timer 및 Watch queue.
-- 개발 실행은 프로젝트 루트, frozen 실행은 EXE 폴더를 데이터 기준으로 사용한다. 설정 시크릿은 로컬 JSON에 저장되며 UI 마스킹은 저장 암호화를 의미하지 않는다.
+### 저장 방식과 외부 의존성
 
-### 외부 의존성
+- 설정: UTF-8 `config.json`. 설정 락과 고유 임시 파일, fsync, `.bak`, `os.replace`, revision CAS/RMW를 사용한다.
+- 이력: `sync_history.db`. `(url, device_ip)` 복합 PK, 작업별 연결·commit/rollback, 스레드 락 및 SQLite timeout이 있다. 레거시 스키마·`*` 이력 이관, 삭제 tombstone을 지원한다.
+- 생성물/진단: `output/*.epub`, `logs/`, 파이프라인 락 파일. 개발 시 프로젝트 루트, frozen 시 EXE 폴더를 기준으로 하며 `X3_WEBSYNC_STORAGE_ROOT`로 저장 루트를 지정할 수 있다.
+- 공유 폴더: `sites.json`, `synced_posts.json`, manifest 및 `.websync-replicas/*.json`. 기기 ID/alias와 삭제 표식도 병합한다. 로컬 클라우드 폴더의 락은 PC 간 분산 전송 락이 아니다.
+- 필수 의존성: requests, BeautifulSoup, lxml, ebooklib, CustomTkinter, cryptography. pytest도 requirements.txt에 포함된다. 선택 기능은 Pillow, googletrans, youtube-transcript-api, watchdog 및 외부 Calibre에 의존한다.
+- `x3_websync.spec`는 locale/template/theme 리소스와 hiddenimports를 포함한다. 경량 EXE는 Pillow·자막·Watch·googletrans 패키지를 제외하며 README FAQ가 이 제한을 설명한다.
+- 일반 CI는 Linux/Python 3.15 전체 테스트와 Windows/Python 3.10 계약 테스트다. Windows/Python 3.15 frozen 빌드·smoke·서명 manifest 게시 등은 release.yml에 있다. 이 설명은 로컬 workflow 파일 기준이며 원격 CI를 이번에 조회하지 않았다.
 
-필수 Python 의존성은 requests, BeautifulSoup, lxml, ebooklib, customtkinter, cryptography이며 pytest가 필수 목록에 포함되어 있다. 선택 의존성은 Pillow, googletrans, youtube-transcript-api, watchdog이다. Calibre CLI, OS 스케줄러, CrossPoint HTTP API, 원격 콘텐츠 사이트, AI/번역 서비스 및 GitHub 업데이트 서비스가 외부 경계다. PyInstaller spec은 Pillow/googletrans/YouTube/Watch 의존성을 제외하며 README도 경량 EXE의 제한을 설명한다.
+### 핵심 사용자 흐름
+
+1. **전체 동기화**: `main / GUI / Dashboard → SyncService 작업 수락·락 → 백업 pull → 설정 snapshot → ScraperFactory.fetch_articles → URL별 기기 이력 검사 → 번역/요약 → 미전송 기사 집합별 EPUB → HTTP 업로드 → 성공 기기만 mark_synced_many → 백업 push → bool·상태·로그·알림`.
+2. **미리보기와 선택 전송**: `GUI → preview_articles → 공통 락·pull·수집·중복 검사 → 기사 목록 → sync_selected_articles → 최신 이력 재판정·기기별 배치 → EPUB/API/DB → 결과`. 미리보기는 전송 완료를 기록하지 않는다.
+3. **EPUB만 생성**: `선택 기사 → 공통 파이프라인 락 → 현재 EPUB 설정 → build/build_digest → 파일 경로·결과`. 기기 업로드·완료 이력 기록은 없다.
+4. **공유 데이터**: `설정·수동 요청·전송 전후 → BackupSyncService → 폴더 락·JSON/replica 확인 → URL/시간/삭제 표식 병합 → config RMW / DB union → 원자적 공유 파일 게시`. pull 실패 시 전송 중단, push 실패도 작업 실패로 보고하는 경로가 있다.
+5. **Calibre/Watch**: `서재 조회 CLI 또는 파일 이벤트 → 선택/안정 크기 확인 → pending_files → 직렬 worker·파이프라인 락 → uploader → 결과·성공 시 pending 해제`.
+6. **기기 파일 관리**: `선택 기기·원격 경로·로컬 파일 → GUI 확인/경로 정규화 → DeviceClient HTTP → 오류 변환·목록 새로고침`. 다운로드는 임시 파일을 거쳐 최종 파일을 교체한다.
+7. **종료/업데이트**: `종료 → 새 작업 거부·취소 → 서버/Watch 정지 → 자기 worker·이력 commit 대기 → 백업 flush → Tk destroy`. 업데이트는 manifest 서명 → artifact 크기·SHA256 → 헬퍼 교체 → smoke → 실패 시 롤백 경로를 갖는다.
 
 ## 3. Audit Coverage & Limitations
 
-### 구조 및 코드 확인 범위
+### 실제 확인한 범위
 
-**CodeGraph MCP를 실제 사용했다.** `.codegraph/`가 있는 저장소에서 entrypoint와 심볼·파일 이름으로 소스 및 caller/callee를 조회했다. 일반 코드 검색은 CodeGraph 결과의 생략 구간이나 호출 유무를 보충할 때 사용했다.
+위 모듈의 production 진입점과 주요 상태 변경 지점을 CodeGraph MCP로 우선 분석했다. 특히 다음 caller/callee 연결 및 소스를 확인했다.
 
-| 영역 | 확인한 주요 모듈/보호 장치 |
+- `main → SyncService → run_sync_pipeline_locked → build/build_digest → upload_to_targets → mark_synced_many`.
+- `preview GUI → preview_articles`, `선택 GUI → sync_selected_articles/build_selected_epubs` 및 공통 락 수명.
+- `import_sites → update_config → _save_config_unlocked → log_validation_warnings → validate_site`와 재기동 `main → load_config`.
+- `upload/upload_to_targets/DeviceClient.upload_to_path → _sanitize_filename → romanize_for_filename`.
+- `일간 합본 수집 → digest_articles → 기기별 배치 → build_digest` 및 GUI `save_site`의 이름/URL 검증.
+- 공유 폴더 pull/push·replica 병합, SQLite migration·transaction·삭제 이력, Watch worker, GUI 종료, OPDS 경로·인증, 대시보드 작업 수락·취소 및 updater 검증/롤백.
+
+도구가 생략한 본문은 함수명을 지정한 후속 CodeGraph 질의로 보완했다. 문서·설정·빌드·테스트 파일은 직접 읽었고 테스트 파일 목록은 `rg --files tests`로 확인했다. `scripts/migrate_to_package.py` 같은 개발용 migration script를 사용자 실행 경로의 위험으로 분류하지 않았다.
+
+### 실행한 검증
+
+환경: **Windows / Python 3.15.0**.
+
+```text
+python -B -m pytest tests/ -q --tb=short -ra -p no:cacheprovider
+538 passed, 1 skipped in 103.32s (0:01:43)
+exit code: 0
+skip: tests/test_storage_isolation.py:121 — POSIX directory descriptors
+```
+
+전체 suite에는 DB·config concurrency, multi-PC 이력, 실제 loopback HTTP 계약, EPUB 구조/이미지, scraper fixture, pipeline failure recovery, GUI lifecycle, scheduler/Calibre adapter, updater 등의 테스트가 포함된다. 통과를 실기기·native GUI 전체 E2E 통과로 해석하지 않는다. 실행 중 일부 로컬 HTTP 요청 처리의 예외 배너가 출력됐지만 pytest 실패나 최종 경고 요약은 없었다. 배너만으로 별도 결함을 확정하지 않았다.
+
+추가로 저장소에 테스트 파일을 추가하지 않고 일회성 Python을 실행했다. import 전에 임시 `X3_WEBSYNC_STORAGE_ROOT`를 지정하고 임시 config/DB/EPUB만 사용했다.
+
+| 추가 재현 | 실제 결과 |
 |---|---|
-| 실행·상태·동시성 | `x3_websync.py`, `pipeline/service.py`, `core/process_lock.py`, GUI `app_core/sync_control.py`, `helpers.py` |
-| 사용자 동기화 흐름 | `sync_pipeline.py`, `selected_sync.py`, `preview.py`, `epub_only.py`, GUI `sync_tab/preview.py`, `sites.py` |
-| 설정·이력·백업 | `config/manager.py`, validator/secrets, `db/history.py`, `backup/service.py`, `local_import.py`, portable 설정 및 기기 키 관련 호출 경계 |
-| 수집·내용 처리 | scraper base/session/timeout/retry/redirect/body limit, factory, RSS/CSS, YouTube API 호환, URL safety, translator/summarizer |
-| EPUB·전송·파일 | builder, sanitizer, uploader, device client, remote path, GUI device files actions |
-| 서버 | dashboard handler/http_server/service/session 호출, OPDS auth/path confinement/chunk transfer/수명 주기, HTML templates |
-| OS·선택 기능·배포 | scheduler, Calibre wrapper, Watch 및 GUI 큐/pending 처리, update manifest/installer/service, PyInstaller/CI/release 설정 |
-| 테스트 설계 | conftest, service/preview/selected/digest/translator, backup interleavings, HTTP lifecycle, hermetic guard 및 전체 실행 결과 |
+| `가.epub`/`ga.epub` sanitize | 두 출력 모두 `ga_32d750.epub` |
+| `name: null` JSON import → 새 manager load | import와 재로드 모두 AttributeError, 해당 URL의 `name: null`이 JSON에 남음 |
+| 이름 `same`, URL `/a`·`/b`, 서로 다른 기사로 전체 daily_digest 실행 | 성공 True, 합본에 BODY-a 없음/BODY-b 있음, 완료 이력 1건 |
+| 같은 날 build_digest 두 번 실행 | 서로 다른 경로, 첫 파일 bytes 보존. 덮어쓰기 의심 반증 |
 
-CodeGraph로 직접 확인한 주요 연결은 다음과 같다.
+합본 재현은 실제 ConfigManager·SyncService·SQLite·EPUB ZIP을 사용했으며 수집기와 업로드 결과 및 알림은 stub/mock으로 대체했다. 파일명 재현은 변환 함수 경계까지다. 실제 기기 요청·알림·스케줄 등록은 실행하지 않았다.
 
-- `main` → `run_sync_pipeline` → `_run_pipeline_body` → `maybe_backup_pull`/`_reload_config` → 실제 pipeline → `upload_to_targets`/`mark_synced_many` → `maybe_backup_push`.
-- `schedule_backup_push`/수동 공유 동기화/파이프라인 → `BackupSyncService.push` → `_push_unlocked` → `_apply_site_merge` → `ConfigManager.update_config`.
-- GUI 미리보기/선택 전송 → 서비스 wrapper → preview/selected 로직 → `_cancel_event` 조회. GUI caller에서 상태를 초기화하는지 추가로 확인했다.
-- `_on_close` → 서버/Watch stop → `shutdown_pipeline` → `flush_backup_push` → GUI 워커 wait → root destroy.
-- `SyncService.__init__` → 기본 `SyncHistoryDb` 및 local sidecar import; 전체 pipeline → legacy 이력 remap. 일부 테스트가 이 생산 코드 경로를 그대로 호출한다.
+### 한계
 
-### 실제 실행한 검사
-
-| 실행 | 결과 |
-|---|---|
-| `pytest -q` | **472 passed, 1 failed**, 87.66초. Windows, Python 3.15.0 |
-| `python -m pytest tests/test_http_server_lifecycle.py::test_dashboard_sync_requires_auth_and_reports_states -q --tb=short -ra` | **1 failed**, 0.98초. 단독 실행은 callback count `2 != 1`로 실패 |
-| 임시 config/SQLite/공유 폴더 백업 interleaving probe | 동시 사이트 저장 직후 `[A, B]` → push 후 `[A]`, `ok=True` 확인 |
-| 설치된 googletrans introspection 및 네트워크 없는 번역 probe | 4.0.2, `translate`는 coroutine 함수. 원문 반환 및 `was never awaited` 경고 확인 |
-| 임시 경로·fake scraper의 취소 후 재실행 probe | 미리보기 1 → 0, 취소 flag 유지, 선택 전송 False/cancelled, builder 호출 0 |
-| 임시 기본 루트에 기존 `*` 이력을 넣은 테스트 흐름 probe | 기본 DB를 쓰는 service 테스트와 같은 실행으로 이력 키 `*` → `127.0.0.1` 변경 확인 |
-| loopback dashboard POST probe; 실동기화 대신 counter callback, client 재시도 없음 | 본문 없는 POST 12건 중 10건 202/2건 연결 오류, JSON POST 12건 중 4건 202/8건 연결 오류; 각 경우 callback 12회 실행 |
-
-**테스트 격리 관련 감사 자체의 한계:** 전체 pytest를 먼저 실행한 뒤, 일부 테스트가 기본 프로젝트 루트 DB를 여는 사실을 발견했다. 전체 테스트 실행 전 사용자 DB의 비교본/hash를 확보하지 않았으므로 이번 실행이 실제 사용자 이력 행을 바꾸었는지는 확정할 수 없다. ‘사용자 데이터에 전혀 접근하지 않았다’고 주장하지 않는다. 이후 문제 재현은 임시 경로 또는 별도의 loopback 서버와 fake callback만 사용했고, 실제 이력에 복구·수정 작업을 하지 않았다.
-
-전체 실행의 대시보드 실패는 `POST /api/sync` 응답을 읽는 과정의 `ConnectionResetError(10054)`였다. 단독 실행의 중복 callback은 테스트 helper가 `requests.ConnectionError`에 POST를 재시도하는 흐름과 일치한다. 추가 probe에서는 본문 없는 요청도 실패했으므로 **미소비 JSON 본문만을 원인으로 확정할 수 없다.** Python/Windows/네트워크/서버 종료 동작을 분리하지 못한 상태이며, 이 현상을 특정 제품 코드의 확정 결함으로 High-Risk Issues에 추가하지 않았다.
-
-### 확인하지 못한 환경과 분석 한계
-
-- 실제 X3/X4 파일 API·덮어쓰기·전송 완료 의미, 기기에서의 EPUB 표시와 이미지 동작, 실제 Calibre 도서관은 검증하지 않았다.
-- 실제 사이트의 최신 HTML/RSS, YouTube 자막 접근, AI·번역 서비스 응답, 클라우드 동기화 클라이언트 간 충돌 및 GitHub live update는 호출하지 않았다.
-- macOS/Linux의 실제 launchd/crontab, OS 알림, 디스플레이가 있는 GUI 전체 조작, 새 frozen EXE 빌드/교체는 실행하지 않았다. 기존 테스트의 mock/contract 결과와 코드만 확인했다.
-- 모든 전용 scraper를 개별 실사이트에서 검증하지 않았다. 전체 테스트 통과 수를 외부 서비스 정상성의 증거로 사용하지 않는다.
-- CodeGraph는 구조 탐색과 최신 소스 제공에 사용했으나 결과 일부는 크기 제한으로 생략되었다. 중요한 생략 구간은 직접 보충했다. 정적 caller 매칭은 런타임 모든 경로의 증명이나 테스트 커버리지 측정이 아니다.
-- 이번 감사에서 coverage 측정, 의존성 설치, production 전송, 스케줄 등록, 기기 파일 삭제, 업데이트 적용은 수행하지 않았다.
-
-### 반증되어 이슈로 남기지 않은 항목
-
-- 정상 재실행 시 같은 날짜 EPUB을 반드시 덮어쓴다는 가설: builder의 기존 파일 검사·시간 suffix가 있어 제외했다.
-- OPDS의 단순 path traversal/Unicode HTTP header 실패 가설: basename/realpath/normcase 제한 및 RFC 5987 filename 처리로 반증했다.
-- 인증 없는 dashboard API 실행 가설: Bearer 또는 session 검증을 확인했다. production sync callback은 동기 전체 작업 대신 락을 선점하는 async service를 호출한다.
-- 서버가 idle 연결 때문에 항상 무한 대기한다는 가설: dashboard/OPDS handler의 2초 socket timeout을 확인해 제외했다. 전체 작업 deadline 부재와는 별개의 문제다.
-- 일부 기기 실패를 전체 성공 이력으로 기록한다는 가설: 성공 결과만 수집·트랜잭션 저장하고 전체 성공과 부분 성공을 나눈다.
-- 원자적 설정 쓰기나 SQLite rollback 자체가 빠졌다는 가설: 보호 장치를 확인했다. ISSUE-001은 그 보호 장치 바깥에서 만들어진 오래된 값의 저장 문제다.
+- CodeGraph는 AST·이름 기반 구조 분석이며 동적 호출 연결은 best effort다. 반환된 source와 실제 테스트를 함께 판단했다. 저장소 전 파일·전 분기를 완전 검증하지 않았다.
+- 실제 X3/X4, CrossPoint 버전별 API 의미·덮어쓰기·한글 표시·배터리/절전 상태를 확인하지 못했다.
+- 실제 외부 사이트·YouTube·AI/번역 provider·Calibre 서재·OneDrive/Dropbox/Google Drive를 대상으로 작업하지 않았다. 최신 외부 API 호환성을 보장하지 않는다.
+- macOS/Linux native GUI·scheduler·notification 및 이번 commit의 원격 CI 결과는 미확인이다. frozen EXE 빌드·실행, 실제 브라우저 login/start/cancel/polling도 이번에는 수행하지 않았다.
+- 기존 테스트의 임시 저장 경로·I/O guard를 확인하고 사용했다. 이는 OS sandbox가 아니다. 사용자 config/DB 내용을 열어보거나 복구·수정하지 않았고 의존성을 설치하지 않았다.
 
 ## 4. High-Risk Issues
 
-이 절에는 코드 흐름과 임시 재현으로 확인한 문제만 넣었다. 절 이름과 개별 우선순위는 별개이며 Medium도 실제 기능 결함이면 포함한다.
+이 절에는 반증 후 남은 Confirmed만 기록한다. Medium 항목도 기능 위험으로 함께 수록하되 심각도를 구분한다.
 
-### [ISSUE-001] 백업 push가 도중에 저장된 사이트 변경을 오래된 목록으로 덮어쓴다
+### [ISSUE-001] 잘못된 사이트 가져오기가 설정을 영구 저장한 후 실패하여 다음 기동도 막음
 
-- **위치:** `websync/backup/service.py:377` `_push_unlocked`; 특히 `:378`, `:461–479`의 `_apply_site_merge`. 관련 `websync/config/manager.py:349` `update_config`.
-- **우선순위:** High
-- **신뢰도:** Confirmed
-- **문제:** push 시작에 읽은 `config`로 사이트 목록과 tombstone을 병합한 뒤, `update_config`의 최신 `cfg`에 그 외부 snapshot을 그대로 대입한다. push 진행 중 저장된 새로운 사이트·편집·삭제가 반영되지 않는다.
-- **발생 조건:** 자동 export timer, 수동 공유 동기화 또는 동기화 후 push가 설정을 읽은 다음, 다른 GUI 동작/워커/프로세스가 사이트를 저장하고 push가 `_apply_site_merge`를 실행한다. 폴더 락 대기·DB export·클라우드 파일 재시도가 경합 시간을 늘릴 수 있다.
-- **영향:** 정상 저장된 사이트 추가/변경이 로컬 설정에서 사라지고 오래된 목록이 공유 정본으로 게시된다. `ok=True`이므로 사용자는 성공으로 인식할 수 있다.
-- **근거:** 임시 설정에 A를 두고 push의 공유 JSON 읽기 직후 독립 `ConfigManager`로 B를 추가했다. 저장 직후 `[A, B]`, push 결과 `True`, 최종 로컬 `[A]`였다. `sites_payload`도 오래된 `sites`로 구성된다.
-- **반증 확인:** backup service의 thread lock과 공유 폴더 lock은 일반 GUI config writer를 잠그지 않는다. config의 process lock/update_config는 최종 쓰기를 원자적으로 만들지만 mutator 바깥의 snapshot을 최신화하지 않는다. GUI CAS는 앞서 완료된 편집을 이후 backup mutator가 덮어쓰는 것을 차단하지 못한다. busy UI도 모든 사이트 편집이나 timer를 막지 않는다.
-- **호출/영향 범위:** CodeGraph의 `push` callers는 `SyncService.maybe_backup_push`, timer/flush 및 수동 sync 경로다. 사이트 GUI 저장은 별도 config 경로로 들어오므로 같은 목록에 영향을 준다. pull의 `_apply_sites`는 최신 `cfg['sites']`를 내부에서 다시 병합하며 push와 다르다.
-- **권장 수정 방향:** 사이트/tombstone 병합을 `update_config` mutator 안에서 최신 cfg 기준으로 수행하고, 그 저장 결과로 공유 payload를 만든다. config snapshot을 읽은 뒤 발생한 revision 변경을 무시하지 않도록 저장·export의 일관성도 정한다.
-- **필요한 회귀 테스트:** Event/barrier로 push의 최초 read와 config write 사이를 고정한다. 다른 writer가 B 추가/A 편집/A 삭제를 각각 수행한 뒤 로컬과 공유 JSON 모두 최신 변경을 보존하고 unrelated config field도 유지해야 한다. thread뿐 아니라 독립 ConfigManager/process 경로도 포함한다.
+- **위치:** `websync/config/manager.py:444 import_sites`, `:351 update_config`, `:300 load_config`; `websync/config/validator.py:86 validate_site`.
+- **우선순위:** High.
+- **신뢰도:** Confirmed.
+- **문제:** 가져오기에서 객체/배열과 URL만 제한적으로 확인한 뒤 사이트 필드를 저장한다. `update_config`는 저장 후 `log_validation_warnings`를 호출한다. validator는 `name`이 문자열이라고 가정해 `.strip()`을 호출하므로 null 입력에서 예외가 난다. 실패 반환 시 이미 저장한 내용은 롤백되지 않는다.
+- **발생 조건:** 사용자 사이트 가져오기 JSON에 `{"sites":[{"name":null,"type":"rss","url":"https://example.test/feed"}]}`가 들어 있다. 정상적인 앱 export만 사용하면 발생하지 않지만, 수동 편집·다른 도구에서 만든 JSON을 읽는 공개 사용자 기능이다.
+- **영향:** 가져오기가 실패했다고 표시돼도 로컬 설정에 잘못된 사이트가 남는다. 이후 ConfigManager.load_config가 같은 validator에서 실패해 GUI와 `--sync` 초기화가 막힌다. 수동 설정 수정/백업 복구가 필요하다. JSON 문법·기존 사이트 전체가 소실된다는 의미는 아니다.
+- **근거:** `import_sites:466–474`는 기본값 병합만 하고 `:510`에서 update_config를 호출한다. `update_config:360`의 저장 다음 `:361`에서 validator를 실행한다. `validate_site:90`은 `site.get("name", "").strip()`이다. 임시 파일 재현에서 import와 새로운 manager의 load 모두 `'NoneType' object has no attribute 'strip'`를 발생시켰고, 해당 URL의 원시 JSON name은 None이었다.
+- **반증 확인:** GUI 직접 입력 폼은 빈 이름 등을 검사하지만 파일 가져오기는 그 폼을 경유하지 않는다. deep merge는 존재하는 null을 기본 문자열로 바꾸지 않는다. 프로세스 락·revision·fsync·원자 교체는 동시성/파일 쓰기를 보호할 뿐 잘못된 값을 거부하지 않는다. `.bak`은 있으나 load에서 자동 fallback하지 않는다. GUI 오류 표시와 main의 초기화 예외 처리는 장애를 알리지만 저장 상태를 되돌리지 못한다.
+- **호출/영향 범위:** CodeGraph `SyncSitesMixin._import_sites_action → ConfigManager.import_sites → update_config → _save_config_unlocked → log_validation_warnings`; 이후 `main → ConfigManager.load_config → validate_site`. 같은 validator를 쓰는 다른 외부 설정 입력도 타입 방어가 필요하지만, 이번 확정 재현은 사이트 import다.
+- **권장 수정 방향:** 저장 전에 import의 필드 타입·값·전체 설정을 검사하고 실패하면 기존 파일과 revision을 유지한다. validator는 null/숫자/list를 오류 목록으로 변환하고 예외를 내지 않도록 한다. `.bak` 복구는 명시적 사용자 복구 경로와 함께 설계한다.
+- **필요한 회귀 테스트:** 정상 config bytes/revision을 저장한 뒤 위 JSON을 import하면 ConfigLoadError 등 명확한 입력 오류가 나고 원본 bytes/revision이 유지되어야 한다. 이어 새 manager의 load와 서비스 초기화가 성공해야 한다. name/url/선택자 필드에 null·숫자·배열을 각각 적용한다.
 
-### [ISSUE-002] googletrans 4.x의 coroutine을 기다리지 않아 번역이 실행되지 않는다
+### [ISSUE-002] 로마자 변환 뒤 해시를 계산하여 서로 다른 원본 전송 파일명이 같아짐
 
-- **위치:** `websync/pipeline/translator.py:39` `_get_gtrans`, `:71–77` `_do_translate`, `:49–69` `translate_html`; `requirements-optional.txt`의 `googletrans>=4.0.0`.
-- **우선순위:** Medium
-- **신뢰도:** Confirmed
-- **문제:** `gt.translate(...)`의 반환값을 동기 결과로 가정하고 바로 `.text`를 읽는다. 설치된 googletrans 4.0.2의 실제 메서드는 coroutine 함수다.
-- **발생 조건:** 소스 실행에서 optional 의존성을 설치하고 전역 번역을 켠 뒤 googletrans provider와 사이트 `translate_to`를 지정한다.
-- **영향:** 사용 가능 판정은 True지만 본문 번역은 실행되지 않는다. 예외 wrapper가 원문을 반환해 EPUB과 전송은 원문으로 계속 진행하며 미대기 coroutine 경고가 생긴다.
-- **근거:** `inspect.iscoroutinefunction(googletrans.Translator.translate) == True`, 설치 버전 4.0.2를 확인했다. `<p>This article should be translated.</p>`를 넣은 실제 adapter 호출은 원문을 반환했고 `coroutine 'Translator.translate' was never awaited` 경고가 발생했다. coroutine을 실행하지 않아 외부 번역 요청은 보내지 않았다.
-- **반증 확인:** `translate_html`의 catch는 전체 파이프라인 crash를 막지만 번역을 완료하지 않는다. 상위 availability/caller도 await하지 않는다. LibreTranslate는 별도 동기 구현이며 이 결함의 대상이 아니다. PyInstaller 경량 EXE는 googletrans를 제외하므로 해당 EXE 전체 장애로 일반화하지 않는다.
-- **호출/영향 범위:** CodeGraph에서 전체 동기화와 선택 동기화가 `is_available_for_site` → `translate_html`을 호출한다. 사이트별 EPUB과 일간 합본의 전처리에 영향이 있다. EPUB만 만들기는 번역을 생략한다.
-- **권장 수정 방향:** 지원하는 googletrans 버전의 async 계약에 맞는 adapter와 client 수명 관리를 구현한다. 워커 thread/event loop 경계를 명시하고 `source='auto'` 등 입력 계약도 실제 라이브러리에 맞춘다. dependency 버전 범위와 adapter 계약을 함께 관리한다.
-- **필요한 회귀 테스트:** 실제 async shape의 stub/AsyncMock으로 await 여부, 번역 결과, tag 보존, client close를 확인한다. installed optional adapter 계약 테스트는 네트워크를 mock하고 coroutine 경고가 없어야 한다. 오류 시 원문 fallback과 로그는 별도 검증한다.
+- **위치:** `websync/upload/uploader.py:42 X3Uploader._sanitize_filename`, `websync/upload/romanize.py:71 romanize_for_filename`.
+- **우선순위:** High.
+- **신뢰도:** Confirmed — 결정적 파일명 충돌을 재현했다. 실제 기기의 덮어쓰기 결과는 미검증이다.
+- **문제:** 원래 basename을 로마자로 바꾼 뒤 그 결과에 MD5를 적용한다. 로마자 표기는 일대일 변환이 아니므로 해시가 원본 간 차이를 보존하지 못한다. 짧은 해시의 우연한 충돌 문제가 아니라 동일한 해시 입력을 만드는 구조적 충돌이다.
+- **발생 조건:** `가.epub`과 `ga.epub`, 또는 같은 로마자 표기로 변환되는 서로 다른 제목을 같은 원격 폴더로 보낸다. 날짜가 붙은 사이트별 생성물에서도 날짜가 같으면 발생할 수 있다.
+- **영향:** 서로 다른 책이 같은 원격 파일을 가리킨다. 동일 경로 업로드를 대체하는 펌웨어에서는 앞 책을 잃을 수 있으며, 기사 동기화에서는 두 업로드가 성공하면 각각의 완료 이력이 남아 앞 기사도 재전송 대상에서 제외될 수 있다. 실제 기기가 중복을 거부한다면 덮어쓰기 대신 전송 실패로 나타난다.
+- **근거:** `uploader.py:44–47`에서 `base = romanize_for_filename(base)` 다음 해시를 계산한다. 실제 함수 호출 결과는 `가.epub → ga_32d750.epub`, `ga.epub → ga_32d750.epub`였다. 서로 다른 원본을 구분한다는 주석·문서 계약을 만족하지 않는다.
+- **반증 확인:** ASCII filtering 뒤 suffix가 붙어도 이미 동일한 입력의 해시라 차이가 생기지 않는다. builder의 파일 존재 검사/시간 suffix는 서로 다른 원래 이름의 로컬 파일 사이에는 적용되지 않는다. 기기 파일 탭의 overwrite 확인은 일부 수동 경로에만 있으며, 한 번에 선택한 두 로컬 파일끼리의 충돌은 업로드 전 원격 조회만으로 막지 못한다. 전체/선택 동기화·Calibre/Watch 업로드에는 동일한 확인이 항상 적용되지 않는다.
+- **호출/영향 범위:** CodeGraph `_sanitize_filename ← upload / upload_to_targets`, `DeviceClient.upload_to_path`도 같은 함수를 사용한다. 전체/선택 파이프라인, Calibre/Watch, 수동 파일 전송에 공통 영향이다.
+- **권장 수정 방향:** 변환 전 원래 basename을 별도 보존해 그 값으로 해시를 계산하고, 사람이 읽는 prefix에만 로마자 변환을 적용한다. 전송 배치에서 동일 원격 이름도 검사한다. 기존 기기 파일과의 호환/이름 변경 정책은 명시한다.
+- **필요한 회귀 테스트:** `가.epub`/`ga.epub`, 서로 다른 받침이 같은 표기로 변환되는 한글 쌍, 악센트 포함/미포함 이름을 넣어 ASCII·확장자·날짜 보존과 서로 다른 출력 이름을 확인한다. fake CrossPoint에 두 책을 전송했을 때 서로 다른 key와 bytes로 둘 다 남아야 한다.
 
-### [ISSUE-003] 취소 후 미리보기·선택 전송이 이전 취소 상태를 그대로 사용한다
+### [ISSUE-003] 표시 이름이 같은 소스가 일간 합본에서 앞 소스 기사를 조용히 누락
 
-- **위치:** `websync/pipeline/service.py:82–105` cancel event, `websync/pipeline/preview.py:31–74`, `websync/pipeline/selected_sync.py:42–46` 및 취소 검사, `websync/pipeline/epub_only.py:51–54`, GUI `websync/gui/sync_tab/preview.py:34`, `:205`, `:224`.
-- **우선순위:** Medium
-- **신뢰도:** Confirmed
-- **문제:** 취소는 service에 지속되는 Event를 set한다. 전체 sync body만 `clear_cancel()`을 호출하며 다음 preview/selected/build-only 작업 시작에서는 이전 상태를 초기화하지 않는다.
-- **발생 조건:** 같은 GUI/service 인스턴스에서 작업 취소를 누른 뒤 새 미리보기 또는 선택 전송을 시작한다. 미리보기를 부분 수집 후 취소하고 반환된 기사 중 일부를 선택 전송하는 흐름도 해당한다.
-- **영향:** 새 미리보기가 scraper 호출 전에 중단되어 0건을 반환하고 GUI는 ‘기사 없음’으로 표시할 수 있다. 선택 전송은 빌드/전송 없이 cancelled를 반환한다. 사이트별 EPUB만 만들기도 같은 flag의 영향을 받는다. 전체 sync를 실행하거나 앱을 재시작하면 우회할 수 있다.
-- **근거:** 임시 DB/config와 1건을 반환하는 fake scraper에서 preview는 처음 1건이었다. `request_cancel()` 후 다음 preview는 0건이었고 flag는 계속 True였다. 이어 선택 전송은 False, `status=cancelled`, builder 호출 0이었다.
-- **반증 확인:** GUI `_start_pipeline_ui_task`와 preview caller, service wrappers, 락 획득 helper를 확인했다. 이 경로들에는 cancel reset이 없다. repository 검색으로 `clear_cancel` 호출은 전체 sync body에만 있음을 보충 확인했다. 기존 selected 취소 테스트는 작업 전 set된 event가 취소를 유도하는지만 검증해 다음 작업의 독립성을 보장하지 않는다.
-- **호출/영향 범위:** 하단 취소 또는 dashboard cancel → `request_cancel` → GUI preview/selected/build-only → 각 기능의 `is_cancel_requested` 검사. 전체 sync는 자체 reset 때문에 다른 결과를 보인다.
-- **권장 수정 방향:** 새 작업이 락을 확보하고 수락되는 시점에 그 작업의 cancel 상태를 초기화하거나 작업별 Event를 둔다. busy 요청이나 동시에 실행 중인 작업의 취소를 초기화하지 않도록 작업 수락과 reset의 순서를 설계한다.
-- **필요한 회귀 테스트:** 동일 service에서 preview → 취소 → preview/selected/build-only 재시작이 정상 처리되어야 한다. 현재 실행의 취소는 즉시 유효해야 하고 거부된 새 요청이 기존 작업의 취소를 지우면 안 된다. 부분 preview 취소 후 선택 전송도 포함한다.
-
-### [ISSUE-004] 일부 테스트가 실제 기본 이력 DB를 사용하고 기존 이력을 변경할 수 있다
-
-- **위치:** `tests/test_service.py:26`, `:144` 등 직접 service 생성; `tests/test_selected_sync.py:13–34`; `tests/test_pipeline_digest.py:31–39`; `tests/conftest.py`; `websync/pipeline/service.py:26–39`; `websync/db/history.py:33–38`; `websync/pipeline/sync_pipeline.py:89–100`.
-- **우선순위:** High
-- **신뢰도:** Confirmed
-- **문제:** ConfigManager만 mock한 뒤 `SyncService(cm)`를 만들면 생성자 내부에서 기본 PROJECT_ROOT의 `sync_history.db`를 열고 초기화하며 local sidecar import도 실행한다. DB 메서드를 생성 이후 mock해도 이미 이루어진 접근을 되돌리지 못하고, mock하지 않은 legacy remap도 남는다.
-- **발생 조건:** 사용자 이력/사이드카 파일이 있는 개발 체크아웃에서 일반 `pytest -q` 또는 해당 service 테스트를 실행한다. 기존 `device_ip='*'` 행이 있으면 테스트 기기 주소로 이관될 수 있다. local sidecar가 있으면 이력 병합 경로에도 진입한다.
-- **영향:** 개발자가 테스트만 실행해도 사용자 데이터에 쓰기가 발생할 수 있다. 잘못된 기기 귀속은 이후 실제 기기에서 중복 전송 판단을 바꾸며, local 데이터에 따라 테스트 결과도 달라질 수 있다. **애플리케이션 정상 GUI 실행 자체의 별도 결함으로 주장하는 것이 아니라, 테스트 실행 시 발생하는 데이터 위험이다.**
-- **근거:** 기본 PROJECT_ROOT를 임시 폴더로 바꾸고 사용자 기존 행에 해당하는 synthetic `*` 이력을 넣었다. ConfigManager mock과 `needs_sync=False`를 쓰는 service 테스트 흐름을 실행하자 실제 DB의 이력 키가 `127.0.0.1`로 바뀌었다. 전송은 수행하지 않았다. conftest의 autouse fixture는 UI 언어만 초기화한다.
-- **반증 확인:** SQLite lock/transaction은 이 변경을 정상 commit하며, 테스트 데이터인지 사용자 데이터인지 구분하지 않는다. `test_hermetic_suite.py`의 정적 금지 패턴은 사실상 `dist` 문자열 패턴 중심이어서 생성자를 통한 간접 기본 경로 접근을 탐지하지 못한다. 다른 integration 테스트가 tmp_path를 쓴다고 해서 이 테스트들도 격리되는 것은 아니다.
-- **호출/영향 범위:** CodeGraph에서 테스트 → `SyncService.__init__` → `SyncHistoryDb()`/`_import_local_sidecars_once`; pipeline → `remap_legacy_star_to_device`. repository DB, legacy import JSON, lock/log 경로가 경계다.
-- **권장 수정 방향:** service를 만들기 전에 DB·sidecar root·process lock·logger/output 경로를 모두 임시 환경에 주입한다. 공통 fixture 또는 명시적 생성자 주입으로 사용자 저장소 접근을 차단한다. 별도 sandbox에서 real I/O integration 테스트를 유지하고, 테스트 실행 중 허용 루트 밖 write는 fail-fast로 탐지한다.
-- **필요한 회귀 테스트:** 별도 subprocess의 sandbox repo root에 sentinel DB/config/sidecar를 놓고 테스트 저장 경로는 다른 tmp_path로 지정한다. 테스트 전후 sentinel 행·파일 bytes가 같아야 하며, 금지 경로 접근 가드가 의도적으로 잘못된 `SyncService(cm)` 생성에서 실패해야 한다. 생산 데이터로 회귀 테스트를 하지 않는다.
+- **위치:** `websync/pipeline/sync_pipeline.py:180–183 run_sync_pipeline_locked`; 입력 허용 경로 `websync/gui/sync_tab/site_dialog.py:405 save_site`.
+- **우선순위:** Medium.
+- **신뢰도:** Confirmed.
+- **문제:** 일간 합본의 누적 dict를 사이트 표시 이름으로 인덱싱하고 `digest_articles[name] = new_articles`로 대입한다. 다른 URL의 소스가 같은 이름이면 이전 목록이 교체된다. 이름의 유일성은 입력 계약으로 강제되지 않는다.
+- **발생 조건:** 켜진 소스 두 개가 같은 이름이고 서로 다른 URL이며, 둘 다 새 기사가 있고 `epub_merge_mode=daily_digest`인 전체 동기화를 실행한다.
+- **영향:** 앞 소스 기사를 가져왔다는 로그는 나오지만 생성/전송한 합본에서는 빠진다. 뒤 소스만 전송하고 작업은 성공한다. 앞 기사 완료 이력은 기록하지 않으므로 재시도가 가능하지만, 계속 두 소스에 새 글이 있으면 누락이 반복될 수 있다.
+- **근거:** 임시 설정에 이름 `same`, URL `https://example.test/a` 및 `/b`, 기사 BODY-a/BODY-b를 넣었다. 실제 서비스·DB·EPUB 실행에서 반환값 True, ZIP XHTML에 BODY-a 없음/BODY-b 있음, DB 고유 URL 1건을 확인했다. builder의 파일명 문제가 아니라 builder에 들어가기 전 누적 결과 문제다.
+- **반증 확인:** GUI는 이름 공백, URL scheme, limit, CSS 문법 및 중복 URL 확인을 제공한다. 서로 다른 URL의 같은 이름은 막지 않는다. config validator도 이름 유일성을 검사하지 않는다. DB PK·중복 필터는 서로 다른 기사 URL에 대한 것이므로 합본 dict의 덮어쓰기를 막지 못한다. 선택 전송의 `setdefault(...).append(...)`는 이 누락을 피하지만 전체 동기화는 그 경로를 쓰지 않는다.
+- **호출/영향 범위:** CodeGraph `main/GUI/Dashboard → SyncService.run_sync_pipeline → run_sync_pipeline_locked → digest_articles → group_articles_by_pending_targets → build_digest`. 전체 일간 합본에 한정한 확정 문제다. 선택 전송에서는 같은 이름의 번역 설정 구분이 모호할 수 있으나 별도 결함으로 확정하지 않았다.
+- **권장 수정 방향:** 소스 URL/안정 ID로 누적하고 표시 이름은 레이블로만 사용한다. 최소 수정은 같은 이름의 목록을 append/extend하여 기사를 보존하는 것이지만 소스별 옵션도 구별할 수 있어야 한다.
+- **필요한 회귀 테스트:** 같은 이름·다른 URL·서로 다른 기사 두 개로 전체 합본을 실행해 ZIP에 두 본문, DB에 두 URL, 성공 결과를 확인한다. 두 번째 실행은 신규 없음이어야 한다. 기기별 미전송 기사 집합이 다른 경우에도 모든 대상의 합본에 필요한 기사만 남아야 한다.
 
 ## 5. Potential Functional Gaps
 
-이 절은 추가 기능이나 보완 계약을 구분한다. 외부 환경에서 재현하지 못한 사항을 현재 확정 버그로 표현하지 않는다.
+이 절은 현재 버그와 기능 확장/운영 제약을 구분한다.
 
-| 구분 | 보완점과 현재 근거 | 확인/개선 방향 |
+| 구분 | 보완점 | 판단 및 기대 동작 |
 |---|---|---|
-| Confirmed Gap | 이미지 포함 설정은 HTML의 img를 유지하지만 확인한 builder는 본문 이미지를 EPUB item으로 다운로드·패키징하지 않는다. 외부 URL 이미지의 offline 표시는 보장되지 않는다. | ‘HTML 이미지 유지’와 ‘offline 이미지 포함’ 계약을 정하고, offline 지원 시 image manifest·상대 URL·크기/timeout 한도를 검증 |
-| Likely Gap | `_on_close`는 `shutdown_pipeline(timeout=5)`의 False 결과를 확인하지 않고 추가 제한 대기 후 root를 destroy한다. daemon worker가 남을 수 있으며 업로드 timeout은 이보다 길다. | 느린 upload/DB commit/backup 중 종료를 subprocess로 시험. 전송 완료와 이력 기록 사이 종료의 재실행 정책을 정할 필요 |
-| Likely Gap | 일반 클라우드 클라이언트가 각 PC의 로컬 폴더를 복제하는 경우, `ProcessFileLock`만으로 서로 다른 PC의 전송·게시를 전역 직렬화할 수 있다는 보장은 없다. 같은 물리적 공유 파일시스템 테스트와 구별해야 한다. | 독립 로컬 복제본·지연/충돌 파일로 검증. 필요하면 conflict 병합, 서버 CAS/lease 또는 사용자 동시 실행 정책 명시 |
-| Confirmed Gap | HTTP lifecycle 테스트 helper는 모든 ConnectionError에 POST를 재시도한다. 응답만 유실된 경우 이미 수락된 callback을 반복한다. 단독 실패에서 count 2를 관측했다. | readiness는 읽기 요청으로 확인. 수락 이후의 transport 실패를 사전 연결 실패와 구분하고 mutation assertion에서는 자동 재시도 금지 |
-| 추정 | callback은 실행되었는데 loopback HTTP 응답을 읽지 못한 현상이 실제 Windows 사용자 환경에서도 동기화 결과 표시를 혼란스럽게 할 수 있다. 이번 환경에서 원인은 미분리 상태다. | 다른 Python 버전·client·Windows 환경 및 request/response 완료 시점으로 재현. 근거 확보 전 unread body나 thread 시작 race 하나로 단정하지 않음 |
+| Confirmed Gap | 설정 오류 복구 UX | `.bak`/`.corrupt` 보존은 있으나 읽기 실패 후 앱 안에서 정상본 선택·복구하는 기동 경로는 확인되지 않았다. ISSUE-001 수정과 함께 유용하지만 자동 복구 부재 자체를 데이터 파괴로 분류하지 않는다. |
+| Confirmed Gap | PC 간 정확히 한 번 전송 | 공유 폴더의 로컬 락/replica는 분산 전송 lease가 아니다. README와 구현 기록도 같은 reader의 자동 전송 PC를 하나로 제한한다. 동시/offline 전송까지 요구한다면 서버 CAS/lease가 필요한 추가 기능이다. |
+| Confirmed Gap | 응답 유실 뒤 원격 완료 조정 | HTTP 성공 후 로컬 DB commit 전 강제 종료, 또는 기기 완료 후 응답 유실은 재전송될 수 있다. 기존 문서에 공개한 제약이다. 원격 파일/hash 조회나 idempotency 지원이 있어야 완료 여부를 안전하게 조정할 수 있다. |
+| Likely Gap | Watch 실패 항목의 실행 중 재시도 | pending_files 보존과 시작 시 재큐잉은 있으나 `_upload_worker` 실패 항목을 현재 실행 중 다시 처리하는 주기적 retry는 확인하지 못했다. 자동 retry가 필요하다면 backoff·부분 성공 기기 상태·중복 큐 정책을 정해야 한다. 현재는 재시작 등의 복구가 가능한 제약이다. |
+| 추정 | 원격 서비스의 장기 호환성 | fixture와 adapter 계약은 외부 HTML/API 변경을 탐지하지 못할 수 있다. opt-in live smoke를 별도 환경에서 운영할 가치가 있다. 이번에 실제 서비스 장애를 관측한 것은 아니다. |
 
 ## 6. Documentation Mismatches
 
-| 설명 | 실제 구현/확인 | 수정 방향 |
-|---|---|---|
-| README의 googletrans 자동 번역 및 optional requirements의 4.0.2 호환 언급 | import/설치는 가능하지만 실제 adapter 호출은 ISSUE-002로 번역 실패 | 설치 호환성과 기능 호환성을 구분하고 async adapter 지원 버전 명시 |
-| README가 웹 대시보드에서 cancel과 live streaming log를 설명 | `/api/cancel`은 구현되어 있지만 `websync/servers/templates/dashboard.html`에는 취소 UI가 없다. 자동 5초 갱신은 status만이며 log는 초기/수동 fetch다. | API 제공과 사용자 UI 제공을 구분. 실제 UI를 추가하거나 기능 설명 조정 |
-| docs/DEVELOPER.md의 hermetic 규칙 및 Windows CI 단계의 ‘temp paths’ 설명 | 일부 unit/service 테스트는 기본 DB/sidecar를 간접 사용한다(ISSUE-004). 정적 guard는 이 호출을 막지 못한다. | 실제 격리 fixture와 runtime write guard 확보 후 문서·CI 설명 유지 |
-| CLAUDE/AGENTS의 CrossPoint crash 방지용 파일명 설명과 사용자 제공 ASCII 안전 설명 | `uploader.py:46`은 `str.isalnum()`으로 한글 등 Unicode 문자도 유지한다. hash는 basename 충돌 완화이며 ASCII 변환이 아니다. | 지원 펌웨어의 Unicode filename 계약을 실기기로 확인하고 문서와 코드의 허용 범위를 맞춤. 이번 감사에서는 기기 crash를 확정하지 않음 |
+1. **원래 basename hash 설명과 구현 불일치:** README 마지막 Reliability 항목, CLAUDE/AGENTS 후속 안정성 기록, `docs/AUDIT_IMPLEMENTATION.md`는 원본 이름 hash로 고유성을 보존한다고 설명한다. 실제로는 로마자 변환 후 hash이므로 ISSUE-002 재현과 모순된다.
+2. **개발 문서의 과거 구조 설명:** CLAUDE/AGENTS 본문은 `uploader.py`를 영숫자 필터링 중심으로 설명하고 네이버 이미지를 항상 제거한다고 설명한다. 실제 uploader는 `romanize.py`를 사용하고 현재 이미지 정책은 include_images에 따라 달라진다. 후속 기록은 일부를 바로잡지만 본문과 함께 읽으면 혼동된다. 초기 로드맵은 역사 기록이라고 명시하므로 구현 누락 목록으로 취급하지 않았다.
+3. **오래된 선택 의존성 주석:** requirements.txt의 주석은 `googletrans==4.0.0-rc1`을 안내하지만 실제 requirements-optional.txt와 adapter 계약은 `>=4.0.2,<5`다. 설치 가능한 공식 목록을 하나로 맞춰야 한다. 해당 주석을 따른 구버전 호환 실패는 이번에 별도로 재현하지 않았다.
 
-일부 내부 문서의 단순 module 이름·옛 로드맵은 유지보수 기록으로 처리했다. 그 자체를 기능 결함으로 집계하지 않았다.
+README FAQ의 경량 EXE 선택 기능 제외, 클라우드 분산 락 한계, 후속 문서의 과거 CI와 현재 2-job CI 구분은 실제 설정과 부합한다. 이를 불일치/미구현 버그로 분류하지 않았다. 과거 구현 기록에 적힌 테스트 수·릴리즈 정보는 당시 기록이며 이번 테스트 결과나 최신 원격 상태로 재사용하지 않았다.
 
 ## 7. Recommended Fix Plan
 
 ### Phase 1 — Immediate
 
-1. **ISSUE-001:** 백업 push의 사이트/tombstone 병합을 최신 config transaction 내부로 이동하고 최종 저장 결과를 export한다. 추가·편집·삭제 interleaving 회귀를 먼저 정의한다.
-2. **ISSUE-004:** 사용자 데이터가 있는 checkout에서 테스트가 기본 저장소에 쓰지 않도록 모든 service fixture를 생성 전 격리한다. 테스트 명령을 재검증할 때에도 별도 sandbox를 사용한다.
-3. 데이터 보호 확인은 임시 sentinel로 수행한다. 이번 감사에서 실제 사용자 데이터를 임의 복구하거나 수정하지 않는다.
+1. ISSUE-001: 외부 JSON 저장 전 타입/의미 검증, 실패 시 원본 유지, 재기동 정상성 회귀. 가져오기 오류가 기존 설정을 오염시키지 않는 것을 완료 조건으로 한다.
+2. ISSUE-002: 원본 basename으로 해시 계산, 로마자 prefix는 표시용으로 유지, 배치 내 충돌 검사. 기존 전송 파일명과의 전환 정책을 정한다.
 
 ### Phase 2 — Stability
 
-1. **ISSUE-002:** googletrans async adapter와 client 정리, optional 버전 계약을 수정하고 네트워크 없는 adapter 테스트를 추가한다.
-2. **ISSUE-003:** 작업 수락 시점의 cancel lifecycle을 통일하고 cancel → 새 작업 사용자 여정을 검증한다.
-3. 실패한 dashboard 테스트의 재시도 설계와 Windows connection reset 원인을 분리한다. body 없는 정상 UI 요청도 포함하고 실제 pipeline lock의 중복 실행 방어를 유지한다.
-4. 느린 network/DB/backup 상황의 종료·재실행을 시험하고 shutdown 실패 시의 동작 및 이력 불확실 상태를 명시한다.
-5. Windows/macOS/Linux의 실행·경로·scheduler 계약과 새 frozen artifact를 플랫폼별로 확인한다.
+1. ISSUE-003: 전체 합본 소스 누적 키 수정, 두 본문·기기별 이력까지 통합 회귀.
+2. config validator를 타입 안전하게 만들고 import·백업·기동 경계에서 공유한다. 저장 후 예외는 성공/실패 표시와 디스크 상태가 어긋나지 않게 처리한다.
+3. Watch pending 재시도 요구를 결정하고, 필요하면 backoff와 기기별 부분 실패 추적을 설계한다.
+4. 실기기 전송 충돌·완료 의미, 실제 클라우드 복제 지연, native OS scheduler 및 frozen 실행을 별도 검증한다.
 
 ### Phase 3 — Structural
 
-1. service의 DB/storage root/lock/sidecar import/logger 경계를 주입 가능하게 해 테스트의 실제 사용자 저장소 접근을 방지한다.
-2. 작업 상태와 cancel을 작업별로 관리하여 GUI/CLI/dashboard가 같은 상태 계약을 사용하게 한다.
-3. 일반 클라우드 복제본 동시성 및 offline image 지원은 별도 기능 계약으로 정의한다. 외부 환경 증거에 따라 구현 범위를 정한다.
-4. 문서 기능 표와 실행 가능한 API·UI 계약 테스트를 연결한다.
+1. 소스의 stable ID/URL과 사용자 표시 이름을 데이터 모델에서 구분해 합본·번역 옵션·프리뷰 선택에 일관되게 전달한다.
+2. 검증 실패를 문자열 문구 판별보다 구조화된 필드/코드로 전달하도록 정리해 GUI와 파일 입력이 같은 계약을 사용하게 한다.
+3. fixture·loopback 테스트와 opt-in 외부/native 검증을 분리하고 보고서에 실제 보장 범위를 계속 명시한다. 기능 영향 없는 이름·스타일 변경은 계획에서 제외한다.
 
-이 계획은 권고이며 애플리케이션·테스트 구현 변경은 수행하지 않았다.
+위 내용은 수정 권고이며 실제 코드는 변경하지 않았다.
 
 ## 8. Test Recommendations
 
-아래는 **제안**이며, 위 3절에 적은 실행 외에는 실행했다고 주장하지 않는다. 모든 I/O는 임시 폴더·synthetic 데이터·loopback fake server에서 수행해야 한다.
-
-| 유형 / 대상 | 구체적인 입력·조건 | 기대 결과 |
+| 계층 | 입력 조건/실행 | 기대 결과 |
 |---|---|---|
-| Concurrency / ISSUE-001 | push 최초 config read 후 barrier; 다른 writer가 사이트 B 추가 또는 A edit/delete | 완료된 변경이 최종 로컬·sites.json 모두에 유지. push 성공은 최신 snapshot 게시를 의미 |
-| Integration / ISSUE-001 | include_history on/off, 원격 사이트도 동시에 변경, export 중 config revision 증가 | remote 변경 및 local 최신 변경을 규칙에 따라 병합; unrelated config 보존 |
-| Regression / ISSUE-004 | sandbox 기본 root sentinel `*` 이력 및 sidecar; 테스트 DB는 별도 tmp_path | sentinel 행·bytes 불변. 허용 저장 경계 밖 DB open/write는 테스트 실패 |
-| Unit / ISSUE-002 | async translate stub가 ‘번역문’을 반환, 여러 HTML text node와 auto source | await 실행, tags 보존, 번역문 포함, coroutine warning 없음, client 정리 |
-| Integration / ISSUE-002 | 설치된 지원 googletrans 버전 + HTTP transport mock; timeout/예외 입력 | 실제 API 계약과 adapter 일치; 실패 fallback과 logger 명확, 외부 요청 없음 |
-| Unit / ISSUE-003 | 동일 service에서 Event set 후 새 작업 수락; busy 요청도 경쟁 | 수락된 새 작업의 취소는 초기화. busy 요청은 실행 중 작업의 cancel을 지우지 않음 |
-| End-to-End / ISSUE-003 | preview 첫 사이트 수집 후 cancel → 부분 결과 기사 선택 → send 또는 새 preview | 새 작업 정상 실행; 이전 작업은 남은 사이트/기기 업로드 생략 |
-| Integration / 핵심 sync | 실제 SQLite/EPUB + loopback source/device; 기기 A 성공/B timeout | A의 기사만 이력 저장. 실패 상태 반환. 재실행 때 B에만 미전송 기사 전달 |
-| Regression / digest | A/B 기기 이력이 서로 다름, per_site/daily_digest 각각 | 기기별 EPUB에 필요한 기사만 포함. 모든 성공/부분 실패/신규 없음 상태 정확 |
-| Integration / backup 장애 | empty/truncated/schema-invalid JSON, locked folder, export 단계별 disk 오류 | pull 실패 전송 0, 잘못된 정본 덮어쓰기 0, 부분 export 결과 명시, 다음 정상 retry 수렴 |
-| Concurrency / 프로세스 락 | 독립 GUI/CLI 역할 subprocess가 같은 pipeline lock을 동시에 획득 | 한 작업만 실행, 거부 요청은 이력/파일 변경 없음, crash 후 새 프로세스 재획득 |
-| Integration / DB | legacy schema 및 star row, 동일 `(url,key)` batch, transaction 중 강제 예외 | migration/PK/dedup 정확. 실패 batch rollback. tombstone보다 새 resend만 유효 |
-| Platform-specific / dashboard | Windows Python 3.15 및 별도 지원 버전; body 없음/JSON POST; 재시도 없음 | 202와 callback 정확히 1회, 401 callback 0, busy 409. 수락 후 응답 유실은 별도 기록 |
-| Regression / 테스트 helper | callback 수락 후 response close/reset을 fake server로 주입 | mutation 자동 재실행 없음; 실패를 readiness 문제로 숨기지 않음 |
-| End-to-End / 종료·재실행 | upload 완료 전/후·mark commit 전·공유 push 중 close; 워커 지연 10초 초과 | 종료 결과 명확, 원자 파일 유지, DB integrity 유지, 재실행 시 성공/불확실 이력 처리 규칙 충족 |
-| Integration / 기기 파일 | Korean basename, traversal 이름, interrupted download, 기존 local 파일, remote rename/move 오류 | 허용 경로 밖 write 없음, download 실패 시 기존 파일 보존, 개별 실패 UI와 partial count 정확 |
-| Integration / 콘텐츠 | UTF-8/다른 XML encoding RSS, malformed selector, 16MiB 초과, public→private redirect | 문자 유지, 명확한 오류, body 한도 및 redirect 방어. 임의 HTML script/event 제거 |
-| End-to-End / offline EPUB | 이미지 포함 on, 상대·절대 img URL, network 없는 reader emulator/실기기 | 정의된 offline 이미지 계약과 실제 표시 일치; EPUB manifest와 XHTML 검증 |
-| Platform-specific / scheduler·Calibre | 공백/한글/특수문자 경로, native scheduler adapter fake 및 별도 실제 OS sandbox | cwd·argv 정확, 잘못된 시간 거부, 사용자 cron 항목 보존, subprocess timeout 처리 |
-| Integration / Watch | 복사 중 크기 변동, 다수 이벤트, 일부 기기 failure, 중단 후 restart | 안정화 후 queue 처리, failed pending 유지, restart retry; 큐·워커 종료 계약 검증 |
-| Regression / updater·frozen | 잘못된 서명/hash/만료/크기, download cancel, smoke fail, staged path alias | 적용 전 거부, 임시 파일 정리, 이전 EXE rollback 및 결과 기록; 새 빌드 --smoke 정상 |
-| Integration / cloud replica | PC별 다른 local folders에 JSON 전파를 지연시키고 동시 scrape/push | 충돌·중복 정책 검증; 단일 shared-directory lock 테스트와 구별 |
+| Unit — ISSUE-001 | name/url/CSS 필드에 null·숫자·배열, sites에 잘못된 구조를 validator에 전달 | 예외 대신 필드별 오류 목록. 정상 필드는 그대로 유지 |
+| Integration — ISSUE-001 | 정상 config와 revision을 저장하고 `name:null` 사이트 파일 import | 입력 오류 반환, config bytes/revision 불변, 새 manager load 성공 |
+| Regression — ISSUE-001 | 정상 사이트 1개와 잘못된 사이트 1개가 섞인 import | 정의된 all-or-nothing 계약에 따라 전체 거부, 정상 설정·백업 보존. 실패 뒤 부분 저장 없음 |
+| Unit — ISSUE-002 | `가.epub`/`ga.epub`, 서로 다른 한글 동음 표기, 악센트/ASCII 쌍 | 출력은 ASCII·정상 확장자이며 원본이 다르면 서로 다른 이름 |
+| Integration — ISSUE-002 | fake CrossPoint 같은 폴더에 서로 다른 payload 두 개 전송 | 두 원격 key와 두 payload 보존. HTTP 성공과 DB 이력이 실제 파일에 대응 |
+| End-to-End — ISSUE-003 | 같은 이름/다른 feed URL 두 개, 각각 새 기사, daily_digest | 수집→실제 EPUB ZIP→fake upload→실제 SQLite에서 두 기사 보존. 재실행 no_new |
+| Regression — 기기별 중복 | A는 기사1 완료/B는 기사2 완료 상태에서 합본·선택 전송 | A에 기사2만/B에 기사1만 포함, 성공 기기만 기록. 실패 후 재시도에서 완료 기기 제외 |
+| Concurrency — 설정 | 잘못된 import와 정상 사이트 편집을 barrier로 경합 | 잘못된 import는 디스크를 바꾸지 않고 정상 편집 유지, revision 일관성 유지 |
+| Concurrency — 작업 수락 | GUI·CLI·Dashboard에서 같은 저장 루트로 동시 시작, 한 작업에 취소 | 수락 작업 1개, busy 요청이 기존 취소 상태를 지우지 않음, 락 해제 후 다음 작업 정상 실행 |
+| Integration — 전송/DB 장애 | HTTP 완료 직후 DB commit 실패·worker 예외 | 성공을 추정 기록하지 않고 실패 상태, lock 해제. 응답 유실 시 중복 가능성은 공개 계약에 맞게 표시 |
+| End-to-End — 종료 | 느린 업로드/Watch 대기 중 GUI close, 임시 DB 사용 | 새 작업 거부, Tk 이벤트 처리 유지, 완료 이력 commit·pending 보존·백업 flush 뒤 종료 |
+| Integration — 공유 폴더 | canonical/replica의 빈 파일·잘린 JSON·타입 오류, 이전 snapshot의 tombstone | 실패 입력이 기존 config/DB를 오염시키지 않음. 유효한 복제본 수렴 뒤 삭제/재등록 관계 보존 |
+| Unit/Integration — Watch | 첫 업로드 timeout 후 파일 변경 이벤트 없이 연결 복구 | 현행 재시작 복구 계약 또는 새 자동 retry 계약에 따라 pending이 정확히 한 번 재큐잉되고 성공 후 제거 |
+| Platform-specific — Windows | 공백/한글 설치 경로, 실제 schtasks와 frozen EXE, 표준 사용자 권한 | 등록한 명령의 cwd·인터프리터 정확, 임시 저장 루트에서 smoke 성공, 사용자 데이터 불변 |
+| Platform-specific — Linux/macOS | disposable 환경에서 cron/launchd 등록·해제·실행과 GUI close | 사용자 기존 일정 보존, UTF-8 경로/환경 정상, 작업 종료와 락 해제 확인 |
+| Native/Device E2E | 실제 X3/X4에서 파일명 충돌 쌍·같은 날 여러 합본·오프라인 이미지 | 서로 다른 책 보존, 본문·TOC·이미지 정상 표시, firmware API 완료/대체 의미 기록 |
+| Browser E2E | 임시 서비스에서 login→sync→status/log polling→cancel, 401/409/응답 유실 | 인증·중복 작업 거절·취소 상태 반영, 불확실한 mutation 자동 재시도 없음 |
+
+기존 `test_uploader_sanitize.py`는 서로 다른 한글 이름을 검사하지만 동일 로마자 결과 쌍은 검사하지 않는다. `test_pipeline_digest.py`의 다중 사이트 테스트는 서로 다른 이름을 사용하고 builder를 mock하므로 같은 이름의 실제 EPUB 누락을 놓친다. Watch의 이동 이벤트 테스트는 자체 helper로 handler 로직을 재현하므로 실제 등록된 watchdog handler와의 연결 검증을 보완할 가치가 있다. 전체 통과가 이 경계 입력을 이미 검사했다는 뜻은 아니다.
 
 ## 9. Final Assessment
 
 | 항목 | 평가 | 근거 |
 |---|---|---|
-| Functional Correctness | Needs Work | 주요 기능이 실제 연결되어 있고 많은 contract 테스트가 통과하지만 번역·취소 후 재실행 결함 확인 |
-| Runtime Stability | Needs Work | thread/process lock 및 GUI 예외 복구 존재. dashboard 테스트 실패가 반복되고 종료의 긴 작업 계약은 미검증 |
-| Data Integrity | Needs Work | SQLite transaction/PK와 config atomic write는 적절하나 backup snapshot 변경 유실 및 테스트의 사용자 이력 변경 경로 확인 |
-| Error Resilience | Acceptable | 공유 pull 실패 시 전송 중단, 부분 업로드 기록, DB 예외·network timeout·update rollback 보호. 일부 fallback은 기능 실패를 최종 성공과 함께 허용 |
-| Cross-platform Robustness | Acceptable | OS별 구현과 경로 방어 존재. 직접 실행한 환경은 Windows Python 3.15뿐이며 macOS/Linux 및 frozen 실동작은 미검증 |
-| Test Confidence | Needs Work | 472 pass에도 1 fail, 단독 재실행 fail. async adapter·연속 사용자 작업·config interleaving 누락 및 기본 DB 접근으로 격리 신뢰 부족 |
+| Functional Correctness | Needs Work | 정상 경로와 다중 기기 처리는 구현됐으나 같은 이름 합본 누락·파일명 충돌 재현 |
+| Runtime Stability | Needs Work | 작업 락·종료 대기·예외 결과 처리는 양호하지만 import 한 번으로 다음 기동까지 실패 가능 |
+| Data Integrity | Needs Work | SQLite PK/transaction·원자적 파일 쓰기는 유효. 의미적 config 오염과 원격 파일 식별성은 보완 필요 |
+| Error Resilience | Needs Work | HTTP timeout/retry·백업 fail-closed·rollback 경로는 있으나 저장 후 검증 예외에서 상태 불일치 |
+| Cross-platform Robustness | Acceptable | OS별 adapter·경로/락 계약과 Windows 전체 테스트가 존재. 이번 Linux/macOS native 검증은 없음 |
+| Test Confidence | Acceptable | 538 passed/1 skipped, fixture·loopback·concurrency 범위가 넓음. 실제 외부/native E2E 및 새 경계 사례 공백 |
 
 **실제로 먼저 수정할 문제 3개:**
 
-1. **ISSUE-001 — 백업 push의 최신 사이트 변경 보존:** 실제 설정 유실을 막는다.
-2. **ISSUE-004 — 테스트 저장소 격리:** 수정 검증 자체가 사용자 이력을 바꾸지 않게 한다.
-3. **ISSUE-002 — googletrans async API 지원:** 현재 지원 의존성에서 작동하지 않는 번역 기능을 복구한다.
-
-그 다음은 **ISSUE-003 취소 후 재실행 복구**다. 이번 감사는 위 문제의 수정 또는 production 데이터 복구를 수행하지 않았으며 보고서 작성으로 종료한다.
-
-## 10. Remediation Status (2026-10-13)
-
-위 1~9절은 b43f72d 기준 감사 기록이며 원래 재현 결과를 보존한다. 후속 작업에서 ISSUE-001~004를 수정했고 종료·대시보드·오프라인 이미지·클라우드 복제본 복구·문서·CI도 보완했다.
-
-전체 로컬 suite는 528 passed, 1 skipped였고 분기 포함 coverage는 55%였다. 실제 config/backup/history 파일의 hash는 개선 시작 전과 동일하다. 한국어 문구와 문서 인코딩에 대한 후속 회귀도 통과했다.
-
-[구현·검증 기록](docs/AUDIT_IMPLEMENTATION.md)에 현재 상태와 외부 미검증 범위를 정리했다. 실제 reader/Calibre/cloud client, native GUI와 연결된 browser 검증은 별개다. 여러 PC의 동시 전송을 전역 exactly-once로 보장한다고 주장하지 않는다.
-
-코드 commit 774ddcd의 [CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38354390596)는 12개 job 모두 성공했다. 3개 OS와 Python 3.10/3.15 계약, optional translation 및 frozen smoke를 포함한다.
-
-## 11. v1.3.2 Release Follow-up (2026-10-13)
-
-정기 CI는 Linux 전체 테스트와 Windows 핵심 플랫폼 계약 **2개 작업**으로 간소화했다. 과거 12개 작업의 성공은 위 시점의 검증 기록으로 유지하며, 현재 macOS 매트릭스·coverage·정기 frozen 빌드는 실행하지 않는다. frozen EXE 빌드와 Windows 전체 테스트는 태그 릴리즈 작업에서 수행한다.
-
-로컬 전체 테스트는 **528 passed, 1 skipped**, 격리된 `v1.3.2` EXE 빌드·smoke도 성공했다. [정기 CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38360935777)의 두 작업 및 [Release CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38361105350)는 모두 성공했다. [v1.3.2 릴리즈](https://github.com/twbeatles/xteink-crosspoint-websync/releases/tag/v1.3.2)가 게시됐고, `updates/latest.json`의 Ed25519 서명·EXE 해시·크기를 검증했다. 상세 수치는 [구현·검증 기록](docs/AUDIT_IMPLEMENTATION.md)에 남겼다.
+1. **ISSUE-001:** 가져오기 저장 전에 검증해 잘못된 JSON이 다음 앱 실행을 막지 않게 한다.
+2. **ISSUE-002:** 변환 전 원본 이름으로 해시를 계산해 서로 다른 책의 원격 파일명 충돌을 막는다.
+3. **ISSUE-003:** 일간 합본에서 표시 이름이 같은 소스의 기사도 모두 보존한다.

@@ -17,7 +17,8 @@
     "help": {
       "sync": "Run sync immediately from config.json without GUI (for the scheduler)",
       "smoke": "Core module import smoke check (0 on success, 1 on failure)",
-      "check_update": "Check whether a newer update is available"
+      "check_update": "Check whether a newer update is available",
+      "recover_config": "Restore settings from a chosen JSON file (explicit recovery; preserves rejected settings)."
     },
     "update_available": "[NEW UPDATE] v{version} is available (current: v{current})",
     "update_url": "Download URL: {url}",
@@ -817,7 +818,12 @@
     "save_failed": "Failed to save config.json: {error}",
     "export_failed": "Failed to export site settings: {error}",
     "import_read_failed": "Failed to read site settings file: {error}",
-    "import_format": "Not a valid site-settings export file."
+    "import_format": "Not a valid site-settings export file.",
+    "recovery_title": "Recover settings",
+    "recovery_prompt": "Settings could not be loaded:\n{error}\n\nRestore from a backup or another JSON file? The rejected original will be preserved.",
+    "recovery_backup": "Use the backup at {path}? Select No to choose a different JSON file.",
+    "recovery_choose": "Choose settings JSON to restore",
+    "recovery_done": "Settings restored. Previous settings preserved at: {path}"
   },
   "factory": {
     "unsupported": "Unsupported scraper type: {type}"
@@ -1027,7 +1033,8 @@
     "tip_address": "💡 Do not include a trailing slash (/) or http:// in the address. Example: 192.168.31.54",
     "no_devices": "⚠️ No devices are registered.",
     "no_targets": "⚠️ No upload targets.",
-    "upload_exc": "❌ [{name}] Upload exception: {error}"
+    "upload_exc": "❌ [{name}] Upload exception: {error}",
+    "batch_collision": "Upload cancelled: {first} and {second} have the same device filename ({name}). Rename one local file and try again."
   },
   "device": {
     "default_name": "Primary device",
