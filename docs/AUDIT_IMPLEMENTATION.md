@@ -97,10 +97,17 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 - `a47b498`의 간소화된 [Tests CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38360935777): Linux 전체 테스트와 Windows 핵심 계약 **2개 작업 모두 성공**.
 - 로컬 Windows / Python 3.15 전체 테스트: **528 passed, 1 skipped**. 별도 임시 source/work/dist에서 `v1.3.2` EXE 빌드와 `--smoke` 성공.
 - 태그 `v1.3.2`의 [Release CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38361105350): Windows 전체 테스트, 키 검증, PyInstaller 빌드·smoke, 릴리즈 및 `updates/latest.json` 게시 단계 모두 성공.
-- [GitHub Release v1.3.2](https://github.com/twbeatles/xteink-crosspoint-websync/releases/tag/v1.3.2)는 최신 릴리즈다. 게시된 EXE 크기는 **28,046,709 bytes**, SHA-256은 `4876c91ab71723ea83f19bb09b7382376c1cf99001967d843acb025e3f694928`이다.
+- 당시 최신이었던 [GitHub Release v1.3.2](https://github.com/twbeatles/xteink-crosspoint-websync/releases/tag/v1.3.2)의 게시 EXE 크기는 **28,046,709 bytes**, SHA-256은 `4876c91ab71723ea83f19bb09b7382376c1cf99001967d843acb025e3f694928`이다.
 - `updates/latest.json`은 `84c71cf`에서 자동 갱신됐다. 내장 공개키로 Ed25519 서명을 검증했고 매니페스트의 버전·URL·크기·해시가 게시된 EXE 메타데이터와 일치한다. 매니페스트 자체의 SHA-256도 게시 자산과 동일한 `d1a164b9656535c4eeea2f202ac4c15521d810ef82af28f40bfcae92a228eb0a`이다.
 
 로컬에서 빌드한 EXE는 릴리즈 러너에서 빌드한 EXE와 바이트 단위 재현성을 주장하지 않는다. 위 공개 해시는 릴리즈 러너가 게시한 자산의 값이다.
+
+## v1.3.5 release verification
+
+- Main CI for commit `9ea781a` passed both full Linux tests and Windows platform contracts: [workflow run](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38695822701).
+- The `v1.3.5` Release workflow passed Windows tests, signing-key verification, PyInstaller build, frozen `--smoke`, GitHub Release publication, and `updates/latest.json` publication: [workflow run](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38696028311).
+- [GitHub Release v1.3.5](https://github.com/twbeatles/xteink-crosspoint-websync/releases/tag/v1.3.5) contains `xteink-crosspoint-websync-v1.3.5.exe` (**28,072,679 bytes**, SHA-256 `dcfd0f6e64812665f6b1a9e989db70e078d807e34884505fd5952469833caefa`) and `latest.json` (SHA-256 `3ed0576507b72ad6922547d80578973d23da926874f451d1ec163821f1f57238`).
+- The auto-published main manifest at commit `2db59da` was verified locally with the embedded Ed25519 public key; its version, URL, size, and artifact hash match the published release asset.
 
 ## 2026-10-15 후속 구현
 
