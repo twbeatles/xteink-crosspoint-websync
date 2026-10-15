@@ -72,7 +72,7 @@ class DeviceFilesTab(
         top_inner.pack(fill="x", padx=12, pady=8)
 
         ctk.CTkLabel(top_inner, text=t("gui.device.device_label"), font=get_font(13)).pack(side="left", padx=(0, 6))
-        self.device_cb = ctk.CTkOptionMenu(top_inner, font=get_font(12), width=230, command=lambda _v: self._on_device_changed())
+        self.device_cb = ctk.CTkOptionMenu(top_inner, font=get_font(12), dropdown_font=get_font(12), width=230, command=lambda _v: self._on_device_changed())
         self.device_cb.pack(side="left", padx=4)
 
         self.refresh_btn = ctk.CTkButton(top_inner, text=t("gui.device.refresh"), font=get_font(12, "bold"), width=100, height=32, command=self.refresh)

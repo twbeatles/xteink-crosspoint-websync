@@ -48,10 +48,20 @@ class AppLayoutMixin:
         style.configure("TCheckbutton", font=_font)
         style.configure("TRadiobutton", font=_font)
         style.configure("TCombobox", font=_font)
+        style.configure("TLabelframe", font=_font)
         style.configure("TLabelframe.Label", font=_font_bold)
+        style.configure("Treeview", font=_font, rowheight=34)
+        style.configure("Treeview.Heading", font=_font_bold)
         style.configure("TSpinbox", font=_font)
         # Treeview (별도 함수에서 행 높이, 색상 등도 설정)
-        apply_treeview_style(style)
+        apply_treeview_style()
+        try:
+            self.root.option_add("*Font", (FONT_FAMILY, 12))
+            self.root.option_add("*Menu*Font", (FONT_FAMILY, 12))
+            self.root.option_add("*Listbox*Font", (FONT_FAMILY, 12))
+            self.root.option_add("*TCombobox*Listbox*Font", (FONT_FAMILY, 12))
+        except Exception:
+            pass
 
     def _build_ui(self):
         """CustomTkinter 기반 애플리케이션 프레임워크 구축."""

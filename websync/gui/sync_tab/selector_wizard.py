@@ -15,7 +15,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Any, Callable, Optional
 
-from websync.gui.widgets import HINT_COLOR, GREEN_COLOR
+from websync.gui.widgets import HINT_COLOR, GREEN_COLOR, FONT_FAMILY, apply_treeview_style
 from websync.scrapers.selector_assistant import (
     PageAnalysis,
     analyze_page,
@@ -231,7 +231,8 @@ class SelectorWizardPanel:
         ttk.Label(left, text=t("gui.selector.dom_tree")).pack(anchor="w")
         tree_wrap = ttk.Frame(left)
         tree_wrap.pack(fill="both", expand=True)
-        self.dom_tree = ttk.Treeview(tree_wrap, show="tree", height=10, selectmode="browse")
+        self.dom_tree = ttk.Treeview(tree_wrap, show="tree", height=10, selectmode="browse", style="CTk.Treeview")
+        apply_treeview_style(self.dom_tree)
         ys = ttk.Scrollbar(tree_wrap, orient="vertical", command=self.dom_tree.yview)
         self.dom_tree.configure(yscrollcommand=ys.set)
         self.dom_tree.pack(side="left", fill="both", expand=True)
@@ -239,7 +240,7 @@ class SelectorWizardPanel:
         self.dom_tree.bind("<<TreeviewSelect>>", self._on_dom_select)
 
         ttk.Label(right, text=t("gui.selector.result_panel")).pack(anchor="w")
-        self.result_text = tk.Text(right, height=10, width=36, wrap="word", font=("Consolas", 9))
+        self.result_text = tk.Text(right, height=10, width=36, wrap="word", font=(FONT_FAMILY, 10))
         rsb = ttk.Scrollbar(right, orient="vertical", command=self.result_text.yview)
         self.result_text.configure(yscrollcommand=rsb.set)
         self.result_text.pack(side="left", fill="both", expand=True)

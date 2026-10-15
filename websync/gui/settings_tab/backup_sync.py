@@ -102,6 +102,7 @@ class SettingsBackupSyncMixin:
         self.backup_history_mode_cb = ctk.CTkOptionMenu(
             inner,
             values=list(mode_labels.values()),
+            dropdown_font=get_font(12),
             font=get_font(12),
             width=340,
             command=lambda _v: self._save_backup_sync_settings()

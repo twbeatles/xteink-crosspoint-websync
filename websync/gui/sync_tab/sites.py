@@ -4,6 +4,7 @@ import copy
 import tkinter as tk
 from tkinter import messagebox, filedialog
 
+from websync.gui.widgets import FONT_FAMILY
 from websync.i18n import t
 
 
@@ -100,7 +101,7 @@ class SyncSitesMixin:
         if row and row not in self.tree.selection():
             self.tree.selection_set(row)
             self.tree.focus(row)
-        menu = tk.Menu(self.tree, tearoff=0)
+        menu = tk.Menu(self.tree, tearoff=0, font=(FONT_FAMILY, 12))
         has_sel = bool(self.tree.selection())
         single = len(self.tree.selection()) == 1
         menu.add_command(label=t("gui.sync.add_site"), command=self._add_site_popup)

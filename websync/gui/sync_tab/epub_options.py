@@ -63,7 +63,7 @@ class SyncEpubOptionsMixin:
             row=0, column=0, padx=(0, 6), pady=6, sticky="w"
         )
         self.font_cb = ctk.CTkComboBox(
-            inner, values=list(FONT_CHOICES), font=get_font(12), width=170, height=32,
+            inner, values=list(FONT_CHOICES), font=get_font(12), dropdown_font=get_font(12), width=170, height=32,
             command=lambda _v: self._save_epub_settings(),
         )
         self.font_cb.grid(row=0, column=1, padx=4, pady=6, sticky="w")
@@ -75,7 +75,7 @@ class SyncEpubOptionsMixin:
             row=0, column=2, padx=(14, 6), pady=6, sticky="w"
         )
         self.font_size_sp = ctk.CTkComboBox(
-            inner, values=list(FONT_SIZE_CHOICES), font=get_font(12), width=80, height=32,
+            inner, values=list(FONT_SIZE_CHOICES), font=get_font(12), dropdown_font=get_font(12), width=80, height=32,
             command=lambda _v: self._save_epub_settings(),
         )
         self.font_size_sp.grid(row=0, column=3, padx=4, pady=6, sticky="w")
@@ -86,7 +86,7 @@ class SyncEpubOptionsMixin:
             row=0, column=4, padx=(14, 6), pady=6, sticky="w"
         )
         self.line_height_sp = ctk.CTkComboBox(
-            inner, values=list(LINE_HEIGHT_CHOICES), font=get_font(12), width=80, height=32,
+            inner, values=list(LINE_HEIGHT_CHOICES), font=get_font(12), dropdown_font=get_font(12), width=80, height=32,
             command=lambda _v: self._save_epub_settings(),
         )
         self.line_height_sp.grid(row=0, column=5, padx=4, pady=6, sticky="w")
@@ -101,6 +101,7 @@ class SyncEpubOptionsMixin:
         self.epub_theme_cb = ctk.CTkOptionMenu(
             inner,
             values=[theme_label(k) for k in EPUB_THEMES],
+            dropdown_font=get_font(12),
             font=get_font(12),
             width=170,
             command=self._on_theme_changed,

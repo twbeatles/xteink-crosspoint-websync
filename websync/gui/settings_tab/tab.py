@@ -60,6 +60,7 @@ class SettingsTab(
         self.app_theme_menu = ctk.CTkOptionMenu(
             theme_inner,
             values=["System", "Dark", "Light"],
+            dropdown_font=get_font(12),
             font=get_font(12),
             width=130,
             command=self._on_app_theme_changed
@@ -75,6 +76,7 @@ class SettingsTab(
         self.ui_lang_menu = ctk.CTkOptionMenu(
             theme_inner,
             values=[lang_labels[code] for code in self._lang_codes],
+            dropdown_font=get_font(12),
             font=get_font(12),
             width=160,
             command=self._on_ui_language_changed,
@@ -184,7 +186,7 @@ class SettingsTab(
         ctk.CTkCheckBox(ai_inner, text=t("gui.settings.ai.enable"), font=get_font(12), variable=self.ai_enabled_var).grid(row=0, column=0, padx=(0, 8), pady=6, sticky="w")
 
         ctk.CTkLabel(ai_inner, text=t("gui.settings.provider"), font=get_font(13)).grid(row=0, column=1, padx=(8, 4), pady=6, sticky="w")
-        self.ai_provider_cb = ctk.CTkOptionMenu(ai_inner, values=["openai", "ollama"], font=get_font(12), width=120)
+        self.ai_provider_cb = ctk.CTkOptionMenu(ai_inner, values=["openai", "ollama"], font=get_font(12), dropdown_font=get_font(12), width=120)
         self.ai_provider_cb.grid(row=0, column=2, padx=4, pady=6, sticky="w")
         self.ai_provider_cb.set("openai")
 
@@ -207,7 +209,7 @@ class SettingsTab(
         ctk.CTkCheckBox(trans_inner, text=t("gui.settings.trans.enable"), font=get_font(12), variable=self.trans_enabled_var).grid(row=0, column=0, padx=(0, 8), pady=6, sticky="w")
 
         ctk.CTkLabel(trans_inner, text=t("gui.settings.provider"), font=get_font(13)).grid(row=0, column=1, padx=(8, 4), pady=6, sticky="w")
-        self.trans_provider_cb = ctk.CTkOptionMenu(trans_inner, values=["googletrans", "libretranslate"], font=get_font(12), width=140, command=lambda _v: self._update_trans_key_state())
+        self.trans_provider_cb = ctk.CTkOptionMenu(trans_inner, values=["googletrans", "libretranslate"], font=get_font(12), dropdown_font=get_font(12), width=140, command=lambda _v: self._update_trans_key_state())
         self.trans_provider_cb.grid(row=0, column=2, padx=4, pady=6, sticky="w")
         self.trans_provider_cb.set("googletrans")
 

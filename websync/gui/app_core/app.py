@@ -19,7 +19,7 @@ from websync.core.logger import get_log_dir
 from websync.config.exceptions import ConfigSaveError
 from websync.gui.widgets import (
     COLOR_BG, COLOR_CARD_BG, COLOR_FG, COLOR_ACCENT, FONT_FAMILY, get_font,
-    center_window, setup_dialog
+    center_window, setup_dialog, apply_global_fonts
 )
 from websync.gui.tab_sync import SyncTab
 from websync.gui.tab_calibre import CalibreTab
@@ -87,10 +87,11 @@ class SyncAppGui(
         for fname in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont", "TkFixedFont"):
             try:
                 f = tkfont.nametofont(fname)
-                f.configure(family=FONT_FAMILY, size=12)
+                f.configure(family=FONT_FAMILY)
             except Exception:
                 pass
 
+        apply_global_fonts(self.root)
         self._setup_styles()
         self._build_ui()
         self._load_config_to_ui()

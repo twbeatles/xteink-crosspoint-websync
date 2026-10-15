@@ -93,7 +93,7 @@ class SiteDialogMixin:
         preset_labels = [preset_display_label(p) for p in KOREAN_SITE_PRESETS]
         preset_by_label = {preset_display_label(p): p for p in KOREAN_SITE_PRESETS}
         preset_cb = ctk.CTkOptionMenu(
-            src, values=preset_labels, font=get_font(12), dynamic_resizing=False, width=320,
+            src, values=preset_labels, font=get_font(12), dropdown_font=get_font(12), dynamic_resizing=False, width=320,
         )
         preset_cb.grid(row=0, column=1, columnspan=2, sticky="w", pady=5)
         preset_cb.set(preset_labels[0] if preset_labels else "")
@@ -113,7 +113,7 @@ class SiteDialogMixin:
         type_labels = {k: site_type_label(k) for k in SCRAPER_TYPES}
         label_to_type = {v: k for k, v in type_labels.items()}
         type_cb = ctk.CTkOptionMenu(
-            src, values=[type_labels[k] for k in SCRAPER_TYPES], font=get_font(12), width=220,
+            src, values=[type_labels[k] for k in SCRAPER_TYPES], font=get_font(12), dropdown_font=get_font(12), width=220,
             dynamic_resizing=False,
         )
         type_cb.grid(row=3, column=1, sticky="w", pady=5)
@@ -147,7 +147,7 @@ class SiteDialogMixin:
         trans_labels = {code: _translate_label(code) for code in TRANSLATE_CHOICES}
         trans_label_to_code = {v: k for k, v in trans_labels.items()}
         translate_cb = ctk.CTkOptionMenu(
-            opt, values=[trans_labels[c] for c in TRANSLATE_CHOICES], font=get_font(12), width=140,
+            opt, values=[trans_labels[c] for c in TRANSLATE_CHOICES], font=get_font(12), dropdown_font=get_font(12), width=140,
         )
         translate_cb.grid(row=1, column=1, columnspan=2, sticky="w", pady=5)
         translate_cb.set(trans_labels[""])

@@ -250,10 +250,10 @@ class SyncTab(
         sched_inner.pack(fill="x", padx=10, pady=(4, 4))
 
         ctk.CTkLabel(sched_inner, text=t("gui.schedule.every_day"), font=get_font(13)).grid(row=0, column=0, padx=(0, 4), pady=4, sticky="w")
-        self.hour_cb = ctk.CTkOptionMenu(sched_inner, values=[f"{i:02d}" for i in range(24)], font=get_font(12), width=65, height=32)
+        self.hour_cb = ctk.CTkOptionMenu(sched_inner, values=[f"{i:02d}" for i in range(24)], font=get_font(12), dropdown_font=get_font(12), width=65, height=32)
         self.hour_cb.grid(row=0, column=1, padx=2, pady=4)
         ctk.CTkLabel(sched_inner, text=":", font=get_font(13, "bold")).grid(row=0, column=2)
-        self.min_cb = ctk.CTkOptionMenu(sched_inner, values=[f"{i:02d}" for i in range(0, 60, 5)], font=get_font(12), width=65, height=32)
+        self.min_cb = ctk.CTkOptionMenu(sched_inner, values=[f"{i:02d}" for i in range(0, 60, 5)], font=get_font(12), dropdown_font=get_font(12), width=65, height=32)
         self.min_cb.grid(row=0, column=3, padx=2, pady=4)
 
         make_button(sched_inner, t("gui.schedule.register"), self._register_schedule, width=65, bold=True).grid(row=0, column=4, padx=(8, 2), pady=4)
