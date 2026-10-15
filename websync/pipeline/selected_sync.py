@@ -14,6 +14,7 @@ from websync.pipeline.upload_results import (
     upload_any_ok,
 )
 from websync.i18n import t
+from websync.pipeline.sources import selected_source_groups
 
 
 def sync_selected_articles(
@@ -80,22 +81,12 @@ def sync_selected_articles(
         summarizer = Summarizer(config, logger=service.logger)
         translator = Translator(config, logger=service.logger)
 
-        # site_name → translate_to 매핑 구성 (config sites에서 조회)
-        site_translate_map: dict[str, str] = {}
-        for site_cfg in config.get("sites", []):
-            sname = site_cfg.get("name", "")
-            if sname:
-                site_translate_map[sname] = site_cfg.get("translate_to", "").strip()
-
-        # site_name 별로 기사 그룹화
-        articles_by_site = {}
-        for art in selected_articles:
-            site_name = art.get("site_name", t("pipeline.selected.other_site"))
-            articles_by_site.setdefault(site_name, []).append(art)
-
-        # 사이트별 번역 적용 (run_sync_pipeline과 일관성 유지)
-        for site_name, arts in articles_by_site.items():
-            translate_to = site_translate_map.get(site_name, "")
+        articles_by_site, source_options = selected_source_groups(
+            selected_articles, config.get("sites", []), t("pipeline.selected.other_site")
+        )
+        for source_key, arts in articles_by_site.items():
+            site_name = arts[0]["_source_name"]
+            translate_to = source_options[source_key].get("translate_to", "").strip()
             if translate_to and translator.is_available_for_site(translate_to):
                 log(t("pipeline.selected.translate", site=site_name, lang=translate_to))
                 for art in arts:
@@ -149,9 +140,10 @@ def sync_selected_articles(
                     batch_by_site: dict[str, list[dict]] = {}
                     batch_urls: list[tuple[str, str, str]] = []
                     for art in batch_articles:
-                        site_name = art.get("_digest_site_name") or ""
+                        source_key = art.get("_digest_site_name") or ""
+                        site_name = art.get("_source_name") or source_key
                         clean_art = {k: v for k, v in art.items() if k != "_digest_site_name"}
-                        batch_by_site.setdefault(site_name, []).append(clean_art)
+                        batch_by_site.setdefault(source_key, []).append(clean_art)
                         batch_urls.append(
                             (art.get("url") or "", site_name, art.get("title") or "")
                         )
@@ -187,7 +179,8 @@ def sync_selected_articles(
                 success_count = actual_work
         else:
             # 사이트별 빌드
-            for idx, (site_name, arts) in enumerate(articles_by_site.items()):
+            for idx, (_source_key, arts) in enumerate(articles_by_site.items()):
+                site_name = arts[0]["_source_name"]
                 if getattr(service, "is_cancel_requested", lambda: False)():
                     log(t("pipeline.cancelled"))
                     service._last_pipeline_result = {"status": "cancelled", "success": False}

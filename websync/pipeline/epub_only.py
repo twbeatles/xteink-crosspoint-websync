@@ -9,6 +9,7 @@ import os
 from typing import Callable, Optional
 
 from websync.i18n import t
+from websync.pipeline.sources import selected_source_groups
 
 
 def build_selected_epubs(
@@ -36,11 +37,13 @@ def build_selected_epubs(
         builder = service.epub_builder
         generate_cover = bool(config.get("epub_cover", True))
 
-        articles_by_site: dict[str, list[dict]] = {}
-        for art in selected_articles:
-            site_name = art.get("site_name") or t("pipeline.selected.other_site")
-            clean = {k: v for k, v in art.items() if k not in ("site_name", "scraper_type")}
-            articles_by_site.setdefault(site_name, []).append(clean)
+        articles_by_site, _options = selected_source_groups(
+            selected_articles, config.get("sites", []), t("pipeline.selected.other_site")
+        )
+        for arts in articles_by_site.values():
+            for art in arts:
+                art.pop("site_name", None)
+                art.pop("scraper_type", None)
 
         paths: list[str] = []
         cancelled = False
@@ -54,7 +57,8 @@ def build_selected_epubs(
                 progress_callback(1, 1)
         else:
             total = len(articles_by_site)
-            for idx, (site_name, arts) in enumerate(articles_by_site.items()):
+            for idx, (_source_key, arts) in enumerate(articles_by_site.items()):
+                site_name = arts[0]["_source_name"]
                 if getattr(service, "is_cancel_requested", lambda: False)():
                     log(t("pipeline.cancelled"))
                     cancelled = True

@@ -1,55 +1,48 @@
 from __future__ import annotations
 
+import copy
 import os
-import queue
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox, filedialog
 
-from websync.gui.widgets import (
-    RED_COLOR, GREEN_COLOR, ACCENT_COLOR, HINT_COLOR, BG_COLOR,
-    create_scrollable_frame, setup_dialog
-)
-from websync.core.paths import resolve_path
-from websync.core.logger import get_log_dir
-from websync.servers.opds import OPDSServer
-from websync.servers.web_dashboard import WebDashboard
-from websync.watch.calibre import CalibreWatcher
+from websync.gui.widgets import RED_COLOR, GREEN_COLOR
+from websync.watch.calibre import CalibreWatcher, STABLE_SIZE_CHECKS, STABLE_CHECK_INTERVAL
+from websync.watch.retry import WatchRetryQueue
+from websync.upload.uploader import X3Uploader
 from websync.i18n import t
 
 
 class SettingsWatchMixin:
-    def _remember_watch_file(self, fpath: str) -> None:
+    def _save_watch_job(self, fpath: str, state: dict | None) -> None:
         path = os.path.abspath(fpath)
 
         def apply(cfg: dict) -> None:
             watch = cfg.setdefault("calibre_watch", {})
-            pending = watch.get("pending_files")
-            pending = list(pending) if isinstance(pending, list) else []
-            if path not in pending:
-                pending.append(path)
+            pending = list(watch.get("pending_files", []))
+            jobs = watch.setdefault("pending_jobs", {})
+            if state is None:
+                pending = [p for p in pending if os.path.abspath(p) != path]
+                jobs.pop(path, None)
+            else:
+                if path not in pending:
+                    pending.append(path)
+                jobs[path] = copy.deepcopy(state)
             watch["pending_files"] = pending
 
         self.service.config = self.service.config_manager.update_config(apply)
 
+    def _remember_watch_file(self, fpath: str) -> None:
+        self._save_watch_job(fpath, {})
+
     def _forget_watch_file(self, fpath: str) -> None:
-        path = os.path.abspath(fpath)
-
-        def apply(cfg: dict) -> None:
-            watch = cfg.setdefault("calibre_watch", {})
-            pending = watch.get("pending_files")
-            if isinstance(pending, list):
-                watch["pending_files"] = [p for p in pending if os.path.abspath(p) != path]
-
-        self.service.config = self.service.config_manager.update_config(apply)
+        self._save_watch_job(fpath, None)
 
     def _stop_watch_worker(self, wait_timeout: float = 0.0) -> None:
-        watch_queue = getattr(self, "_watch_queue", None)
+        retry = getattr(self, "_watch_retry", None)
         worker = getattr(self, "_watch_worker_thread", None)
-        self._watch_queue = None
-        self._watch_worker_thread = None
-        if watch_queue is not None:
-            watch_queue.put(None)
+        if retry is not None:
+            retry.stop()
         if worker and worker is not threading.current_thread() and wait_timeout > 0:
             worker.join(timeout=wait_timeout)
 
@@ -57,6 +50,16 @@ class SettingsWatchMixin:
         watch = self.service.config.get("calibre_watch", {})
         if isinstance(watch, dict) and watch.get("enabled"):
             self._toggle_watch()
+
+    def _make_watch_uploader(self):
+        # Workers read only the saved configuration; never query Tk entries.
+        config = self.service.config_manager.load_config()
+        return X3Uploader(
+            config.get("x3_ip", ""), config.get("x3_devices", []),
+            remote_dir=(config.get("device_files") or {}).get("default_upload_path", "/"),
+            primary_device_id=config.get("x3_primary_device_id", ""),
+            primary_alias_ids=config.get("x3_primary_device_alias_ids", []),
+        )
 
     def _toggle_watch(self):
         if self.app._calibre_watcher and self.app._calibre_watcher.is_running:
@@ -68,115 +71,81 @@ class SettingsWatchMixin:
             self.service.config = self.service.config_manager.update_config(disable)
             self.watch_start_btn.configure(text=t("gui.settings.watch.start_btn"))
             self.watch_status_label.configure(text=t("gui.settings.watch.stopped"), text_color=RED_COLOR)
-        else:
-            watch_dir = self.watch_dir_entry.get().strip()
-            if not watch_dir or not os.path.isdir(watch_dir):
-                messagebox.showerror(t("dialog.error"), t("gui.settings.watch.invalid_dir"))
-                return
+            return
+        # A stopped worker can still be finishing its bounded network operation.
+        # Never run a second worker against the same durable queue.
+        worker = getattr(self, "_watch_worker_thread", None)
+        if worker is not None and worker.is_alive():
+            return
+        watch_dir = self.watch_dir_entry.get().strip()
+        if not watch_dir or not os.path.isdir(watch_dir):
+            messagebox.showerror(t("dialog.error"), t("gui.settings.watch.invalid_dir"))
+            return
+        watch = self.service.config.get("calibre_watch", {})
+        retry = WatchRetryQueue(
+            self._make_watch_uploader, self._attempt_watch_upload, self._save_watch_job,
+            pending_files=watch.get("pending_files", []),
+            pending_jobs=watch.get("pending_jobs", {}),
+            on_error=lambda path, error: self.service.logger.warning(
+                t("gui.settings.watch.log_upload_error", name=os.path.basename(path), error=error)
+            ),
+        )
+        self._watch_retry = retry
+        self.app._calibre_watcher = CalibreWatcher(watch_dir, retry.enqueue, on_pending_file=retry.retain)
+        if not self.app._calibre_watcher.start():
+            retry.stop()
+            self.app._calibre_watcher = None
+            messagebox.showerror(t("dialog.error"), t("gui.settings.watch.start_fail"))
+            return
+        def enable(cfg: dict) -> None:
+            cfg.setdefault("calibre_watch", {}).update({"enabled": True, "watch_dir": watch_dir})
+        try:
+            self.service.config = self.service.config_manager.update_config(enable)
+        except Exception:
+            self.app._calibre_watcher.stop()
+            self.app._calibre_watcher = None
+            retry.stop()
+            raise
+        self._watch_worker_thread = self.app._make_background_thread(retry.run, name="watch-upload")
+        self._watch_worker_thread.start()
+        self.watch_start_btn.configure(text=t("gui.settings.watch.stop_btn"))
+        self.watch_status_label.configure(text=t("gui.settings.watch.watching", dir=watch_dir), text_color=GREEN_COLOR)
+        self.app._log_message(t("gui.settings.watch.log_start", dir=watch_dir))
 
-            # 단일 워커 스레드 + 큐 기반 직렬 처리 (스레드 누적 방지)
-            watch_queue: queue.Queue = queue.Queue()
-            self._watch_queue = watch_queue
-
-            def _upload_worker():
-                """큐에서 파일을 순차적으로 꺼내 업로드. None sentinel 시 종료."""
-                while True:
-                    fpath = watch_queue.get()
-                    if fpath is None:
+    def _attempt_watch_upload(self, fpath, uploader, only_ips, stop_event):
+        acquired = []
+        try:
+            for lock in (self.service._pipeline_lock, self.service._process_lock):
+                while not stop_event.is_set() and not self.service._shutting_down:
+                    if lock.acquire(blocking=True, timeout=0.1):
+                        acquired.append(lock)
                         break
-                    try:
-                        if self._upload_single_file(fpath):
-                            self._forget_watch_file(fpath)
-                    except Exception as e:
-                        name = os.path.basename(fpath)
-                        self.app.root.after(
-                            0, lambda m=e, n=name: self.app._log_message(t("gui.settings.watch.log_upload_error", name=n, error=m))
-                        )
-                    finally:
-                        watch_queue.task_done()
-
-            def on_new_file(fpath: str):
-                name = os.path.basename(fpath)
-                self._remember_watch_file(fpath)
-                self.app.root.after(
-                    0,
-                    lambda n=name: self.app._log_message(t("gui.settings.watch.log_detected", name=n)),
-                )
-                watch_queue.put(fpath)
-
-            # 워커 스레드 시작
-            self._watch_worker_thread = self.app._make_background_thread(
-                _upload_worker, name="watch-upload"
-            )
-            self._watch_worker_thread.start()
-
-            self.app._calibre_watcher = CalibreWatcher(watch_dir, on_new_file)
-            if self.app._calibre_watcher.start():
-                self.watch_start_btn.configure(text=t("gui.settings.watch.stop_btn"))
-                self.watch_status_label.configure(text=t("gui.settings.watch.watching", dir=watch_dir), text_color=GREEN_COLOR)
-                self.app._log_message(t("gui.settings.watch.log_start", dir=watch_dir))
-                def enable(cfg: dict) -> None:
-                    watch = cfg.setdefault("calibre_watch", {})
-                    watch.update({"enabled": True, "watch_dir": watch_dir})
-                self.service.config = self.service.config_manager.update_config(enable)
-                pending = self.service.config.get("calibre_watch", {}).get("pending_files", [])
-                for path in pending if isinstance(pending, list) else []:
-                    if os.path.isfile(path):
-                        watch_queue.put(path)
-                    else:
-                        self._forget_watch_file(path)
-            else:
-                self._stop_watch_worker()
-                self.app._calibre_watcher = None
-                messagebox.showerror(t("dialog.error"), t("gui.settings.watch.start_fail"))
+                else:
+                    return {}
+            if stop_event.is_set() or self.service._shutting_down:
+                return {}
+            # Acquiring the shared locks can take minutes. The queue's earlier
+            # stability sample is no longer sufficient after that wait.
+            sample = os.stat(fpath)
+            for _ in range(STABLE_SIZE_CHECKS):
+                if stop_event.wait(STABLE_CHECK_INTERVAL) or self.service._shutting_down:
+                    return {}
+                current = os.stat(fpath)
+                if (current.st_size, current.st_mtime_ns) != (sample.st_size, sample.st_mtime_ns):
+                    return {}
+            results = uploader.upload_to_targets(fpath, only_ips=only_ips)
+            key = "log_upload_ok" if results and all(results.values()) else "log_upload_fail"
+            self.service.logger.info(t("gui.settings.watch." + key, name=os.path.basename(fpath), summary=str(results)))
+            return results
+        finally:
+            for lock in reversed(acquired):
+                lock.release()
 
     def _upload_single_file(self, fpath: str) -> bool:
-        """Watch 감지 파일 1건을 파이프라인 락 획득 후 업로드 (타임아웃 30초)."""
-        if getattr(self.service, "_shutting_down", False) is True:
-            return False
-        pipeline_acquired = False
-        process_acquired = False
-        try:
-            pipeline_acquired = self.service._pipeline_lock.acquire(blocking=True, timeout=30.0)
-            if not pipeline_acquired:
-                self.app.root.after(
-                    0,
-                    lambda: self.app._log_message(
-                        t("gui.settings.watch.log_timeout_pipeline", name=os.path.basename(fpath))
-                    ),
-                )
-                return False
-            process_acquired = self.service._process_lock.acquire(blocking=True, timeout=30.0)
-            if not process_acquired:
-                self.app.root.after(
-                    0,
-                    lambda: self.app._log_message(
-                        t("gui.settings.watch.log_timeout_process", name=os.path.basename(fpath))
-                    ),
-                )
-                return False
-
-            if getattr(self.service, "_shutting_down", False) is True:
-                return False
-            self.app.root.after(
-                0, lambda: self.app._log_message(t("gui.settings.watch.log_upload_start", name=os.path.basename(fpath)))
-            )
-            results = self.app._make_uploader().upload_to_targets(fpath)
-            all_ok, any_ok, summary = self.app._summarize_upload_results(results)
-            name = os.path.basename(fpath)
-            if all_ok:
-                msg = t("gui.settings.watch.log_upload_ok", name=name, summary=summary)
-            elif any_ok:
-                msg = t("gui.settings.watch.log_upload_partial", name=name, summary=summary)
-            else:
-                msg = t("gui.settings.watch.log_upload_fail", name=name, summary=summary)
-            self.app.root.after(0, lambda m=msg: self.app._log_message(m))
-            return all_ok
-        finally:
-            if process_acquired:
-                self.service._process_lock.release()
-            if pipeline_acquired:
-                self.service._pipeline_lock.release()
+        # Compatibility entry point; normal Watch calls use the durable retry queue.
+        uploader = self._make_watch_uploader()
+        results = self._attempt_watch_upload(fpath, uploader, None, threading.Event())
+        return bool(results) and all(results.values())
 
     def _browse_watch_dir(self):
         d = filedialog.askdirectory(title=t("gui.settings.watch.browse_title"))

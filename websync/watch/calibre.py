@@ -23,19 +23,25 @@ def _is_watch_book_file(path: str) -> bool:
 class CalibreWatcher:
     """Calibre 라이브러리 폴더에 새 파일이 추가되면 콜백을 호출하는 감시자"""
 
-    def __init__(self, watch_dir: str, on_new_file: Callable[[str], None], debounce_sec: float = DEBOUNCE_SECONDS):
+    def __init__(self, watch_dir: str, on_new_file: Callable[[str], None], debounce_sec: float = DEBOUNCE_SECONDS,
+                 *, on_pending_file: Callable[[str], None] | None = None):
         self.watch_dir = watch_dir
         self.on_new_file = on_new_file
+        self.on_pending_file = on_pending_file
         self.debounce_sec = debounce_sec
         self._observer: Optional[object] = None
         self._running = False
+        self._stopped = threading.Event()
         self._pending: dict[str, float] = {}
+        self._checking: set[str] = set()
         self._stability_retries: dict[str, int] = {}
         self._pending_lock = threading.Lock()
         self._debounce_timer: Optional[threading.Timer] = None
 
     def _schedule_debounced(self, fpath: str):
         with self._pending_lock:
+            if self._stopped.is_set():
+                return
             self._pending[fpath] = time.time()
             self._stability_retries[fpath] = 0
             if self._debounce_timer:
@@ -44,8 +50,7 @@ class CalibreWatcher:
             self._debounce_timer.daemon = True
             self._debounce_timer.start()
 
-    @staticmethod
-    def _is_file_stable(path: str) -> bool:
+    def _is_file_stable(self, path: str) -> bool:
         """파일 크기가 연속으로 동일할 때만 전송 대상으로 간주합니다."""
         if not os.path.isfile(path):
             return False
@@ -54,7 +59,8 @@ class CalibreWatcher:
         except OSError:
             return False
         for _ in range(STABLE_SIZE_CHECKS):
-            time.sleep(STABLE_CHECK_INTERVAL)
+            if self._stopped.wait(STABLE_CHECK_INTERVAL):
+                return False
             if not os.path.isfile(path):
                 return False
             try:
@@ -68,23 +74,23 @@ class CalibreWatcher:
 
     def _flush_pending(self):
         with self._pending_lock:
+            if self._stopped.is_set():
+                return
             now = time.time()
-            candidates = [
-                path for path, ts in self._pending.items()
-                if now - ts >= self.debounce_sec
-            ]
+            candidates = [path for path, ts in self._pending.items() if now - ts >= self.debounce_sec]
             for path in candidates:
                 del self._pending[path]
-        ready = []
-        retry = []
-        for path in candidates:
-            if self._is_file_stable(path):
-                ready.append(path)
-            elif os.path.isfile(path):
-                retry.append(path)
-
-        if retry:
+            self._checking.update(candidates)
+        ready, retry = [], []
+        try:
+            for path in candidates:
+                if self._is_file_stable(path):
+                    ready.append(path)
+                elif os.path.isfile(path):
+                    retry.append(path)
             with self._pending_lock:
+                if self._stopped.is_set():
+                    return
                 now = time.time()
                 for path in retry:
                     attempts = self._stability_retries.get(path, 0) + 1
@@ -93,18 +99,27 @@ class CalibreWatcher:
                         self._pending[path] = now
                     else:
                         self._stability_retries.pop(path, None)
+                for path in ready:
+                    self._stability_retries.pop(path, None)
+                    try:
+                        self.on_new_file(path)
+                    except Exception as error:
+                        # Preserve a failed handoff instead of silently consuming
+                        # the only filesystem event for this book.
+                        self._pending[path] = now
+                        print(t("watch.callback_error", path=path, error=error))
                 if self._pending:
-                    self._debounce_timer = threading.Timer(
-                        self.debounce_sec, self._flush_pending
-                    )
+                    if self._debounce_timer:
+                        self._debounce_timer.cancel()
+                    self._debounce_timer = threading.Timer(self.debounce_sec, self._flush_pending)
                     self._debounce_timer.daemon = True
                     self._debounce_timer.start()
-        for path in ready:
-            self._stability_retries.pop(path, None)
-            try:
-                self.on_new_file(path)
-            except Exception as e:
-                print(t("watch.callback_error", path=path, error=e))
+        finally:
+            with self._pending_lock:
+                # stop() captures _checking too. Do not remove an event between
+                # noticing the stop request and its durable shutdown handoff.
+                if not self._stopped.is_set():
+                    self._checking.difference_update(candidates)
 
     def start(self) -> bool:
         if self._running:
@@ -112,6 +127,7 @@ class CalibreWatcher:
         if not os.path.isdir(self.watch_dir):
             print(t("watch.no_folder", path=self.watch_dir))
             return False
+        self._stopped.clear()
         try:
             from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
@@ -151,12 +167,21 @@ class CalibreWatcher:
             return False
 
     def stop(self):
-        if self._debounce_timer:
-            self._debounce_timer.cancel()
-            self._debounce_timer = None
+        self._stopped.set()
         with self._pending_lock:
+            if self._debounce_timer:
+                self._debounce_timer.cancel()
+                self._debounce_timer = None
+            pending = set(self._pending) | self._checking
             self._pending.clear()
+            self._checking.clear()
             self._stability_retries.clear()
+        if self.on_pending_file:
+            for path in pending:
+                try:
+                    self.on_pending_file(path)
+                except Exception as error:
+                    print(t("watch.callback_error", path=path, error=error))
         if self._observer:
             self._observer.stop()
             self._observer.join(timeout=3)

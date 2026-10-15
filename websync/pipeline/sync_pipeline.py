@@ -12,6 +12,7 @@ from websync.db.history import SyncHistoryDbError
 from websync.pipeline.summarizer import Summarizer
 from websync.pipeline.translator import Translator
 from websync.pipeline.article_keys import article_sync_key
+from websync.pipeline.sources import source_id, source_metadata
 from websync.backup.portable_cfg import get_portable_cfg
 from websync.upload.device_ids import (
     alias_key_groups,
@@ -98,7 +99,7 @@ def run_sync_pipeline_locked(
         log(t("pipeline.legacy_remap_fail", error=e))
 
     epub_merge_mode = config.get("epub_merge_mode", "per_site")
-    digest_articles = {}  # {site_name: [new_articles]}
+    digest_articles = {}  # {source_id: [new_articles]}
     # 합본(daily_digest) 모드 전용 결과 플래그 — per_site 카운터와 분리 (N1)
     digest_success = False
     digest_partial = False
@@ -142,6 +143,8 @@ def run_sync_pipeline_locked(
             for art in articles:
                 art["url"] = article_sync_key(art, name, base_url)
                 art["include_images"] = bool(site.get("include_images", False))
+                art.update(source_metadata(site))
+                art["_source_name"] = name
 
             new_articles = []
             for art in articles:
@@ -179,7 +182,7 @@ def run_sync_pipeline_locked(
 
             if epub_merge_mode == "daily_digest":
                 # 일간 합본을 위해 기사를 축적
-                digest_articles[name] = new_articles
+                digest_articles.setdefault(source_id(site), []).extend(new_articles)
                 log(t("pipeline.digest_queued", site=name, n=len(new_articles)))
             else:
                 # 기존 방식: 사이트별 개별 빌드 및 전송
@@ -308,9 +311,10 @@ def run_sync_pipeline_locked(
                     batch_by_site: dict[str, list[dict]] = {}
                     batch_triples: list[tuple[str, str, str]] = []
                     for art in batch_articles:
-                        site_name = art.get("_digest_site_name") or ""
+                        source_key = art.get("_digest_site_name") or ""
+                        site_name = art.get("_source_name") or source_key
                         clean_art = {k: v for k, v in art.items() if k != "_digest_site_name"}
-                        batch_by_site.setdefault(site_name, []).append(clean_art)
+                        batch_by_site.setdefault(source_key, []).append(clean_art)
                         batch_triples.append(
                             (art.get("url") or "", site_name, art.get("title") or "")
                         )

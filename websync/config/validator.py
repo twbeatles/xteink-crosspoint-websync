@@ -83,6 +83,13 @@ def validate_config_structure(config: object) -> list[ValidationIssue]:
     watch = config.get("calibre_watch")
     if isinstance(watch, dict):
         string_lists.append(("calibre_watch.pending_files", watch.get("pending_files", [])))
+        jobs = watch.get("pending_jobs", {})
+        if isinstance(jobs, dict):
+            from websync.watch.retry import valid_pending_job
+            for path, state in jobs.items():
+                if not isinstance(path, str) or not valid_pending_job(state):
+                    field = f"calibre_watch.pending_jobs[{path!r}]"
+                    issues.append(ValidationIssue(field, "type", f"{field}: invalid pending job"))
     if isinstance(devices, list):
         for index, device in enumerate(devices):
             if isinstance(device, dict):

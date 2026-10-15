@@ -9,6 +9,7 @@ from websync.backup.service import BackupSyncError
 from websync.upload.uploader import X3Uploader
 from websync.pipeline.article_keys import article_sync_key
 from websync.i18n import t
+from websync.pipeline.sources import source_metadata
 
 def preview_articles(
     service,
@@ -115,7 +116,7 @@ def preview_articles(
                 log(t("pipeline.preview.collected", total=len(articles), new=len(new_articles)))
                 for art in new_articles:
                     preview_results.append({
-                        "site_name": name,
+                        **source_metadata(site),
                         "title": art.get("title", t("pipeline.preview.untitled")),
                         "url": art.get("url", ""),
                         "content": art.get("content", ""),

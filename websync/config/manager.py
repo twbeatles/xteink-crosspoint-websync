@@ -117,6 +117,7 @@ class ConfigManager:
             "enabled": False,
             "watch_dir": "",
             "pending_files": [],
+            "pending_jobs": {},
         },
         "device_files": {
             "default_browse_path": "/",

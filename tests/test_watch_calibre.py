@@ -16,27 +16,35 @@ def test_is_watch_book_file_extensions():
     assert _is_watch_book_file("/lib/folder") is False
 
 
-def test_calibre_watch_handles_moved_epub():
-    seen: list[str] = []
-    watcher = CalibreWatcher("/tmp/calibre", seen.append, debounce_sec=0.01)
+def test_calibre_watch_handles_moved_epub(tmp_path, monkeypatch):
+    import sys
+    from types import ModuleType
 
-    class _Handler:
-        pass
-
-    # start() 없이 핸들러 로직만 재현
-    handler_ns = {}
-
-    def on_moved(event):
-        if event.is_directory:
-            return
-        dest = getattr(event, "dest_path", "") or ""
-        if _is_watch_book_file(dest):
-            watcher._schedule_debounced(dest)
-
-    handler_ns["on_moved"] = on_moved
-    event = SimpleNamespace(is_directory=False, src_path="/tmp/calibre/tmp.part", dest_path="/tmp/calibre/book.epub")
-    handler_ns["on_moved"](event)
-    assert "/tmp/calibre/book.epub" in watcher._pending
+    registered = []
+    observer = SimpleNamespace(
+        schedule=lambda handler, *args, **kwargs: registered.append(handler),
+        start=lambda: None, stop=lambda: None, join=lambda **kwargs: None,
+    )
+    observers = ModuleType("watchdog.observers")
+    observers.Observer = lambda: observer
+    events = ModuleType("watchdog.events")
+    events.FileSystemEventHandler = type("FileSystemEventHandler", (), {})
+    monkeypatch.setitem(sys.modules, "watchdog", ModuleType("watchdog"))
+    monkeypatch.setitem(sys.modules, "watchdog.observers", observers)
+    monkeypatch.setitem(sys.modules, "watchdog.events", events)
+    seen = []
+    watcher = CalibreWatcher(str(tmp_path), seen.append, debounce_sec=60)
+    assert watcher.start()
+    dest = str(tmp_path / "book.epub")
+    try:
+        registered[0].on_moved(SimpleNamespace(is_directory=False, src_path="book.tmp", dest_path=dest))
+        assert dest in watcher._pending
+        registered[0].on_moved(SimpleNamespace(is_directory=True, dest_path="dir.epub"))
+        registered[0].on_moved(SimpleNamespace(is_directory=False, dest_path="book.tmp"))
+        assert list(watcher._pending) == [dest]
+    finally:
+        watcher.stop()
+    assert watcher._debounce_timer is None
 
 
 def test_unstable_file_is_retried_until_stable(tmp_path):

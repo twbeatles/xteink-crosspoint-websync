@@ -1203,6 +1203,7 @@
     "selected": {
       "none": "⚠️ No selected articles to send.",
       "other_site": "Other",
+      "ambiguous_source": "Source settings are ambiguous. Refresh the preview and select the articles again.",
       "translate": "🌐 [{site}] Translating to '{lang}'...",
       "summarize": "🤖 Generating AI summary...",
       "digest_start": "\n=== 📚 Building and sending selected articles as a daily digest ===",

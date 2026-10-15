@@ -11,6 +11,8 @@ import os
 import sqlite3
 import sys
 import zipfile
+
+import pytest
 from unittest.mock import patch
 
 _OS = os
@@ -264,5 +266,125 @@ def test_PIPE_12_digest_single_bundle_per_device(tmp_path):
         assert _epub_contains(blobs, "아침 글 A") and _epub_contains(blobs, "점심 글 B")
         rows = _db_rows(db)
         assert len([r for r in rows if r[0] == "https://news.example/a"]) == 1
+    finally:
+        srv.stop()
+
+
+# Duplicate display names must never be used as source identity.
+def _same_name_sites():
+    return [{"name": "same", "type": "rss", "url": f"https://feed.example/{key}",
+             "enabled": True, "translate_to": lang, "include_images": images}
+            for key, lang, images in [("a", "ko", False), ("b", "en", True)]]
+
+
+def _source_scraper():
+    from unittest.mock import MagicMock
+    scraper = MagicMock()
+    scraper.last_fetch_stats = {}
+    scraper.fetch_articles.side_effect = lambda site: [{
+        "title": "Article " + site["url"][-1],
+        "url": "https://news.example/" + site["url"][-1],
+        "content": "<p>BODY-" + site["url"][-1] + "</p>",
+    }]
+    return scraper
+
+
+def _run_same_name(svc):
+    with patch.object(ScraperFactory, "get_scraper", return_value=_source_scraper()), \
+         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+        return svc.run_sync_pipeline(log_callback=lambda _m: None)
+
+
+def test_same_name_digest_preserves_both_feeds_and_rerun_is_no_new(tmp_path):
+    srv = FakeCrosspointServer().start()
+    try:
+        svc, db, _cm = _make_service(str(tmp_path), srv.host,
+            merge_mode="daily_digest", sites=_same_name_sites())
+        assert _run_same_name(svc) is True
+        blobs = _uploaded_epub_texts(srv)
+        assert len(blobs) == 1
+        assert _epub_contains(blobs, "BODY-a") and _epub_contains(blobs, "BODY-b")
+        assert _epub_contains(blobs, "same")
+        assert not _epub_contains(blobs, "source_")
+        assert not _epub_contains(blobs, "https://feed.example/")
+        assert set(_db_rows(db)) == {("https://news.example/a", "dev_primary"),
+                                     ("https://news.example/b", "dev_primary")}
+        assert svc.get_last_pipeline_result()["site_count"] == 2
+        assert _run_same_name(svc) is True
+        assert svc.get_last_pipeline_result()["status"] == "no_new"
+        assert len(srv.state.uploads) == 1
+    finally:
+        srv.stop()
+
+
+def test_same_name_digest_asymmetric_history_partial_failure_and_retry(tmp_path):
+    good, flaky = FakeCrosspointServer().start(), FakeCrosspointServer().start()
+    try:
+        svc, db, _cm = _make_service(str(tmp_path), good.host,
+            merge_mode="daily_digest", sites=_same_name_sites(),
+            devices=[{"name": "flaky", "ip": flaky.host, "id": "dev_flaky"}])
+        db.mark_synced("https://news.example/a", "same", "a", device_ip="dev_primary")
+        db.mark_synced("https://news.example/b", "same", "b", device_ip="dev_flaky")
+        flaky.state.upload_status = 500
+        assert _run_same_name(svc) is False
+        good_blobs = _uploaded_epub_texts(good)
+        assert _epub_contains(good_blobs, "BODY-b")
+        assert not _epub_contains(good_blobs, "BODY-a")
+        assert ("https://news.example/a", "dev_flaky") not in _db_rows(db)
+        flaky.state.upload_status = 200
+        assert _run_same_name(svc) is True
+        assert len(good.state.uploads) == 1
+        assert len(flaky.state.uploads) == 1
+        flaky_blobs = _uploaded_epub_texts(flaky)
+        assert _epub_contains(flaky_blobs, "BODY-a")
+        assert not _epub_contains(flaky_blobs, "BODY-b")
+        assert len(_db_rows(db)) == 4
+        assert _run_same_name(svc) is True
+        assert svc.get_last_pipeline_result()["status"] == "no_new"
+    finally:
+        good.stop()
+        flaky.stop()
+
+
+@pytest.mark.parametrize("merge_mode", ["daily_digest", "per_site"])
+def test_preview_identity_build_only_and_selected_translation(tmp_path, merge_mode):
+    from websync.pipeline.preview import preview_articles
+    from websync.pipeline.epub_only import build_selected_epubs
+    from websync.pipeline.selected_sync import sync_selected_articles
+    from websync.pipeline.sources import source_id
+    srv = FakeCrosspointServer().start()
+    try:
+        sites = _same_name_sites()
+        svc, db, cm = _make_service(str(tmp_path), srv.host,
+            merge_mode=merge_mode, sites=sites)
+        with patch.object(ScraperFactory, "get_scraper", return_value=_source_scraper()):
+            selected = preview_articles(svc, log_callback=lambda _m: None)
+        assert {a["source_id"] for a in selected} == {source_id(site) for site in sites}
+        assert [a["include_images"] for a in selected] == [False, True]
+        # Reorder and rename after preview: current settings still resolve by URL identity.
+        sites.reverse()
+        sites[0]["name"] = "renamed"
+        cm.patch_fields(sites=sites)
+        paths = build_selected_epubs(svc, selected)
+        from pathlib import Path
+        blobs = [Path(path).read_bytes() for path in paths]
+        assert _epub_contains(blobs, "BODY-a") and _epub_contains(blobs, "BODY-b")
+        assert _epub_contains(blobs, "renamed")
+        assert _db_rows(db) == [] and len(srv.state.uploads) == 0
+        with patch("websync.pipeline.selected_sync.Translator") as trans:
+            trans.return_value.is_available_for_site.return_value = True
+            trans.return_value.translate_html.side_effect = lambda content, target_lang: content + f"<p>LANG-{target_lang}</p>"
+            assert sync_selected_articles(svc, selected, log_callback=lambda _m: None) is True
+        assert [(call.args[0], call.kwargs["target_lang"])
+                for call in trans.return_value.translate_html.call_args_list] == [
+                    ("<p>BODY-a</p>", "ko"), ("<p>BODY-b</p>", "en")]
+        assert all("LANG-" not in art["content"] for art in selected)
+        assert _epub_contains(_uploaded_epub_texts(srv), "LANG-ko")
+        assert _epub_contains(_uploaded_epub_texts(srv), "LANG-en")
+        assert len(_db_rows(db)) == 2
+        # Per-source build-only mode keeps two files even with the original same label.
+        cm.patch_fields(sites=_same_name_sites(), epub_merge_mode="per_site")
+        paths = build_selected_epubs(svc, selected)
+        assert len(paths) == 2 and len(set(paths)) == 2
     finally:
         srv.stop()

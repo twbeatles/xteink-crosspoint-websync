@@ -1203,6 +1203,7 @@
     "selected": {
       "none": "⚠️ 전송할 선택 기사가 없습니다.",
       "other_site": "기타",
+      "ambiguous_source": "소스 설정을 구분할 수 없습니다. 미리보기를 새로고침한 뒤 기사를 다시 선택해 주세요.",
       "translate": "🌐 [{site}] '{lang}' 언어로 번역 중...",
       "summarize": "🤖 AI 요약 생성 중...",
       "digest_start": "\n=== 📚 선택 기사 일간 합본 빌드 및 전송 ===",

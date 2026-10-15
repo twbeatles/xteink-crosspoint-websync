@@ -166,3 +166,50 @@ def test_selected_sync_cancel_after_first_device_batch_skips_remaining_batch():
     assert svc.get_last_pipeline_result()["status"] == "cancelled"
     assert upload.call_count == 1
 
+
+
+def test_selected_legacy_source_name_uses_only_unambiguous_translation():
+    import pytest
+    from websync.pipeline.sources import selected_source_groups
+    arts = [{"site_name": "same", "url": "https://article.example/a", "content": "original"}]
+    first = {"name": "same", "url": "https://feed.example/a", "translate_to": "ko"}
+    groups, options = selected_source_groups(arts, [first], "other")
+    assert list(options.values()) == [first]
+    assert next(iter(groups.values()))[0]["source_url"] == first["url"]
+    assert "source_url" not in arts[0]
+    second = {"name": "same", "url": "https://feed.example/b", "translate_to": "en"}
+    with pytest.raises(ValueError):
+        selected_source_groups(arts, [first, second], "other")
+
+
+def test_ambiguous_legacy_selection_fails_before_build_or_upload():
+    import pytest
+    svc = _make_svc()
+    svc.config["sites"] = [
+        {"name": "same", "url": "https://feed.example/a", "translate_to": "ko"},
+        {"name": "same", "url": "https://feed.example/b", "translate_to": "en"},
+    ]
+    with patch.object(svc, "_reload_config"), \
+         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
+         patch.object(svc.epub_builder, "build") as build, \
+         patch.object(svc.uploader, "upload_to_targets") as upload:
+        with pytest.raises(ValueError):
+            sync_selected_articles(svc, [{"site_name": "same", "url": "https://article.example/a", "content": "x"}])
+    build.assert_not_called()
+    upload.assert_not_called()
+    assert not svc._pipeline_lock.locked()
+
+
+def test_source_identity_preserves_url_path_case_and_survives_rename():
+    from websync.pipeline.sources import source_id, selected_source_groups
+    site = {"name": "original", "url": "https://feed.example/News", "translate_to": "ko"}
+    identity = source_id(site)
+    assert identity != source_id({**site, "url": "https://feed.example/news"})
+    renamed = {**site, "name": "renamed"}
+    assert identity == source_id(renamed)
+    # URL-only preview metadata from older callers also resolves the current source.
+    groups, options = selected_source_groups([
+        {"site_name": "old label", "source_url": site["url"], "content": "x"}
+    ], [renamed], "other")
+    assert options[identity] == renamed
+    assert groups[identity][0]["_source_name"] == "renamed"

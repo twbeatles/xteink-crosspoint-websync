@@ -206,10 +206,12 @@ class EpubBuilder:
         toc_sections = []
         chapter_num = 0
 
-        for site_name, articles in articles_by_site.items():
+        for source_key, articles in articles_by_site.items():
             if not articles:
                 continue
 
+            site_name = articles[0].get("_source_name") or source_key
+            safe_site_name = html.escape(site_name, quote=True)
             section_chapters = []
             for art in articles:
                 chapter_num += 1
@@ -238,7 +240,7 @@ class EpubBuilder:
                     f"<title>{safe_title}</title>"
                     f"<style>{theme_css}</style>"
                     "</head><body>"
-                    f'<p style="font-size:0.8em;color:#888;">&mdash; {site_name}</p>'
+                    f'<p style="font-size:0.8em;color:#888;">&mdash; {safe_site_name}</p>'
                     f"<h1>{safe_title}</h1>"
                     f"{summary_block}"
                     f"{body_html}"
