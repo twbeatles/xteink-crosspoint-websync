@@ -10,6 +10,6 @@ cryptography>=42.0.0
 
 # 선택 (기능별) — pip install -r requirements-optional.txt
 # Pillow>=10.0.0          # EPUB 표지 자동 생성
-# googletrans==4.0.0-rc1  # 사이트별 번역
+# googletrans>=4.0.2,<5  # 사이트별 번역; requirements-optional.txt에서 설치
 # youtube-transcript-api>=0.6.0  # YouTube 자막 스크래퍼
 # watchdog>=4.0.0         # Calibre 폴더 감시

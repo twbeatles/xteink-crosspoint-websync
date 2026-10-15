@@ -453,3 +453,11 @@ pip install -r requirements-optional.txt
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
 - 2026-10-13 감사 개선 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체 테스트와 Windows 핵심 계약 2개 작업이며 frozen 빌드는 릴리즈에서 검사합니다.
+
+## 2026-10-15 설정 복구와 재시도
+
+설정 기동 오류에서 GUI는 `.bak` 또는 선택한 전체 설정 JSON으로 명시적 복구를 제안합니다. 취소하면 기존 파일을 유지합니다. 앱을 종료한 뒤 `python x3_websync.py --recover-config "정상-config.json"` 또는 EXE의 같은 옵션을 사용할 수 있습니다. 검증 후 기존 원본은 `.rejected.<id>.json`으로 보존하며 `.bak`은 유지합니다. 사이트 내보내기 파일은 전체 설정 백업과 다릅니다. 잘못된 import는 전체 거부되어 기존 설정을 바꾸지 않습니다.
+
+같은 표시 이름을 가진 서로 다른 URL도 합본·선택에서 구분합니다. 옛 미리보기 선택이 이름만 있어 모호하면 다시 미리보기합니다. Watch는 새 파일 이벤트 없이 2초~300초 backoff로 재시도하고 기기별 성공을 저장해 재기동합니다. 파일 내용·대상 폴더가 바뀌면 새 전송이며, 중지 시 미완료 파일은 남습니다. 경량 EXE에서는 watchdog을 제외하므로 선택 의존성을 갖춘 소스 환경이 필요합니다.
+
+비ASCII 파일은 원래 basename으로 hash를 계산한 새 전송명을 사용합니다. 이전 기기 파일을 자동 변경·삭제하지 않으므로 함께 남을 수 있습니다. [상세 계약](../README.ko.md#감사-후속-수정-2026-10-15), [검증 절차](AUDIT_VALIDATION.md)를 참조하세요.

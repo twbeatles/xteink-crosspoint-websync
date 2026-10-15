@@ -155,7 +155,7 @@ Engineered specifically for superior readability on monochrome electronic ink sc
 ### 4. Calibre Library Integration & Direct File Transfer
 - **Calibre Database Integration**: Interacts directly with your PC's Calibre database (`calibredb`) to search, browse, and wirelessly send library books to your reader.
 - **Direct Local File Upload**: Send existing `EPUB`, `PDF`, `MOBI`, and `TXT` files straight to the device without USB cables.
-- **Calibre Watchdog Directory**: Automatically detects newly saved or moved ebook files in a designated folder and uploads them immediately.
+- **Calibre Watchdog Directory**: Detects newly saved or moved ebooks, waits for stable content, and retries failed delivery with durable per-device progress.
 
 ### 5. On-Device SD Card File Manager
 Manage files on the XTEINK reader directly from your desktop when in `File Transfer` mode:
@@ -261,3 +261,21 @@ This project is licensed under the [MIT License](LICENSE) — see the [LICENSE](
 - The dashboard includes cancel and refreshes both status and logs every five seconds. An uncertain request result should be checked through status before submitting again.
 - Cloud replicas reconcile per-installation snapshots in `.websync-replicas` alongside canonical JSON. Keep this directory in cloud sync. Only one PC should automatically deliver to the same reader; local cloud-folder locks do not provide cross-PC delivery exclusion.
 - Transfer filenames stay ASCII for CrossPoint firmware, but Korean site names are romanized instead of stripped (e.g. Naver News stays readable), plus an original-name hash; EPUB titles preserve their original language.
+
+## Audit follow-up (2026-10-15)
+
+Invalid imported site JSON is rejected as a whole before saving. Existing config and revision remain unchanged. On a startup configuration error, the GUI offers explicit recovery from a backup or chosen full configuration JSON; cancel leaves settings untouched. Close the app before CLI recovery:
+
+```powershell
+python x3_websync.py --recover-config "C:\path\to\known-good-config.json"
+# Frozen app: .\x3_websync.exe --recover-config "C:\path\to\known-good-config.json"
+```
+
+Recovery validates first, preserves the rejected config as `config.json.rejected.<id>.json`, and keeps the existing `.bak`. It does not send books. `--sync` fails on invalid settings without opening a recovery dialog. A site export is not a full configuration backup; use the correct file to avoid replacing unrelated settings with defaults.
+
+- Distinct feed URLs have separate source identities even when display names match. Full digests, preview, selection and EPUB-only builds retain both sources. Renaming preserves identity; changing the feed URL changes it. An ambiguous old selection containing only a shared name must be previewed again.
+- Watch retries without another filesystem event, with exponential delays from 2 seconds up to 300 seconds. `calibre_watch.pending_jobs` retains content fingerprints and acknowledged targets; legacy `pending_files` is still recovered. Retry skips saved successes for unchanged content and target folder. Changed content is treated as new; a new target/folder needs delivery. Stop interrupts backoff and retains unfinished work, while an active HTTP request may finish within its timeout. Missing library files remain pending.
+- Existing ASCII basenames keep their transfer naming behavior. Non-ASCII names now hash the original basename before romanization. New remote filenames can coexist with earlier names; there is no automatic remote migration or deletion. Batch checks reject equal resulting names before upload; finite hashes do not promise global collision freedom.
+- The lightweight EXE excludes Watch, googletrans, YouTube transcripts and Pillow. Use a source environment with the optional requirements for those features.
+
+See the [completion matrix and verification evidence](docs/AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현) and [external validation runbooks / server design](docs/AUDIT_VALIDATION.md). Cross-PC exactly-once delivery remains a design item requiring device support.

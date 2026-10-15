@@ -279,4 +279,14 @@ i18n 문자열을 추가하면 `websync/i18n/locales/ko.json` 과 `en.json` 에 
 - 테스트는 import 전 임시 저장 경로를 사용하고 실제 사용자 파일 접근을 차단합니다. 이 보호는 Python I/O 경계이며 OS sandbox가 아닙니다.
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
-- Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 모두 성공했습니다.
+- 2026-10-13 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체 테스트와 Windows 핵심 계약 2개 작업이며 frozen 검증은 릴리즈에서 수행합니다.
+
+## 2026-10-15 감사 후속 계약
+
+구조화 검증은 `ValidationIssue(field, code, message)`를 반환하고 기존 문자열 API도 유지합니다. import 전체를 저장 전에 검증하며 load/save/RMW·backup 경계에 구조 검사가 있습니다. `restore_config`는 검증 후 `.rejected.<id>.json`을 보존하고 기존 `.bak`은 유지합니다. CLI `--recover-config JSON`은 전송 없이 성공 0/실패 1로 종료하며 `--sync`는 GUI 복구를 열지 않습니다.
+
+`pipeline/sources.py`는 URL 기반 소스 ID를 표시 이름과 분리합니다. preview/selected/EPUB-only에서도 이 metadata를 전달하며 번역은 현재 설정을 사용합니다. 이름만 가진 모호한 선택은 미리보기를 다시 실행하도록 요구합니다. `watch/retry.py`는 2초~300초 지수 backoff, durable `pending_jobs` fingerprint/targets/completed와 legacy `pending_files`, 파일 안정화 및 종료 중 보존을 담당합니다. 같은 파일의 성공 기기만 건너뛰고 내용/폴더 변경은 새 전송입니다.
+
+이 모듈들과 `gui.config_recovery`를 PyInstaller hiddenimports에 명시합니다. 경량 빌드는 기존 optional 의존성 제외를 유지합니다. 전송 filename hash는 변환 전 basename 기준이며 기존 ASCII 동작은 유지합니다. 자동 원격 이관·삭제나 전역 무충돌 보장은 없습니다.
+
+[전체 완료 대조표·실행 근거](AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현), [외부/native 검증 절차·중앙 조정 서버 설계](AUDIT_VALIDATION.md)에 범위를 정리했습니다. 이 동기화·복구 검증은 production 설정·DB·실제 기기를 사용하지 않습니다.

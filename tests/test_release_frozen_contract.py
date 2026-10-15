@@ -85,6 +85,8 @@ def test_spec_keeps_locales_and_epub_resources():
     spec = pathlib.Path("x3_websync.spec").read_text(encoding="utf-8")
     assert "locales" in spec
     assert "hiddenimports" in spec
+    for module in ("websync.gui.config_recovery", "websync.pipeline.sources", "websync.watch.retry"):
+        assert repr(module) in spec
 
 
 def test_spec_collects_cryptography_rust_extension():

@@ -1,5 +1,7 @@
 # Audit Implementation
 
+최신 후속 기록: [2026-10-15 후속 구현](#2026-10-15-후속-구현). 아래 2026-10-13 기록은 당시 실행·릴리즈 이력으로 보존하며 현재 검증 결과로 재사용하지 않는다.
+
 2026-10-13 — PROJECT_AUDIT.md 후속 구현 및 검증 기록.
 
 ## 완료한 수정
@@ -99,3 +101,59 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 - `updates/latest.json`은 `84c71cf`에서 자동 갱신됐다. 내장 공개키로 Ed25519 서명을 검증했고 매니페스트의 버전·URL·크기·해시가 게시된 EXE 메타데이터와 일치한다. 매니페스트 자체의 SHA-256도 게시 자산과 동일한 `d1a164b9656535c4eeea2f202ac4c15521d810ef82af28f40bfcae92a228eb0a`이다.
 
 로컬에서 빌드한 EXE는 릴리즈 러너에서 빌드한 EXE와 바이트 단위 재현성을 주장하지 않는다. 위 공개 해시는 릴리즈 러너가 게시한 자산의 값이다.
+
+## 2026-10-15 후속 구현
+
+대상은 [2026-10-15 감사](../PROJECT_AUDIT.md)다. Spec Kit 없이 진행했다. 사용자 승인 범위는 로컬 앱 수정·명시적 복구·재시도·테스트 완료 및 중앙 서버 확장의 설계·검증 절차다. 서버 코드를 추가하거나 실제 기기·사용자 설정·DB를 변경하지 않았다. 아래 완료는 이 범위의 구현 완료이며 모든 외부 환경 검증을 끝냈다는 의미가 아니다.
+
+### 구현 결과
+
+- **ISSUE-001:** 사이트 import를 전체 사전 검증한다. 타입 안전한 구조화 오류 `field/code/message` 및 기존 문자열 API를 제공하고 config load/save/RMW·backup 입력 경계도 보호한다. 실패한 import는 bytes·revision·`.bak`을 변경하지 않는다. GUI 기동 복구와 `--recover-config JSON`은 명시적으로 정상 전체 설정을 선택하고 원본 `.rejected.<id>.json` 및 기존 `.bak`을 보존한다. 과거 의미적 warning은 기동 불가 구조 오류와 구분한다.
+- **ISSUE-002:** 로마자 prefix와 별도로 변환 전 원본 basename hash를 계산한다. 배치 내 결과 전송명은 대소문자 무시 비교로 사전 검사한다. 기존 ASCII 이름 동작은 유지한다. 비ASCII 새 전송명과 옛 기기 파일은 공존할 수 있고 자동 이관·삭제는 없다. 유한 hash의 모든 가능한 입력에 대한 무충돌을 보장하지 않는다.
+- **ISSUE-003:** 소스 URL 기반 ID를 이름과 분리해 전체 합본·preview·선택·EPUB-only로 전달한다. 이름 변경에는 ID가 유지되고 URL 변경에는 바뀐다. 현재 config의 소스별 번역 옵션을 적용하고 이름만 가진 옛 선택이 모호하면 미리보기를 다시 실행하도록 요구한다. 실제 EPUB ZIP·HTTP·SQLite 통합 회귀를 추가했다.
+- **Watch:** `pending_jobs`에 내용 fingerprint·대상·성공 대상을 영속화하며 `pending_files`도 호환한다. 2초부터 최대 300초까지 지수 backoff로 새 이벤트 없이 재시도한다. 같은 내용/대상 폴더의 성공은 제외하고 내용 변경·새 대상·폴더 변경은 새 전송으로 처리한다. 중지·파일 안정화·중복 이벤트·저장 실패·missing 파일 복귀·재기동을 다룬다. 서버/기기 receipt가 없어 HTTP 완료/응답 유실 경계의 exactly-once는 보장하지 않는다.
+- **배포·문서:** config_recovery/sources/retry hiddenimports를 명시하고 README 양 언어·CLAUDE·사용자/개발 가이드와 선택 의존성 주석을 갱신했다. 기존 감사 본문·과거 실행 기록은 보존하고 현재 상태 링크를 붙였다. 경량 EXE의 optional 의존성 제외 정책은 유지한다.
+
+### 감사 권고 전체 대조표
+
+| 감사 항목 | 상태와 구현/근거 | 검증 또는 후속 절차 |
+|---|---|---|
+| Phase 1.1 / ISSUE-001 / Unit·Integration·Regression 설정 입력 | 구현 완료: validator, ConfigManager의 저장 전 검사·전체 거부 | `test_config_input_recovery.py`: null/배열/숫자/CSS/limit/URL, 혼합 import, bytes·bak·revision·다시 load, save/RMW/load 경계 |
+| Phase 1.2 / ISSUE-002 / 파일명 Unit·Integration | 구현 완료: 원본 hash·배치 preflight·호환 정책 | `test_uploader_sanitize.py`: 로마자 충돌/악센트 쌍·ASCII 호환·같은 basename·casefold; `test_upload_batch_preflight.py`, `test_crosspoint_http_contract.py`, `test_crosspoint_upload_failure_matrix.py`: fake 파일 API·payload·실패. 실기기 두 파일 보존/대체 의미는 외부 절차 |
+| Phase 2.1 / ISSUE-003 / 합본 E2E | 구현 완료: URL ID·표시 이름 분리 | `test_pipeline_http_integration.py`: 같은 이름 두 feed의 두 ZIP 본문·HTTP 전송·실제 DB·no_new, 비대칭 이력·부분 실패·재시도 |
+| Phase 2.2 / Phase 3.2 / 구조화 validation | 구현 완료: `ValidationIssue(field, code, message)`와 문자열 호환, backup의 검증 경계 | `test_config_input_recovery.py`, `test_config_validator.py`, 기존 `test_backup_service.py` |
+| Phase 2.3 / Watch Gap / retry Unit·Integration | 구현 완료: durable 부분 성공·재시도·stability·종료 | `test_watch_retry.py`, `test_watch_calibre.py`: 이벤트 없는 복구·부분 성공·중복·중지/재시작·내용/폴더/대상 변경·actual observer handler |
+| Phase 2.4 / native·device·cloud 검증 | 로컬 frozen 검사 완료, 외부 절차 문서화 | `scripts/verify_isolated_build.py`; 실제 X3/X4·클라우드 client·native scheduler/GUI는 [opt-in 절차](AUDIT_VALIDATION.md)로 분리. 이번 실행 성공 주장 없음 |
+| Phase 3.1 / stable source model | 구현 완료: `pipeline/sources.py`·preview metadata·현재 번역 설정 | `test_selected_sync.py`: 모호한 legacy 거부·rename/URL 대소문자; `test_pipeline_http_integration.py`: selected/EPUB-only·merge mode·소스별 번역 |
+| Phase 3.3 / fixture와 외부 검증 분리 | 문서화 완료, 기존 tooling 재사용 | `AUDIT_VALIDATION.md`, `scripts/validate_korean_scrapers.py`, `scripts/verify_isolated_build.py`; 외부 검증 전용 중복 도구·dependency 설치 없음 |
+| Gap: 설정 복구 UX | 구현 완료: GUI 선택/취소·CLI 복구 | `test_config_input_recovery.py`: 잘못된 복구 불변·bak 보존·GUI 정리·CLI 성공/실패 |
+| Gap: PC 간 정확히 한 번 전송 | 승인 범위의 설계 완료, 서버/firmware 미구현 | `AUDIT_VALIDATION.md`: lease/CAS/fencing/outbox·artifact ID·기기 receipt, 두 client/partition/crash 검증 수락 조건 |
+| Gap: 응답 유실 뒤 원격 완료 조정 | 로컬 실패/불확실 처리 유지, 프로토콜 설계 완료 | `test_pipeline_failure_recovery.py`, `test_crosspoint_upload_failure_matrix.py`; true exactly-once는 원격 receipt 없이는 불가. 설계의 commit 경계 재현 절차 |
+| Gap: 외부 서비스 장기 호환성(추정) | 실제 장애로 분류하지 않음, opt-in live 절차 완료 | 기존 live scraper validator와 provider/Calibre 테스트 계정 절차; 실제 외부 호출 미실행 |
+| 문서 불일치 1: basename hash | 구현과 현재 문서 정합화 완료 | README/README.ko/CLAUDE/가이드의 원본 hash·전환 정책, 기존 감사 당시 설명은 역사로 유지 |
+| 문서 불일치 2: 구조·이미지 정책 | CLAUDE 본문 수정 완료 | romanize/original hash와 `include_images` 조건 설명. 사용자 제공 untracked AGENTS.md는 수정하지 않음 |
+| 문서 불일치 3: googletrans 주석 | 수정 완료 | requirements.txt 주석을 optional의 `>=4.0.2,<5`와 일치시킴. 구버전 의존성 설치 없음 |
+| Concurrency: 설정 | 기존 lock/revision 및 새 사전 검증으로 실패 원자성 보호 | `test_config_manager.py`, `test_backup_config_concurrency.py`, `test_config_input_recovery.py`. 정상 writer 간 경합과 잘못된 입력의 무변경은 각각 자동 검증 |
+| Concurrency: 작업 수락·취소 | 기존 보호·회귀 유지 | `test_pipeline_multiprocess_lock.py`, `test_job_lifecycle.py`, `test_dashboard_request_contract.py`: 중복 수락 거부·busy가 취소 보존·다음 작업 정상 |
+| Integration: HTTP 후 DB 실패·worker 예외 | 기존 failure 결과·lock 해제 계약 유지 | `test_pipeline_failure_recovery.py`, `test_crosspoint_upload_failure_matrix.py`; 원격 결과 추정 성공 기록 금지, 중복 가능성 문서화 |
+| E2E: 느린 작업 중 종료 | 기존 drain 유지 + Watch 중지 보완 | `test_gui_user_journey.py`, `test_job_lifecycle.py`, `test_watch_retry.py`: commit 대기·미완료 보존. 실제 native 창 조작은 별도 절차 |
+| Integration: 공유 JSON/replica/tombstone | 기존 fail-closed·수렴 검증 유지 | `test_cloud_replica_recovery.py`, `test_backup_interleavings.py`, `test_backup_service.py`, `test_history_state_machine.py`; 실제 cloud client는 별도 |
+| Platform Windows / Linux/macOS | adapter·경로 계약 유지, frozen 실검증 | `test_scheduler.py`, `test_paths.py`, `test_release_frozen_contract.py`; 실제 native 등록/해제는 disposable 계정 절차 |
+| Native X3/X4 E2E | 외부 검증 절차 완료, 실기기 미실행 | 빈 테스트 폴더에서 충돌 쌍·날짜 합본·이미지·다운로드 hash·overwrite 결과 기록 |
+| Browser E2E | HTTP/template 계약 유지, synthetic Chromium 실검증 | `test_dashboard_request_contract.py`, `test_http_server_lifecycle.py`; login→sync→poll→409→cancel·응답 유실 복구의 결과는 아래 기록 |
+
+각 행의 테스트는 범위 대응 근거다. mock/loopback 통과를 실제 기기·클라우드·native E2E 성공으로 치환하지 않는다. 기존 테스트의 넓은 계약과 이번에 새로 재현한 경계 사례를 구분한다.
+
+### 실제 검증 근거
+
+- Phase 1 commit `d7140b5`: 설정 입력/복구와 파일명 보호.
+- Phase 2 commit `645e55c3250239f08035f5d7bff0c099a74f9c6a`: 소스 identity/합본·선택과 durable Watch. 로컬 전체 suite **620 passed, 1 skipped**, 100.47초. 이 수치는 Phase 2 완료 당시 결과다.
+- 최종 spec의 새 hiddenimports를 포함해 `python scripts/verify_isolated_build.py` **exit 0**, `Isolated frozen build and --smoke passed`. 임시 source/work/dist/state에서 실제 frozen EXE를 빌드·실행했으며 기존 사용자 dist를 사용하지 않았다.
+- 설치된 Chromium을 Playwright headless로 실행한 synthetic loopback dashboard 검사 **exit 0**: 미인증 API 401, 잘못된 토큰 거부, login→sync→5초 polling→cancel, 중복 409, 서버가 수락한 POST의 응답을 의도적으로 버린 뒤 불확실성 안내·상태 회복·cancel. start callback 2회, cancel 2회, poll 6회, JS page error 0. CUA 연결은 사용할 수 없었고 headless-shell은 환경의 SIGILL로 실행되지 않았으나 설치된 전체 Chromium 실행은 성공했다. 최초 harness의 logger 정리 실패(exit 1)는 정리 코드를 바로잡아 재실행 exit 0으로 확인했다. 브라우저·서버·thread·logger를 종료하고 해당 임시 폴더만 정리했다. 실제 기기·외부 서비스·native Tk GUI 검증은 아니다.
+- 최종 현재 소스·문서·spec 회귀 검사: `python -m pytest -q -o faulthandler_timeout=60` **exit 0, 620 passed, 1 skipped**, 85.76초. storage guard와 session cleanup도 통과했다. synthetic HTTP 연결 reset의 stderr 출력은 있었으나 실패 테스트는 없었다. 결과 문서 반영 후 문서 UTF-8·frozen 계약 대상 검사도 **10 passed**, 3.39초이며 `git diff --check`는 오류가 없다.
+- Phase 2 `645e55c`의 [일반 Tests CI](https://github.com/twbeatles/xteink-crosspoint-websync/actions/runs/38693576454)는 Linux 전체·Windows 계약 두 작업이 성공했다. 이 원격 결과는 해당 commit 기준이며 최종 문서 commit CI나 모든 native 환경 검증을 대신하지 않는다.
+- 별도 검토 담당자가 현재 문서·spec·의존성 설명과 코드 계약을 교차 검토했다. native 스케줄러의 빈 소스 실행은 동기화 성공이 아닌 `no_sites`/exit 1로 정정했고, 현재 shell 환경변수의 스케줄러 상속을 가정하지 않도록 테스트 사본·로그 확인 절차를 명시했다. 외부 검증과 서버 설계를 완료 구현과 구분했다.
+
+### 남은 운영 검증과 지원 한계
+
+[별도 검증 절차](AUDIT_VALIDATION.md)는 실기기 overwrite/receipt 의미, cloud 지연·숨김 replica 동기화, native OS 등록/GUI, 외부 scraper·provider·Calibre, 실제 브라우저 흐름을 구체적인 입력·기대 결과로 정리한다. 중앙 서버 설계는 lease만으로 exactly-once를 주장하지 않으며 firmware/gateway fencing과 idempotent commit·receipt가 필요함을 명시한다. 이 운영·설계 범위는 사용자 승인에 부합하며 이번 로컬 코드 완료의 누락 버그 목록이 아니다.

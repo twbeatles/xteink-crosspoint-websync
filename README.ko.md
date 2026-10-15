@@ -153,7 +153,7 @@ python x3_websync.py --smoke
 ### 4. Calibre 서재 연동 & 로컬 도서 즉시 전송
 - **Calibre 라이브러리 직접 연동**: PC에 설치된 Calibre 데이터베이스(`calibredb`)를 조회하여, 서재에 있는 책을 검색하고 기기로 즉시 무선 전송합니다.
 - **로컬 파일 직접 전송**: 뉴스 수집 외에도 소장 중인 `EPUB`, `PDF`, `MOBI`, `TXT` 파일을 선택하여 기기로 다이렉트 업로드할 수 있습니다.
-- **Calibre 다운로드 폴더 자동 감시 (Watchdog)**: 지정한 폴더에 새로운 전자책 파일이 저장되면 이를 감지하여 자동으로 XTEINK 리더기로 전송합니다.
+- **Calibre 다운로드 폴더 자동 감시 (Watchdog)**: 새로 저장·이동된 전자책의 내용이 안정된 뒤 전송하고, 실패 시 기기별 진행 상태를 보존하여 재시도합니다.
 
 ### 5. 기기 SD카드 파일 관리자 (CrossPoint File Manager)
 기기의 `File Transfer` 모드와 연동하여 리더기 내부를 PC에서 편리하게 관리합니다.
@@ -264,4 +264,22 @@ python x3_websync.py --smoke
 - 테스트는 import 전 임시 저장 경로를 사용하고 실제 사용자 파일 접근을 차단합니다. 이 보호는 Python I/O 경계이며 OS sandbox가 아닙니다.
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
-- Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 모두 성공했습니다.
+- 2026-10-13 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체 테스트와 Windows 핵심 계약 2개 작업이며 frozen 검사는 릴리즈에서 수행합니다.
+
+## 감사 후속 수정 (2026-10-15)
+
+잘못된 사이트 JSON은 전체를 저장 전에 거부하며 기존 설정·revision을 유지합니다. 기동 시 설정을 읽지 못하면 GUI에서 백업 또는 직접 선택한 전체 설정 JSON으로 명시적 복구를 제안합니다. 취소하면 설정을 변경하지 않습니다. CLI 복구 전에는 앱을 종료합니다.
+
+```powershell
+python x3_websync.py --recover-config "C:\백업\정상-config.json"
+# EXE: .\x3_websync.exe --recover-config "C:\백업\정상-config.json"
+```
+
+복구는 검증 후 거부된 원본을 `config.json.rejected.<id>.json`으로 보존하고 기존 `.bak`을 유지합니다. 복구 자체는 전송하지 않습니다. `--sync`는 잘못된 설정에서 대화상자 없이 실패합니다. 사이트 내보내기는 전체 설정 백업이 아니므로 파일 종류를 확인해야 합니다. 누락된 설정은 기본값으로 채워집니다.
+
+- 같은 표시 이름이어도 feed URL이 다르면 다른 소스로 처리합니다. 전체 합본·미리보기·선택 전송·EPUB만 만들기에 두 소스를 보존합니다. 이름 변경은 ID를 유지하고 URL 변경은 새 ID를 만듭니다. 이름만 있는 옛 선택 항목이 모호하면 다시 미리보기해야 합니다.
+- Watch는 새 파일 이벤트 없이 2초부터 최대 300초까지 지수 backoff로 재시도합니다. `calibre_watch.pending_jobs`에 내용 fingerprint·성공 대상을 저장하고 기존 `pending_files`도 이어받습니다. 같은 내용·대상 폴더의 성공 기기는 건너뛰고 내용 변경·새 대상·폴더 변경은 새 전송으로 처리합니다. 중지는 backoff를 깨우고 미완료 상태를 보존하며, 진행 중 HTTP는 timeout 안에서 끝날 수 있습니다. 사라진 서재 파일도 pending으로 유지합니다.
+- 기존 ASCII basename의 전송명 동작은 유지합니다. 비ASCII 파일은 로마자 변환 전 원본 이름으로 hash를 계산하므로 옛 전송명과 새 전송명이 기기에 함께 남을 수 있습니다. 자동 이름 이관·삭제는 없습니다. 배치 내 같은 전송명은 업로드 전에 거부하며 유한 hash의 전역 무충돌을 보장하지 않습니다.
+- 경량 EXE는 Watch·googletrans·YouTube 자막·Pillow를 제외합니다. 이 기능은 선택 의존성을 갖춘 소스 환경에서 사용합니다.
+
+[완료 대조표·검증 근거](docs/AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현), [외부 검증 절차·서버 설계](docs/AUDIT_VALIDATION.md)를 참조하세요. PC 간 정확히 한 번 전송은 기기 지원이 필요한 별도 설계 범위입니다.

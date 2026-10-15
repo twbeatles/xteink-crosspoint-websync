@@ -279,7 +279,7 @@ run_sync_pipeline()
 - 블로그 ID 추출: `blog.naver.com/ID`, `m.blog.naver.com/ID`, `ID.blog.me` 세 가지 주소 형식 지원
 - 본문 추출: `div.se-main-container` (스마트에디터 One) 또는 `#postViewArea` (구버전)
 - 서식 박멸: 모든 `style`, `class` 속성 강제 삭제 → 배경색·글자색 초기화
-- 이미지 제거: e-ink 최적화를 위해 모든 `img` 태그 decompose
+- 이미지 정책: `include_images=false`이면 `img` 제거. true이면 지원되는 이미지를 EPUB 내부 리소스로 포함하며 실패한 이미지는 대체 텍스트로 처리한다.
 
 ---
 
@@ -301,7 +301,7 @@ run_sync_pipeline()
 | 항목 | 내용 |
 |------|------|
 | 역할 | X3 기기의 `/upload` HTTP 엔드포인트로 파일 POST |
-| 파일명 | 영숫자·하이픈·언더바만 허용 (CrossPoint 크래시 방지) |
+| 파일명 | ASCII 전송명: 한글 prefix 로마자 표기 + 변환 전 원본 basename 해시. 배치 내 동일 전송명은 사전 거부 (아래 2026-10-15 계약 참고) |
 | 결과 | `{ip: bool}` — 기기 **IP/호스트**를 키로 사용 |
 | 부분 전송 | `only_ips=[...]` 로 대상 기기 제한 |
 | 대상 폴더 | `remote_dir` / `upload_to_targets(..., remote_dir=)` — `device_files.default_upload_path` |
@@ -631,3 +631,14 @@ feat(gui): Add sync history viewer tab with re-send capability
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
 - 2026-10-13 감사 개선 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체 테스트와 Windows 핵심 계약 2개 작업이며 frozen 빌드는 릴리즈에서 검사합니다.
+
+## 감사 후속 구현 계약 (2026-10-15)
+
+- `config/validator.py`의 `ValidationIssue(field, code, message)`를 구조화된 검사 API로 사용한다. 기존 문자열 오류 API도 유지한다. import는 전체 항목을 먼저 검사하고 실패 시 config bytes·revision·`.bak`을 유지한다. config load/save/RMW와 공유 백업 경계에서도 구조 검사를 수행한다. 기존 의미적 warning과 기동 불가 구조 오류는 구분한다.
+- `ConfigManager.restore_config(JSON)`과 GUI `config_recovery.offer_config_recovery`는 명시적으로 복구한다. CLI는 `python x3_websync.py --recover-config <정상 전체 config JSON>`이며 성공 0/실패 1, 전송 없이 종료한다. 검증 후 원본을 `.rejected.<id>.json`으로 보존하며 기존 `.bak`은 유지한다. `--sync`는 대화상자 없이 실패한다.
+- `pipeline/sources.py`의 feed URL 기반 ID와 표시 이름을 구분한다. ID는 URL 대소문자 경로를 보존하고 이름 변경에는 유지된다. preview metadata를 full/selected/EPUB-only에 전달하고 번역 옵션은 현재 config에서 찾는다. 이름만 가진 옛 선택이 여러 소스에 맞으면 다시 미리보기하도록 실패시킨다.
+- `watch/retry.py`는 경로별 단일 큐·2초부터 최대 300초 지수 backoff를 사용한다. `calibre_watch.pending_jobs`는 fingerprint/targets/completed, 기존 `pending_files`는 호환 목록이다. 성공은 durable 저장 후 제거하고 미완료는 재기동한다. 내용·대상 폴더 변경은 새 전송이며 같은 안정 ID의 주소 변경은 기존 성공을 유지한다. 중지는 대기·backoff를 깨우고 미완료 이벤트를 보존하지만 진행 중 HTTP는 timeout까지 걸릴 수 있다.
+- 원본 basename hash는 로마자 변환 전에 계산한다. 기존 ASCII 전송명 동작은 유지하며 비ASCII 새 이름과 옛 기기 파일은 공존할 수 있다. 자동 이관·삭제는 없다. 배치 내 결과 이름은 사전 검사하되 유한 hash의 전역 무충돌을 주장하지 않는다.
+- 새 모듈 `websync.gui.config_recovery`, `websync.pipeline.sources`, `websync.watch.retry`는 spec hiddenimports에 포함한다. 경량 EXE의 optional 기능 제외는 유지한다.
+
+[완료 대조표](docs/AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현), [외부 검증 절차와 중앙 조정 서버 설계](docs/AUDIT_VALIDATION.md)를 참조한다. 중앙 서버 구현은 승인 범위 밖이며 lease만으로 true exactly-once를 보장하지 않는다.
