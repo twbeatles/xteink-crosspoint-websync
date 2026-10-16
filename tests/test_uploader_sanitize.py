@@ -19,9 +19,10 @@ def test_sanitize_filename_korean_and_uniqueness():
     assert sanitized2.endswith(".epub")
     assert sanitized3.endswith(".epub")
 
-    # 2. ASCII-safe transfer names retain the date and original-name hash.
+    # 2. Transfer names retain the original blog name, the date and original-name hash.
     assert "2026-07-31" in sanitized1
-    assert sanitized1.isascii() and sanitized2.isascii()
+    assert "네이버뉴스_2026-07-31" in sanitized1
+    assert "티스토리_2026-07-31" in sanitized2
     assert "2026-07-31" in sanitized2
     assert "2026-07-31" in sanitized3
 
@@ -31,18 +32,18 @@ def test_sanitize_filename_korean_and_uniqueness():
     assert sanitized2 != sanitized3
 
 
-def test_sanitize_filename_keeps_romanized_site_name():
-    """한글 사이트명이 기기 전송 파일명에서 통째로 지워지지 않는다."""
+def test_sanitize_filename_keeps_original_site_name():
+    """앱에서 지정한 원본 블로그명(한글)이 기기 전송 파일명에 그대로 남는다."""
     from websync.upload.romanize import romanize_for_filename
 
     uploader = X3Uploader("192.168.1.100")
 
     sanitized = uploader._sanitize_filename("d:/output/네이버뉴스_2026-07-31.epub")
-    assert sanitized.startswith("neibeonyuseu_2026-07-31")
-    assert sanitized.isascii()
+    assert sanitized.startswith("네이버뉴스_2026-07-31_")
+    assert sanitized.endswith(".epub")
 
     other = uploader._sanitize_filename("d:/output/티스토리_2026-07-31.epub")
-    assert other.startswith("tiseutori_2026-07-31")
+    assert other.startswith("티스토리_2026-07-31_")
     assert sanitized != other
 
     assert romanize_for_filename("네이버뉴스") == "neibeonyuseu"
@@ -53,12 +54,11 @@ def test_sanitize_filename_keeps_romanized_site_name():
 @pytest.mark.parametrize("first,second", [
     ("가", "ga"), ("낫", "낮"), ("café", "cafe"),
 ])
-def test_original_name_survives_romanization_collision(first, second):
+def test_original_name_survives_collision(first, second):
     uploader = X3Uploader("localhost")
     a = uploader._sanitize_filename(f"{first}_2026-10-15.EPUB")
     b = uploader._sanitize_filename(f"{second}_2026-10-15.EPUB")
     assert a != b
-    assert a.isascii() and b.isascii()
     assert a.endswith(".epub") and b.endswith(".epub")
     assert "2026-10-15" in a and "2026-10-15" in b
     assert a == uploader._sanitize_filename(f"{first}_2026-10-15.EPUB")

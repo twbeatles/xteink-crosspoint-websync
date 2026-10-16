@@ -41,7 +41,7 @@ def test_sanitize_filename_korean():
     name = u._sanitize_filename("/tmp/한글 제목 테스트.epub")
     assert " " not in name
     assert name.endswith(".epub")
-    assert name.isascii()
+    assert "한글_제목_테스트" in name
     assert name != u._sanitize_filename("/tmp/다른 제목.epub")
 
 

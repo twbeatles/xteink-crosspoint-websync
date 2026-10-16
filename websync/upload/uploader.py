@@ -13,7 +13,6 @@ import requests
 from websync.upload.host import normalize_device_host
 from websync.upload.remote_path import normalize_upload_remote_dir
 from websync.upload.device_ids import build_targets_with_keys
-from websync.upload.romanize import romanize_for_filename
 from websync.i18n import t
 
 __all__ = ["X3Uploader", "normalize_device_host", "normalize_upload_remote_dir"]
@@ -40,13 +39,11 @@ class X3Uploader:
         self.last_errors: dict[str, str] = {}
 
     def _sanitize_filename(self, file_path: str) -> str:
-        """CrossPoint 오작동(공백/특수문자 크래시) 우회 및 고유 식별용 파일명 클렌징"""
+        """기기 전송용 파일명 정리 — 앱에서 지정한 원본 블로그명(한글 포함)을 그대로 유지하고 파일시스템 금지 문자만 치환"""
         base, ext = os.path.splitext(os.path.basename(file_path))
-        # Hash the original stem: romanization is not one-to-one (가 and ga).
-        # Keep ASCII names stable; the batch preflight also guards hash collisions.
+        # 동일 base에 대해 결정적인 짧은 해시를 붙여 충돌로 인한 덮어쓰기를 방지한다.
         h = hashlib.md5(base.encode("utf-8", errors="replace")).hexdigest()[:6]
-        base = romanize_for_filename(base)
-        safe_base = "".join([c if (c.isascii() and c.isalnum()) or c in ("-", "_") else "_" for c in base])
+        safe_base = "".join([c if c.isalnum() or c in ("-", "_") else "_" for c in base])
         while "__" in safe_base:
             safe_base = safe_base.replace("__", "_")
         safe_base = safe_base.strip("_")

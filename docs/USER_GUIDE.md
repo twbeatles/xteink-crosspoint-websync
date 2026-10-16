@@ -448,7 +448,7 @@ pip install -r requirements-optional.txt
 - 새 작업 수락 시 취소 상태를 초기화합니다. GUI 종료는 자기 워커의 처리·이력 commit·백업 flush를 기다리며 Tk event loop를 유지합니다.
 - 대시보드는 취소 버튼과 상태·로그 5초 갱신을 제공합니다. 요청 응답이 불확실하면 재요청 전 상태를 확인합니다.
 - 공유 폴더의 .websync-replicas도 함께 동기화합니다. 설치별 snapshot은 변경 보존·사후 병합을 제공하며 PC 간 전역 전송 락이 아닙니다. 같은 reader의 자동 전송 PC는 하나만 활성화합니다.
-- 기기 전송 파일명은 CrossPoint 호환을 위해 ASCII를 사용하되, 한글 사이트명은 지우지 않고 로마자 표기로 살립니다(예: 네이버뉴스 → neibeonyuseu). 원래 basename hash도 함께 붙고, EPUB 제목은 원래 언어를 유지합니다.
+- 기기 전송 파일명은 앱에서 지정한 원본 블로그명(한글 포함)을 그대로 유지하고 파일시스템 금지 문자만 치환하며, 원래 basename hash도 함께 붙습니다. EPUB 제목도 원래 언어를 유지합니다.
 - 테스트는 import 전 임시 저장 경로를 사용하고 실제 사용자 파일 접근을 차단합니다. 이 보호는 Python I/O 경계이며 OS sandbox가 아닙니다.
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
@@ -460,4 +460,4 @@ pip install -r requirements-optional.txt
 
 같은 표시 이름을 가진 서로 다른 URL도 합본·선택에서 구분합니다. 옛 미리보기 선택이 이름만 있어 모호하면 다시 미리보기합니다. Watch는 새 파일 이벤트 없이 2초~300초 backoff로 재시도하고 기기별 성공을 저장해 재기동합니다. 파일 내용·대상 폴더가 바뀌면 새 전송이며, 중지 시 미완료 파일은 남습니다. 경량 EXE에서는 watchdog을 제외하므로 선택 의존성을 갖춘 소스 환경이 필요합니다.
 
-비ASCII 파일은 원래 basename으로 hash를 계산한 새 전송명을 사용합니다. 이전 기기 파일을 자동 변경·삭제하지 않으므로 함께 남을 수 있습니다. [상세 계약](../README.ko.md#감사-후속-수정-2026-10-15), [검증 절차](AUDIT_VALIDATION.md)를 참조하세요.
+비ASCII 파일을 포함한 모든 전송명은 원본 블로그명을 유지한 새 전송명을 사용하며 원래 basename으로 hash를 계산합니다. 이전 기기 파일을 자동 변경·삭제하지 않으므로 함께 남을 수 있습니다. [상세 계약](../README.ko.md#감사-후속-수정-2026-10-15), [검증 절차](AUDIT_VALIDATION.md)를 참조하세요.
