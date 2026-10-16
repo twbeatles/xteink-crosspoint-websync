@@ -56,6 +56,13 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def end_headers(self):
+        # Each request owns its connection. requests' short-lived upload clients
+        # otherwise reset idle HTTP/1.1 sockets on Windows, hiding useful errors
+        # under unrelated server-thread tracebacks during failure tests.
+        self.send_header("Connection", "close")
+        super().end_headers()
+
     def _log(self, **kw):
         with self._state.lock:
             self._state.requests.append(kw)

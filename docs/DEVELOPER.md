@@ -294,3 +294,7 @@ Follow the repository guidance in [CONTRIBUTING.md](../CONTRIBUTING.md) and this
 이 모듈들과 `gui.config_recovery`를 PyInstaller hiddenimports에 명시합니다. 경량 빌드는 기존 optional 의존성 제외를 유지합니다. 전송 filename hash는 변환 전 basename 기준이며 기존 ASCII 동작은 유지합니다. 자동 원격 이관·삭제나 전역 무충돌 보장은 없습니다.
 
 [전체 완료 대조표·실행 근거](AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현), [외부/native 검증 절차·중앙 조정 서버 설계](AUDIT_VALIDATION.md)에 범위를 정리했습니다. 이 동기화·복구 검증은 production 설정·DB·실제 기기를 사용하지 않습니다.
+
+## 동작 기반 테스트 보강 (2026-10-16)
+
+[테스트 보강 기록](TEST_HARDENING.md)에 CodeGraph 분석 결과, 실제 RSS/CSS HTTP 수집부터 EPUB·기기 전송·SQLite commit까지의 검증, 기존 실패/복구 테스트의 보완 사항과 결함 주입 검증을 정리했습니다.

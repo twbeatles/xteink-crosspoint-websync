@@ -8,7 +8,10 @@ from __future__ import annotations
 import os
 import sqlite3
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 _OS = os
 _SYS = sys
@@ -41,9 +44,7 @@ def _make_service(root, host, *, devices=None, merge_mode="per_site", backup=Non
     ]
     cm.save_config(cfg)
     db = SyncHistoryDb(db_path)
-    with patch("websync.pipeline.service.SyncHistoryDb", return_value=db), \
-         patch("websync.backup.local_import.import_local_sidecars", return_value={}):
-        svc = SyncService(cm)
+    svc = SyncService(cm, db=db, sidecar_root=root)
     return svc, db
 
 
@@ -78,10 +79,11 @@ def test_PIPE_06_site_exception_does_not_taint_other_site(tmp_path):
         scraper = _good_bad_scraper(arts, bad_exc=RuntimeError("boom"))
         with patch.object(ScraperFactory, "get_scraper", return_value=scraper), \
              patch("websync.integrations.notifier.ToastNotifier.show_toast"):
-            svc.run_sync_pipeline(log_callback=lambda _m: None)
-        urls = {u for u, _k in _rows(db)}
-        assert "https://x.example/g" in urls
-        assert svc.get_last_pipeline_result().get("site_errors", 0) >= 1
+            assert svc.run_sync_pipeline(log_callback=lambda _m: None) is False
+        assert set(_rows(db)) == {("https://x.example/g", "dev_primary")}
+        assert len(srv.state.uploads) == 1
+        assert svc.get_last_pipeline_result()["site_errors"] == 1
+        assert svc.get_last_pipeline_result()["success"] is False
     finally:
         srv.stop()
 
@@ -104,7 +106,14 @@ def test_PIPE_07_all_empty_no_epub_no_upload(tmp_path):
         srv.stop()
 
 
-def test_PIPE_08_backup_pull_failure_blocks_upload_and_keeps_shared(tmp_path):
+def _run_entrypoint(svc, entrypoint, articles):
+    if entrypoint == "full":
+        return svc.run_sync_pipeline(log_callback=lambda _m: None)
+    return svc.sync_selected_articles(articles, log_callback=lambda _m: None)
+
+
+@pytest.mark.parametrize("entrypoint", ["full", "selected"])
+def test_PIPE_08_backup_pull_failure_blocks_upload_and_keeps_shared(tmp_path, entrypoint):
     srv = FakeCrosspointServer().start()
     try:
         shared = os.path.join(str(tmp_path), "shared")
@@ -112,29 +121,30 @@ def test_PIPE_08_backup_pull_failure_blocks_upload_and_keeps_shared(tmp_path):
         history_path = os.path.join(shared, "synced_posts.json")
         with open(history_path, "w", encoding="utf-8") as f:
             f.write('{"kind":"history","export_version":2,"posts":[]}')
-        before = open(history_path, "rb").read()
+        before = Path(history_path).read_bytes()
         backup = {"enabled": True, "folder": shared, "include_history": True,
                   "auto_export": False, "auto_import_on_start": True, "history_mode": "per_device"}
         svc, db = _make_service(str(tmp_path), srv.host, backup=backup)
-        with patch.object(svc.backup_sync, "pull", return_value={"ok": False, "message": "corrupt"}):
-            # selected_sync path surfaces pull failure; full pipeline path must
-            # also avoid marking anything when pull is known-bad. Here we assert
-            # the guarded entry point refuses to proceed.
-            from websync.pipeline.selected_sync import sync_selected_articles
-
-            with patch("websync.integrations.notifier.ToastNotifier.show_toast"):
-                ok = sync_selected_articles(
-                    svc, [{"site_name": "Good", "title": "t", "url": "https://x.example/t", "content": "<p>t</p>"}],
-                    log_callback=lambda _m: None,
-                )
-            assert ok is False
+        articles = [{"site_name": "Good", "title": "t", "url": "https://x.example/t", "content": "<p>t</p>"}]
+        with patch.object(svc.backup_sync, "pull", return_value={"ok": False, "message": "corrupt"}), \
+             patch.object(ScraperFactory, "get_scraper") as factory, \
+             patch.object(svc.backup_sync, "push") as push, \
+             patch("websync.integrations.notifier.ToastNotifier.show_toast"):
+            assert _run_entrypoint(svc, entrypoint, articles) is False
+            factory.assert_not_called()
+            push.assert_not_called()
+        assert svc.get_last_pipeline_result()["status"] == "backup_pull_failed"
+        assert not svc.is_pipeline_running()
+        assert _rows(db) == []
         assert srv.state.uploads == []
-        assert open(history_path, "rb").read() == before
+        assert list(Path(svc.config["output_dir"]).glob("*.epub")) == []
+        assert Path(history_path).read_bytes() == before
     finally:
         srv.stop()
 
 
-def test_PIPE_09_push_failure_after_upload_is_not_full_success(tmp_path):
+@pytest.mark.parametrize("entrypoint", ["full", "selected"])
+def test_PIPE_09_push_failure_after_upload_is_not_full_success(tmp_path, entrypoint):
     srv = FakeCrosspointServer().start()
     try:
         shared = os.path.join(str(tmp_path), "shared")
@@ -142,22 +152,31 @@ def test_PIPE_09_push_failure_after_upload_is_not_full_success(tmp_path):
         backup = {"enabled": True, "folder": shared, "include_history": True,
                   "auto_export": True, "auto_import_on_start": False, "history_mode": "per_device"}
         svc, db = _make_service(str(tmp_path), srv.host, backup=backup)
-        from websync.pipeline.selected_sync import sync_selected_articles
+        articles = [{"site_name": "Good", "title": "t", "url": "https://x.example/u9", "content": "<p>u9</p>"}]
+        svc.config_manager.patch_fields(sites=svc.config["sites"][:1])
+        scraper = _good_bad_scraper(articles)
 
         with patch.object(svc.backup_sync, "push", return_value={"ok": False, "message": "disk full"}), \
              patch.object(svc.backup_sync, "pull", return_value={"ok": True, "skipped": True}), \
+             patch.object(ScraperFactory, "get_scraper", return_value=scraper), \
              patch("websync.integrations.notifier.ToastNotifier.show_toast"):
-            ok = sync_selected_articles(
-                svc, [{"site_name": "Good", "title": "t", "url": "https://x.example/u9", "content": "<p>u9</p>"}],
-                log_callback=lambda _m: None,
-            )
+            ok = _run_entrypoint(svc, entrypoint, articles)
         assert ok is False
         result = svc.get_last_pipeline_result()
         assert result.get("status") == "backup_push_failed"
         # local upload + history are preserved (at-least-once), only the
         # user-facing verdict is withheld
         assert len(srv.state.uploads) == 1
-        assert ("https://x.example/u9", "dev_primary") in set(_rows(db))
+        assert set(_rows(db)) == {("https://x.example/u9", "dev_primary")}
+        assert not svc.is_pipeline_running()
+        # Once the shared folder recovers, retained local history prevents a resend.
+        with patch.object(svc.backup_sync, "push", return_value={"ok": True}), \
+             patch.object(svc.backup_sync, "pull", return_value={"ok": True}), \
+             patch.object(ScraperFactory, "get_scraper", return_value=scraper), \
+             patch("websync.integrations.notifier.ToastNotifier.show_toast"):
+            assert _run_entrypoint(svc, entrypoint, articles) is True
+        assert len(srv.state.uploads) == 1
+        assert set(_rows(db)) == {("https://x.example/u9", "dev_primary")}
     finally:
         srv.stop()
 
@@ -184,8 +203,8 @@ def test_PIPE_13_digest_partial_failure(tmp_path):
              patch("websync.integrations.notifier.ToastNotifier.show_toast"):
             ok = svc.run_sync_pipeline(log_callback=lambda _m: None)
         assert ok is False
-        keys = {k for _u, k in _rows(db)}
-        assert "dev_bad" not in keys
+        assert set(_rows(db)) == {("https://x.example/d", "dev_primary")}
+        assert len(good.state.uploads) == 1 and bad.state.uploads == []
     finally:
         good.stop()
         bad.stop()
@@ -218,7 +237,17 @@ def test_PIPE_14_cancel_between_batches_marks_only_completed(tmp_path):
         assert ok is False
         # first batch committed, later batches never uploaded
         assert len(srv.state.uploads) == 1
+        assert set(_rows(db)) == {("https://x.example/S0", "dev_primary")}
         assert svc.get_last_pipeline_result().get("status") == "cancelled"
+        assert not svc.is_pipeline_running()
+        # Resume on the same service: cancellation clears and S0 is not resent.
+        scraper.fetch_articles.side_effect = lambda site: [{
+            "title": f"t-{site['name']}", "url": f"https://x.example/{site['name']}", "content": "<p>x</p>"}]
+        with patch.object(ScraperFactory, "get_scraper", return_value=scraper), \
+             patch("websync.integrations.notifier.ToastNotifier.show_toast"):
+            assert svc.run_sync_pipeline(log_callback=lambda _m: None) is True
+        assert len(srv.state.uploads) == 3
+        assert set(_rows(db)) == {(f"https://x.example/S{i}", "dev_primary") for i in range(3)}
     finally:
         srv.stop()
 
@@ -239,6 +268,8 @@ def test_PIPE_15_no_devices_no_crash_no_history(tmp_path):
         assert ok is False
         assert _rows(db) == []
         assert srv.state.uploads == []
+        assert svc.get_last_pipeline_result()["status"] == "no_targets"
+        scraper.fetch_articles.assert_not_called()
     finally:
         srv.stop()
 
@@ -247,6 +278,7 @@ def test_PIPE_16_db_write_failure_never_reports_complete(tmp_path):
     srv = FakeCrosspointServer().start()
     try:
         svc, db = _make_service(str(tmp_path), srv.host)
+        svc.config_manager.patch_fields(sites=svc.config["sites"][:1])
         arts = [{"title": "t", "url": "https://x.example/t16", "content": "<p>t</p>"}]
         scraper = MagicMock()
         scraper.fetch_articles.return_value = [dict(a) for a in arts]
@@ -261,5 +293,15 @@ def test_PIPE_16_db_write_failure_never_reports_complete(tmp_path):
         assert ok is False
         assert len(srv.state.uploads) == 1
         assert svc.get_last_pipeline_result().get("status") == "db_error"
+        assert _rows(db) == []
+        assert not svc.is_pipeline_running()
+        # An uncommitted upload must be retried, then committed exactly once.
+        with patch.object(ScraperFactory, "get_scraper", return_value=scraper), \
+             patch("websync.integrations.notifier.ToastNotifier.show_toast"):
+            assert svc.run_sync_pipeline(log_callback=lambda _m: None) is True
+            assert len(srv.state.uploads) == 2
+            assert set(_rows(db)) == {("https://x.example/t16", "dev_primary")}
+            assert svc.run_sync_pipeline(log_callback=lambda _m: None) is True
+            assert len(srv.state.uploads) == 2
     finally:
         srv.stop()

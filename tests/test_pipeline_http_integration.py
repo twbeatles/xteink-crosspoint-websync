@@ -188,19 +188,22 @@ def test_PIPE_05_recovery_sends_only_missing(tmp_path):
             devices=[{"name": "flaky", "ip": flaky.host, "id": "dev_flaky"}],
         )
         arts = [_article("A"), _article("B")]
-        _run_with_articles(svc, arts)
+        assert _run_with_articles(svc, arts) is False
         flaky.state.upload_status = 200
         with good.state.lock, flaky.state.lock:
             good.state.uploads.clear()
             flaky.state.uploads.clear()
             flaky.state.files.clear()
-        _run_with_articles(svc, arts)
+        assert _run_with_articles(svc, arts) is True
         # good device already done -> no resend; flaky gets the missing batch
         assert len(good.state.uploads) == 0
         assert len(flaky.state.uploads) == 1
         rows = _db_rows(db)
         keys = {(u, k) for u, k in rows}
-        assert ("https://news.example/a", "dev_flaky") in keys
+        assert keys == {(url, device) for url in ("https://news.example/a", "https://news.example/b")
+                        for device in ("dev_primary", "dev_flaky")}
+        assert _run_with_articles(svc, arts) is True
+        assert len(good.state.uploads) == 0 and len(flaky.state.uploads) == 1
     finally:
         good.stop()
         flaky.stop()
