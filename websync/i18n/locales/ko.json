@@ -28,7 +28,9 @@
     "config_load_failed": "[{now}] ❌ 설정 로드 실패: {error}",
     "sync_start": "[{now}] 백그라운드 동기화 모드 구동 시작",
     "sync_end": "[{now}] 백그라운드 동기화 모드 종료 (결과: {result})",
-    "parent_wait_timeout": "부모 프로세스(PID: {pid}) 종료 대기 시간(15초) 초과"
+    "parent_wait_timeout": "부모 프로세스(PID: {pid}) 종료 대기 시간(15초) 초과",
+    "staging_exe_blocked_title": "임시 업데이트 파일 실행",
+    "staging_exe_blocked": "이 파일은 업데이트 임시 폴더(.updates)의 복사본이므로 직접 실행할 수 없습니다.\n원본 실행 파일({target})을 실행해 주세요."
   },
   "settings": {
     "language": {
@@ -434,6 +436,7 @@
         "cancel_pending": "업데이트 다운로드 취소 요청 중...",
         "cancelled": "업데이트 다운로드가 취소되었습니다.",
         "verified": "✓ v{version} 검증 완료. 재시작하여 적용합니다.",
+        "deferred_cleaned": "⏭️ v{version} 업데이트를 다음에 적용합니다. 다운로드한 임시 파일은 정리했습니다.",
         "dev_done_title": "다운로드 완료 (개발 모드)",
         "dev_done_body": "v{version} 바이너리 다운로드 및 디지털 서명 검증이 완료되었습니다.\n\n파일 위치: {path}\n\n※ 개발 환경(Python 소스 실행)에서는 실행 파일 자동 교체가 지원되지 않습니다.",
         "ready_title": "업데이트 준비 완료",
@@ -447,6 +450,11 @@
     },
     "app": {
       "update_available_log": "🚀 [업데이트] 새 버전 v{version}이 출시되었습니다! (고급 설정 탭 → 소프트웨어 업데이트에서 확인)",
+      "update_applied_log": "✅ 업데이트가 적용되었습니다. ({target})",
+      "update_failed_log": "❌ 이전 업데이트 적용 실패: {error}",
+      "update_failed_title": "업데이트 적용 실패",
+      "update_failed_body": "이전 업데이트 적용에 실패했습니다:\n{error}\n\n현재 버전 그대로 실행 중입니다. 고급 설정 탭에서 다시 시도해 주세요.",
+      "update_cleanup_log": "🧹 업데이트 임시 파일 {count}개를 정리했습니다.",
       "backup_pull_log": "☁ 시작 시 공유 데이터 가져오기: {msg}",
       "backup_pull_fail": "☁ 시작 시 공유 데이터 가져오기 실패: {error}",
       "cancel_requested": "⏹ 동기화 취소를 요청했습니다. 현재 사이트 처리가 끝나면 중단됩니다.",
@@ -1127,6 +1135,7 @@
     "up_to_date": "현재 버전(v{version})이 최신 버전입니다.",
     "check_failed": "업데이트 확인 실패: {error}",
     "stage_failed": "스테이징 파일 준비 실패",
+    "cleanup": "오래된 업데이트 임시 파일 {count}개를 정리했습니다.",
     "helper_started": "업데이터 헬퍼 기동 완료. 본 프로세스를 종료합니다.",
     "dev_skip": "개발 환경(non-frozen)에서는 바이너리 교체를 생략합니다: {path}",
     "dev_unsupported": "개발 모드(소스 코드 실행)에서는 바이너리 자동 교체가 지원되지 않습니다.\n다운로드된 파일: {path}"

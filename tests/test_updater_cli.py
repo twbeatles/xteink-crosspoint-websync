@@ -65,3 +65,49 @@ def test_handle_apply_update_parent_timeout(tmp_path):
         assert res is not None
         assert res["status"] == "failed"
         assert "초과" in res["error"]
+
+
+def test_staging_block_allows_dev_and_helper():
+    import argparse
+    from x3_websync import _staging_block_target
+
+    assert _staging_block_target(argparse.Namespace(apply_update=False)) is None
+    assert _staging_block_target(argparse.Namespace(apply_update=True)) is None
+
+
+def test_staging_block_detects_helper_copy(tmp_path, monkeypatch):
+    import argparse
+    import sys
+    from x3_websync import _staging_block_target
+
+    base = tmp_path / "app"
+    staging = base / ".updates"
+    staging.mkdir(parents=True)
+    target = base / "x3_websync.exe"
+    target.write_bytes(b"app")
+    helper = staging / "update-helper-abc123.exe"
+    helper.write_bytes(b"helper")
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(helper), raising=False)
+    assert _staging_block_target(
+        argparse.Namespace(apply_update=False)
+    ) == str(target.resolve())
+    assert (
+        _staging_block_target(argparse.Namespace(apply_update=True)) is None
+    )
+
+
+def test_staging_block_allows_normal_frozen_exe(tmp_path, monkeypatch):
+    import argparse
+    import sys
+    from x3_websync import _staging_block_target
+
+    base = tmp_path / "app"
+    base.mkdir()
+    target = base / "x3_websync.exe"
+    target.write_bytes(b"app")
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(target), raising=False)
+    assert _staging_block_target(argparse.Namespace(apply_update=False)) is None

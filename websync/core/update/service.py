@@ -16,6 +16,7 @@ from websync.core.update.constants import (
 )
 from websync.core.update.installer import (
     apply_staged_update,
+    cleanup_stale_update_artifacts,
     cleanup_update_backups,
     consume_update_result,
     launch_update_helper,
@@ -78,6 +79,29 @@ class UpdateService:
         result_file = update_result_path(self.staging_root)
         return consume_update_result(result_file)
 
+    def cleanup_stale_artifacts(self) -> list[Path]:
+        """스테이징 폴더에 남은 update-*.exe 잔재를 정리합니다."""
+        try:
+            current = (
+                Path(sys.executable).resolve()
+                if getattr(sys, "frozen", False)
+                else None
+            )
+        except Exception:
+            current = None
+        try:
+            removed = cleanup_stale_update_artifacts(
+                self.staging_root, current_exe=current
+            )
+        except Exception:
+            return []
+        if removed:
+            try:
+                self.logger.info(t("update.cleanup", count=len(removed)))
+            except Exception:
+                pass
+        return removed
+
     def download_and_stage(
         self,
         manifest: ReleaseManifest,
@@ -86,6 +110,10 @@ class UpdateService:
     ) -> Path:
         """새 릴리즈 바이너리를 다운로드하여 스테이징 영역에 안전하게 저장합니다."""
         self.staging_root.mkdir(parents=True, exist_ok=True)
+        try:
+            cleanup_stale_update_artifacts(self.staging_root)
+        except Exception:
+            pass
 
         def progress_chunks():
             total_downloaded = 0

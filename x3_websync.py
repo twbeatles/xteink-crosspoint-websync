@@ -45,6 +45,30 @@ from websync.core.smoke import SMOKE_MODULES, run_smoke_check
 from websync.cli.update_apply import handle_apply_update as _handle_apply_update
 
 
+def _staging_block_target(args) -> str | None:
+    """스테이징 복사본 직접 실행이면 안내할 원본 경로를, 아니면 None을 반환."""
+    if not getattr(sys, "frozen", False):
+        return None
+    if getattr(args, "apply_update", False):
+        return None
+    try:
+        from websync.core.update.installer import (
+            find_update_target_for_staging,
+            is_running_from_staging,
+        )
+    except Exception:
+        return None
+    try:
+        if not is_running_from_staging():
+            return None
+        target = find_update_target_for_staging()
+        if target is not None:
+            return str(target)
+        return os.path.dirname(os.path.dirname(os.path.abspath(sys.executable)))
+    except Exception:
+        return None
+
+
 def main():
     from websync.i18n import detect_system_language, init_from_config, init_i18n, t
 
@@ -82,6 +106,25 @@ def main():
     parser.add_argument("--update-result-file", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
+
+    # 0. 스테이징 복사본 직접 실행 가드 (frozen 전용)
+    blocked_target = _staging_block_target(args)
+    if blocked_target is not None:
+        try:
+            import tkinter as _tk
+            from tkinter import messagebox as _mb
+
+            _root = _tk.Tk()
+            _root.withdraw()
+            _mb.showerror(
+                t("cli.staging_exe_blocked_title"),
+                t("cli.staging_exe_blocked", target=blocked_target),
+            )
+            _root.destroy()
+        except Exception:
+            pass
+        print(t("cli.staging_exe_blocked", target=blocked_target))
+        sys.exit(1)
 
     # 1. 스모크 체크
     if args.smoke:

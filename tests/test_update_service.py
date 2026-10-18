@@ -113,3 +113,48 @@ def test_download_and_stage_streams_chunks_without_buffering(tmp_path):
 
     assert staged.read_bytes() == b"firstsecond"
     assert progress == [(5, 11), (11, 11)]
+
+
+def test_download_and_stage_prunes_previous_staged(tmp_path):
+    import hashlib
+    from datetime import datetime, timedelta, timezone
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from websync.core.update_manifest import ReleaseManifest
+
+    data = b"fresh-binary"
+    manifest = ReleaseManifest(
+        version="1.1.0",
+        artifact_url="https://example.invalid/app.exe",
+        artifact_sha256=hashlib.sha256(data).hexdigest(),
+        artifact_size=len(data),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+        signature="dummy",
+    )
+    service = UpdateService(storage_root=tmp_path)
+    orphan = Path(service.staging_root) / "update-1.0.0-deadbeef.exe"
+    service.staging_root.mkdir(parents=True, exist_ok=True)
+    orphan.write_bytes(b"orphan")
+
+    with patch(
+        "websync.core.update.service.stream_update_artifact",
+        return_value=iter([data]),
+    ):
+        staged = service.download_and_stage(manifest)
+
+    assert staged.is_file()
+    assert staged.read_bytes() == data
+    assert not orphan.exists()
+
+
+def test_cleanup_stale_artifacts_returns_removed(tmp_path):
+    service = UpdateService(storage_root=tmp_path)
+    service.staging_root.mkdir(parents=True, exist_ok=True)
+    leftover = service.staging_root / "update-helper-old.exe"
+    leftover.write_bytes(b"old")
+
+    removed = service.cleanup_stale_artifacts()
+
+    assert [p.name for p in removed] == [leftover.name]
+    assert not leftover.exists()

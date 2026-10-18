@@ -28,7 +28,9 @@
     "config_load_failed": "[{now}] ❌ Failed to load settings: {error}",
     "sync_start": "[{now}] Starting background sync",
     "sync_end": "[{now}] Background sync finished (result: {result})",
-    "parent_wait_timeout": "Timed out waiting for parent process (PID: {pid}) to exit (15s)"
+    "parent_wait_timeout": "Timed out waiting for parent process (PID: {pid}) to exit (15s)",
+    "staging_exe_blocked_title": "Staging update file launched",
+    "staging_exe_blocked": "This file is a copy inside the update staging folder (.updates) and cannot be run directly.\nPlease run the original executable ({target}) instead."
   },
   "settings": {
     "language": {
@@ -434,6 +436,7 @@
         "cancel_pending": "Canceling the update download...",
         "cancelled": "The update download was canceled.",
         "verified": "✓ v{version} verified. Restart to apply.",
+        "deferred_cleaned": "⏭️ The v{version} update will be applied later. The downloaded staging file was cleaned up.",
         "dev_done_title": "Download complete (dev mode)",
         "dev_done_body": "v{version} binary download and signature verification finished.\n\nFile location: {path}\n\n※ Automatic executable replacement is not supported when running from Python source.",
         "ready_title": "Update ready",
@@ -447,6 +450,11 @@
     },
     "app": {
       "update_available_log": "🚀 [Update] New version v{version} is out! (Advanced settings → Software update)",
+      "update_applied_log": "✅ The update was applied. ({target})",
+      "update_failed_log": "❌ The previous update failed: {error}",
+      "update_failed_title": "Update failed",
+      "update_failed_body": "The previous update could not be applied:\n{error}\n\nStill running the current version. Please try again from the Advanced settings tab.",
+      "update_cleanup_log": "🧹 Cleaned up {count} stale update staging file(s).",
       "backup_pull_log": "☁ Shared data import at startup: {msg}",
       "backup_pull_fail": "☁ Shared data import at startup failed: {error}",
       "cancel_requested": "⏹ Cancel requested. Sync will stop after the current site finishes.",
@@ -1127,6 +1135,7 @@
     "up_to_date": "Current version (v{version}) is up to date.",
     "check_failed": "Update check failed: {error}",
     "stage_failed": "Failed to prepare the staging file",
+    "cleanup": "Cleaned up {count} stale update staging file(s).",
     "helper_started": "Updater helper launched. This process will now exit.",
     "dev_skip": "Skipping binary replacement in a development (non-frozen) environment: {path}",
     "dev_unsupported": "Automatic binary replacement is not supported in development mode (running from source).\nDownloaded file: {path}"

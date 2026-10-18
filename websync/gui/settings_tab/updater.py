@@ -5,6 +5,7 @@ import os
 import sys
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox
 import customtkinter as ctk
 
@@ -276,6 +277,15 @@ class SettingsUpdaterMixin:
                 service.launch_update_and_exit(staged_path, manifest)
             except Exception as exc:
                 messagebox.showerror(t("gui.settings.update.apply_fail_title"), t("gui.settings.update.apply_fail", error=exc))
+        else:
+            try:
+                Path(staged_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+            self.update_status_lbl.configure(
+                text=t("gui.settings.update.deferred_cleaned", version=manifest.version),
+                text_color=COLOR_SECONDARY_FG,
+            )
 
     def _on_download_failed(self, error_msg: str):
         self.check_update_btn.configure(state="normal")

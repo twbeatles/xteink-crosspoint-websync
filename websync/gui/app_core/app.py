@@ -100,8 +100,62 @@ class SyncAppGui(
         self.root.after(200, self._maybe_show_portable_wizard)
         self.root.after(400, self._start_backup_pull_if_enabled)
         self.root.after(700, self.tab_settings._start_watch_if_enabled)
+        self.root.after(800, self._check_update_startup_state)
         self.root.after(1500, self._start_auto_update_check_if_enabled)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _check_update_startup_state(self):
+        """시작 시 스테이징 잔재 정리와 이전 업데이트 결과 1회 소비."""
+        def task():
+            try:
+                from websync.core.update_service import UpdateService
+                from websync import __version__
+
+                service = UpdateService(current_version=__version__)
+                try:
+                    cleaned = service.cleanup_stale_artifacts()
+                except Exception:
+                    cleaned = []
+                try:
+                    result = service.check_last_result()
+                except Exception:
+                    result = None
+                self.root.after(0, lambda: self._on_update_startup_state(cleaned, result))
+            except Exception:
+                pass
+
+        self._start_background_task(task, name="update-startup")
+
+    def _on_update_startup_state(self, cleaned, result):
+        """스테이징 정리와 이전 업데이트 결과를 UI에 반영합니다."""
+        try:
+            if cleaned:
+                self._log_message(t("gui.app.update_cleanup_log", count=len(cleaned)))
+        except Exception:
+            pass
+        if not isinstance(result, dict):
+            return
+        status = str(result.get("status", ""))
+        if status == "applied":
+            try:
+                self._log_message(
+                    t("gui.app.update_applied_log", target=str(result.get("target", "")))
+                )
+            except Exception:
+                pass
+        elif status in ("failed", "rolled_back"):
+            error = str(result.get("error", ""))
+            try:
+                self._log_message(t("gui.app.update_failed_log", error=error))
+            except Exception:
+                pass
+            try:
+                messagebox.showwarning(
+                    t("gui.app.update_failed_title"),
+                    t("gui.app.update_failed_body", error=error),
+                )
+            except Exception:
+                pass
 
     def _start_auto_update_check_if_enabled(self):
         """시작 시 백그라운드로 최신 버전 존재 여부를 조용히 확인합니다."""

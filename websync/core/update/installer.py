@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,107 @@ class UpdateApplyError(RuntimeError):
 
 class UpdateCancelledError(Exception):
     """사용자 또는 시스템에 의해 업데이트 다운로드가 취소됨."""
+
+
+# os.replace 재시도 (Windows 일시 파일 잠금·백신 스캔 대응)
+_REPLACE_RETRY_ATTEMPTS = 50
+_REPLACE_RETRY_DELAY_SECONDS = 0.2
+
+# 스테이징 영역 실행 파일 이름 접두사 (직접 실행 금지 대상)
+_STAGING_EXE_PREFIX = "update-"
+
+
+def is_staging_artifact_name(name: str) -> bool:
+    """업데이트 스테이징 파일 이름(update-*.exe)인지 검사합니다."""
+    lowered = str(name or "").lower()
+    return lowered.startswith(_STAGING_EXE_PREFIX) and lowered.endswith(".exe")
+
+
+def is_running_from_staging(exe_path: str | Path | None = None) -> bool:
+    """frozen 실행 파일이 .updates 스테이징 폴더 안에서 구동 중인지 검사합니다."""
+    if not getattr(sys, "frozen", False):
+        return False
+    try:
+        exe = Path(exe_path) if exe_path is not None else Path(sys.executable)
+    except Exception:
+        return False
+    try:
+        if is_staging_artifact_name(exe.name):
+            return True
+        return exe.parent.name == ".updates"
+    except Exception:
+        return False
+
+
+def find_update_target_for_staging(
+    staging_dir: str | Path | None = None,
+) -> Path | None:
+    """스테이징 폴더의 부모(실 설치 폴더)에서 원본 실행 파일을 찾습니다."""
+    try:
+        if staging_dir is None:
+            exe = Path(sys.executable)
+            if not is_running_from_staging(exe):
+                return None
+            staging_dir = exe.parent
+        base = Path(staging_dir).parent
+        preferred = base / "x3_websync.exe"
+        if preferred.is_file():
+            return preferred.resolve()
+        for candidate in sorted(base.glob("*.exe")):
+            if not is_staging_artifact_name(candidate.name):
+                return candidate.resolve()
+    except Exception:
+        return None
+    return None
+
+
+def cleanup_stale_update_artifacts(
+    staging_root: str | Path,
+    *,
+    current_exe: str | Path | None = None,
+) -> list[Path]:
+    """스테이징 폴더에 남은 update-*.exe 잔재를 정리합니다.
+
+    취소·적용 거부·헬퍼 종료 후 남는 파일이 새 버전으로 오인되지 않게
+    하며, 결과 파일(last-update-result.json)은 소비 단계에서 처리하므로
+    유지합니다.
+    """
+    removed: list[Path] = []
+    try:
+        root = Path(staging_root).resolve()
+    except Exception:
+        return removed
+    try:
+        current = Path(current_exe).resolve() if current_exe is not None else None
+    except Exception:
+        current = None
+    try:
+        entries = list(root.glob("update-*.exe"))
+    except OSError:
+        return removed
+    for entry in entries:
+        try:
+            if current is not None and entry.resolve() == current:
+                continue
+            entry.unlink()
+            removed.append(entry)
+        except OSError:
+            continue
+    return removed
+
+
+def _replace_with_retry(src: Path, dst: Path) -> None:
+    """일시 파일 잠금(Windows WinError 5 등)에 대비해 교체를 재시도합니다."""
+    last_error: PermissionError | None = None
+    for _ in range(max(1, int(_REPLACE_RETRY_ATTEMPTS))):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as exc:
+            last_error = exc
+            time.sleep(float(_REPLACE_RETRY_DELAY_SECONDS))
+    if last_error is not None:
+        raise last_error
 
 
 def update_result_path(staging_root: str | Path) -> Path:
@@ -222,7 +324,7 @@ def apply_staged_update(
 
     shutil.copy2(target_path, backup_path)
     try:
-        os.replace(staged_path, target_path)
+        _replace_with_retry(staged_path, target_path)
         if smoke_runner is None:
             completed = subprocess.run(
                 [str(target_path), "--smoke"],
@@ -242,7 +344,7 @@ def apply_staged_update(
     except Exception as exc:
         try:
             if backup_path.is_file():
-                os.replace(backup_path, target_path)
+                _replace_with_retry(backup_path, target_path)
         except Exception as rollback_exc:
             raise UpdateApplyError(
                 f"Update failed and rollback also failed: {rollback_exc}"

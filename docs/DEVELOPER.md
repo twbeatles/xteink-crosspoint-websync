@@ -243,6 +243,10 @@ Follow the repository guidance in [CONTRIBUTING.md](../CONTRIBUTING.md) and this
   2. Ed25519 서명, HTTPS URL, SHA-256 해시, 크기 상한(500MB), 만료일 무결성 검증.
   3. 실시간 스트리밍 해시 검증 및 다운로드 취소(`cancel_event`) 지원.
   4. 이전 버전 자동 백업(`.bak`) 및 `--smoke`(핵심 모듈 import) 실패 시 자동 롤백.
+5. 교체·롤백의 `os.replace`는 일시 파일 잠금(Windows WinError 5 등)에 최대 약 10초 재시도합니다 (`_replace_with_retry`).
+6. 스테이징 잔재(`.updates/update-*.exe`)는 다운로드 시작·앱 시작 시 정리되며 (`cleanup_stale_update_artifacts`), 적용 거절 시 받은 파일도 즉시 삭제합니다.
+7. 이전 업데이트 결과(`last-update-result.json`)는 앱 시작 시 1회 소비되어 로그·알림으로 표시됩니다 (`SyncAppGui._check_update_startup_state`).
+8. 스테이징 복사본 직접 실행은 진입점에서 차단됩니다 (`is_running_from_staging`, `--apply-update` 헬퍼 제외).
 
 ### 배포 절차 (GitHub Actions)
 1. `websync/__init__.py`의 `__version__ = "X.Y.Z"`와 `docs/releases/vX.Y.Z.md` 릴리즈 노트를 업데이트하고 `main`에 커밋·푸시합니다. 릴리즈 워크플로는 같은 이름의 노트 파일을 사용합니다.
