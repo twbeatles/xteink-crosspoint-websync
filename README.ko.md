@@ -68,7 +68,7 @@ flowchart LR
 
 복잡한 설치 과정 없이 바로 실행할 수 있는 단일 포터블 실행 파일입니다.
 
-1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-crosspoint-websync-v1.3.7.exe` 또는 이후 버전)을 다운로드합니다.
+1. **다운로드**: [GitHub Releases 최신 버전](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest)에서 실행 파일(`xteink-crosspoint-websync-v1.3.8.exe` 또는 이후 버전)을 다운로드합니다.
 2. **기기 연결**: 프로그램을 실행한 후, **뉴스 동기화** 탭의 **X3 주소** 입력창에 기기의 IP 주소(예: `192.168.0.25`) 또는 `crosspoint.local`을 입력하고 **[연결 확인]**을 누릅니다.
 3. **사이트 등록 및 동기화**: **[사이트 추가]**를 눌러 추천 프리셋(토스, 카카오, 뉴닉 등)을 선택하거나 원하는 RSS 주소를 입력한 뒤, 하단의 **[즉시 전체 뉴스 스크래핑 및 X3 동기화 실행]**을 클릭합니다.
 
@@ -281,7 +281,7 @@ python x3_websync.py --recover-config "C:\백업\정상-config.json"
 
 - 같은 표시 이름이어도 feed URL이 다르면 다른 소스로 처리합니다. 전체 합본·미리보기·선택 전송·EPUB만 만들기에 두 소스를 보존합니다. 이름 변경은 ID를 유지하고 URL 변경은 새 ID를 만듭니다. 이름만 있는 옛 선택 항목이 모호하면 다시 미리보기해야 합니다.
 - Watch는 새 파일 이벤트 없이 2초부터 최대 300초까지 지수 backoff로 재시도합니다. `calibre_watch.pending_jobs`에 내용 fingerprint·성공 대상을 저장하고 기존 `pending_files`도 이어받습니다. 같은 내용·대상 폴더의 성공 기기는 건너뛰고 내용 변경·새 대상·폴더 변경은 새 전송으로 처리합니다. 중지는 backoff를 깨우고 미완료 상태를 보존하며, 진행 중 HTTP는 timeout 안에서 끝날 수 있습니다. 사라진 서재 파일도 pending으로 유지합니다.
-- 기존 ASCII basename의 전송명 동작은 유지합니다. 비ASCII 파일은 로마자 변환 전 원본 이름으로 hash를 계산하므로 옛 전송명과 새 전송명이 기기에 함께 남을 수 있습니다. 자동 이름 이관·삭제는 없습니다. 배치 내 같은 전송명은 업로드 전에 거부하며 유한 hash의 전역 무충돌을 보장하지 않습니다.
+- 기존 ASCII basename의 전송명 동작은 유지합니다. 비ASCII 파일(한글 등)은 v1.3.6부터 원래 문자를 유지하고 원본 이름으로 hash를 계산하므로, 옛 로마자 전송명과 새 전송명이 기기에 함께 남을 수 있습니다. 자동 이름 이관·삭제는 없습니다. 배치 내 같은 전송명은 업로드 전에 거부하며 유한 hash의 전역 무충돌을 보장하지 않습니다. 생성 EPUB 파일명에는 기사 집합 hash(8자리)가 붙어, 같은 날 다른 PC·출력 폴더에서 만든 책이 기기의 기존 책을 덮어쓰지 않습니다.
 - 경량 EXE는 Watch·googletrans·YouTube 자막·Pillow를 제외합니다. 이 기능은 선택 의존성을 갖춘 소스 환경에서 사용합니다.
 
 [완료 대조표·검증 근거](docs/AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현), [외부 검증 절차·서버 설계](docs/AUDIT_VALIDATION.md)를 참조하세요. PC 간 정확히 한 번 전송은 기기 지원이 필요한 별도 설계 범위입니다.

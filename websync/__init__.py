@@ -1,5 +1,5 @@
 """Xteink X3 WebSync Manager 패키지"""
-__version__ = "1.3.7"
+__version__ = "1.3.8"
 
 from websync.pipeline.service import SyncService
 from websync.config.manager import ConfigManager

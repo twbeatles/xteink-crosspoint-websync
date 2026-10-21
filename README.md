@@ -68,7 +68,7 @@ flowchart LR
 
 A zero-install, single portable executable for Windows users.
 
-1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.3.7.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
+1. **Download**: Grab the latest `xteink-crosspoint-websync-v1.3.8.exe` (or newer) from [GitHub Releases](https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest).
 2. **Connect Device**: Launch the executable. In the **News Sync** tab, enter your reader's IP address (e.g., `192.168.0.25`) or `crosspoint.local` into the **X3 Address** field, then click **[Check Connection]**.
 3. **Add Sites & Sync**: Click **[Add Site]** to pick from recommended presets (tech blogs, newsletters) or enter your favorite RSS feed URL. Then click **[Run Full Scraping & Sync to X3 Immediately]** at the bottom.
 
@@ -277,7 +277,7 @@ Recovery validates first, preserves the rejected config as `config.json.rejected
 
 - Distinct feed URLs have separate source identities even when display names match. Full digests, preview, selection and EPUB-only builds retain both sources. Renaming preserves identity; changing the feed URL changes it. An ambiguous old selection containing only a shared name must be previewed again.
 - Watch retries without another filesystem event, with exponential delays from 2 seconds up to 300 seconds. `calibre_watch.pending_jobs` retains content fingerprints and acknowledged targets; legacy `pending_files` is still recovered. Retry skips saved successes for unchanged content and target folder. Changed content is treated as new; a new target/folder needs delivery. Stop interrupts backoff and retains unfinished work, while an active HTTP request may finish within its timeout. Missing library files remain pending.
-- Existing ASCII basenames keep their transfer naming behavior. Non-ASCII names hash the original basename and keep their original characters. New remote filenames can coexist with earlier names; there is no automatic remote migration or deletion. Batch checks reject equal resulting names before upload; finite hashes do not promise global collision freedom.
+- Existing ASCII basenames keep their transfer naming behavior. Non-ASCII names hash the original basename and keep their original characters. New remote filenames can coexist with earlier names; there is no automatic remote migration or deletion. Batch checks reject equal resulting names before upload; finite hashes do not promise global collision freedom. Generated EPUB names also carry an 8-character hash of the article set, so a book built the same day on another PC or output folder does not replace an earlier book at the same device path.
 - The lightweight EXE excludes Watch, googletrans, YouTube transcripts and Pillow. Use a source environment with the optional requirements for those features.
 
 See the [completion matrix and verification evidence](docs/AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현) and [external validation runbooks / server design](docs/AUDIT_VALIDATION.md). Cross-PC exactly-once delivery remains a design item requiring device support.
