@@ -29,6 +29,48 @@ from websync.gui.bottom_bar import BottomBar
 from websync.i18n import t
 
 
+# GUI 저장은 watch_dir만 편집한다. 나머지는 Watch 토글·워커가 RMW로 저장한다.
+_WATCH_BACKGROUND_KEYS = ("enabled", "pending_files", "pending_jobs")
+# 공유 폴더 설정 중 GUI가 직접 편집하는 키 (settings_tab/backup_sync.py)
+_USER_PORTABLE_KEYS = ("enabled", "folder", "include_history", "auto_export", "auto_import_on_start", "history_mode")
+
+
+def _union_ids(*groups, exclude: str = "") -> list[str]:
+    out: list[str] = []
+    for group in groups:
+        for item in group if isinstance(group, list) else []:
+            text = str(item).strip() if item is not None else ""
+            if text and text != exclude and text not in out:
+                out.append(text)
+    return out
+
+
+def _merge_device_identities(disk_devices, mem_devices: list) -> list:
+    """기기 구성(추가·삭제·이름·주소)은 메모리, 채택된 안정 ID와 alias는 디스크 기준."""
+    import copy
+    disk_list = [d for d in disk_devices if isinstance(d, dict)] if isinstance(disk_devices, list) else []
+    merged = []
+    for dev in mem_devices:
+        if not isinstance(dev, dict):
+            continue
+        result = copy.deepcopy(dev)
+        mem_id = (dev.get("id") or "").strip()
+        match = next(
+            (d for d in disk_list if mem_id and (
+                (d.get("id") or "").strip() == mem_id or mem_id in _union_ids(d.get("alias_ids"))
+            )),
+            None,
+        )
+        if match is not None:
+            disk_id = (match.get("id") or "").strip() or mem_id
+            result["id"] = disk_id
+            result["alias_ids"] = _union_ids(
+                match.get("alias_ids"), dev.get("alias_ids"), [mem_id], exclude=disk_id
+            )
+        merged.append(result)
+    return merged
+
+
 class AppHelpersMixin:
     def _bind_autosave(self, widget: tk.Misc) -> None:
         widget.bind("<FocusOut>", lambda _e: self._save_ui_settings())
@@ -231,26 +273,62 @@ class AppHelpersMixin:
 
     @staticmethod
     def _merge_config_on_conflict(disk: dict, memory: dict) -> dict:
-        """충돌 시: 디스크 기반 + 메모리 top-level 덮어쓰기, sites는 URL 합집합(메모리 우선)."""
+        """충돌 시: 디스크 기반 + 메모리 top-level 덮어쓰기, sites는 URL 합집합(메모리 우선).
+
+        GUI가 편집하지 않고 백그라운드 writer(Watch 워커, 공유 폴더 pull/push, 기기 ID 채택)가
+        쓰는 필드는 디스크 값을 유지한다. 메모리 사본이 오래되어도 그 변경을 되돌리지 않는다.
+        """
         import copy
+        from websync.backup.format import apply_site_tombstones, merge_site_tombstones
+        from websync.backup.portable_cfg import LEGACY_KEY, PORTABLE_KEY, apply_portable_cfg, get_portable_cfg
+
         out = copy.deepcopy(disk)
         for key, val in memory.items():
-            if key in ("sites", "_config_revision"):
+            if key in ("sites", "_config_revision", PORTABLE_KEY, LEGACY_KEY,
+                       "calibre_watch", "x3_primary_device_id", "x3_primary_device_alias_ids"):
                 continue
             out[key] = copy.deepcopy(val)
+
+        disk_watch = disk.get("calibre_watch") if isinstance(disk.get("calibre_watch"), dict) else {}
+        mem_watch = memory.get("calibre_watch")
+        if isinstance(mem_watch, dict):
+            watch = copy.deepcopy(mem_watch)
+            for key in _WATCH_BACKGROUND_KEYS:
+                if key in disk_watch:
+                    watch[key] = copy.deepcopy(disk_watch[key])
+            out["calibre_watch"] = watch
+
+        # 기기 신원: 디스크의 채택 결과를 유지하고, 메모리가 알던 ID는 alias로 보존한다.
+        disk_primary = (disk.get("x3_primary_device_id") or "").strip()
+        mem_primary = (memory.get("x3_primary_device_id") or "").strip()
+        out["x3_primary_device_id"] = disk_primary or mem_primary
+        out["x3_primary_device_alias_ids"] = _union_ids(
+            disk.get("x3_primary_device_alias_ids"),
+            memory.get("x3_primary_device_alias_ids"),
+            [mem_primary],
+            exclude=out["x3_primary_device_id"],
+        )
+        if isinstance(memory.get("x3_devices"), list):
+            out["x3_devices"] = _merge_device_identities(disk.get("x3_devices"), memory["x3_devices"])
+
         mem_sites = memory.get("sites") if isinstance(memory.get("sites"), list) else []
         disk_sites = out.get("sites") if isinstance(out.get("sites"), list) else []
         # memory wins same URL
         out["sites"] = merge_sites(
             disk_sites, mem_sites, remote_wins_same_url=True
         )
-        from websync.backup.format import apply_site_tombstones
-        from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
-        portable = get_portable_cfg(out)
-        out["sites"], deleted = apply_site_tombstones(
-            out["sites"], portable.get("deleted_sites", [])
+
+        # 공유 폴더: 사용자가 편집하는 키만 메모리 값, 나머지(push 시각 등)는 디스크 값.
+        mem_portable = get_portable_cfg(memory)
+        disk_portable = get_portable_cfg(disk)
+        tombstones = merge_site_tombstones(
+            disk_portable.get("deleted_sites", []), mem_portable.get("deleted_sites", [])
         )
-        apply_portable_cfg(out, {"deleted_sites": deleted})
+        out["sites"], deleted = apply_site_tombstones(out["sites"], tombstones)
+        apply_portable_cfg(out, {
+            **{key: mem_portable[key] for key in _USER_PORTABLE_KEYS if key in mem_portable},
+            "deleted_sites": deleted,
+        })
         return out
 
     def _get_log_for_web(self) -> str:

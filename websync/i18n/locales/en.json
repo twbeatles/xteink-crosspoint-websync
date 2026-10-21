@@ -443,6 +443,8 @@
         "ready_body": "v{version} download and signature verification finished.\n\nRestart the program to apply the update?",
         "apply_fail_title": "Failed to apply update",
         "apply_fail": "Failed to launch the updater:\n{error}",
+        "busy_title": "Job in progress",
+        "busy_body": "A sync, preview or other job is running, so the update cannot be applied now.\nPress 'Check for updates' again after it finishes.",
         "dl_fail_status": "❌ Update download failed: {error}",
         "fail_title": "Update failed",
         "fail_body": "Download or integrity verification failed:\n{error}"
@@ -1019,6 +1021,7 @@
     "hour_not_int": "❌ Error: scheduler time arguments must be numbers.",
     "hour_range": "❌ Error: time is out of range (00-23 hours / 00-59 minutes).",
     "register_failed": "Failed to register schedule: {error}",
+    "tr_too_long": "❌ The scheduled command is too long ({length} chars; Windows limit {limit}). Move the app to a shorter path (e.g. C:\\X3WebSync) and register again.",
     "macos_register_failed": "Failed to register macOS schedule: {error}",
     "linux_register_failed": "Failed to register Linux cron: {error}",
     "unregister_failed": "Failed to unregister schedule: {error}",

@@ -10,11 +10,15 @@ from websync.i18n import t
 class SchedulerManager:
     """작업 스케줄러 등록 및 제어를 전담하는 클래스 (Windows/macOS/Linux 크로스플랫폼 지원)"""
     TASK_NAME = "XteinkX3WebSyncTask"
+    # schtasks /TR 인자의 최대 길이. 초과 시 schtasks가 등록을 거부한다.
+    WINDOWS_TR_MAX_LENGTH = 261
 
     def __init__(self, script_path: str = None):
         raw = sys.argv[0] if script_path is None else script_path
         self.script_path = self._resolve_script_path(raw)
         self.project_dir = self._dirname_for_script(self.script_path)
+        # 마지막 등록 실패의 구체적 사유 (GUI 표시용). 원인을 모르면 빈 문자열.
+        self.last_error = ""
 
     @staticmethod
     def _is_windows_abs_path(path: str) -> bool:
@@ -40,6 +44,7 @@ class SchedulerManager:
 
     def register_daily_task(self, hour: str, minute: str) -> bool:
         """플랫폼에 맞는 일간 스케줄 등록"""
+        self.last_error = ""
         # 쉘 인젝션 방어용 입력 화이트리스트 정수 검증
         if not hour.isdigit() or not minute.isdigit():
             print(t("scheduler.hour_not_int"))
@@ -79,6 +84,12 @@ class SchedulerManager:
     def _register_windows(self, h_val: int, m_val: int) -> bool:
         """Windows schtasks 기반 등록 (경로 공백 안전)."""
         cmd_target = self.build_windows_tr_command()
+        if len(cmd_target) > self.WINDOWS_TR_MAX_LENGTH:
+            self.last_error = t(
+                "scheduler.tr_too_long", length=len(cmd_target), limit=self.WINDOWS_TR_MAX_LENGTH
+            )
+            print(self.last_error)
+            return False
 
         cmd = [
             "schtasks", "/create",

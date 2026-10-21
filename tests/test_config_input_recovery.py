@@ -161,3 +161,27 @@ def test_cli_explicit_recovery_and_sync_failure(monkeypatch):
     assert outcome.value.code == 1
     offer.assert_not_called()
     x3_websync.SyncService.assert_not_called()
+
+
+def test_recovery_accepts_config_with_only_semantic_warnings(tmp_path):
+    """load_config가 경고만 남기고 읽는 설정은 복구도 허용한다 (구조 오류만 거부)."""
+    cm = manager(tmp_path)
+    good = cm.load_config()
+    good["web_dashboard"]["port"] = 80
+    good["sites"] = [{"name": "legacy", "type": "css", "url": "https://example.test/", "item_selector": ""}]
+    source = tmp_path / "warned.json"
+    source.write_text(json.dumps(good, ensure_ascii=False), encoding="utf-8")
+    assert validate_config(good)  # semantic warnings exist
+    backup_before = Path(cm.config_path + ".bak").read_bytes()
+    rejected = b'{"sites": "oops"}'
+    Path(cm.config_path).write_bytes(rejected)
+    with pytest.raises(ConfigLoadError):
+        cm.load_config()
+
+    preserved = cm.restore_config(str(source))
+
+    assert Path(preserved).read_bytes() == rejected
+    assert Path(cm.config_path + ".bak").read_bytes() == backup_before
+    loaded = cm.load_config()
+    assert loaded["web_dashboard"]["port"] == 80
+    assert loaded["sites"][0]["name"] == "legacy"

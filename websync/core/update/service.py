@@ -134,29 +134,40 @@ class UpdateService:
 
         return staged_path
 
+    def launch_update(
+        self,
+        staged_path: Path,
+        manifest: ReleaseManifest,
+    ) -> None:
+        """헬퍼 프로세스만 구동합니다. 호출자는 직후 정상 종료 절차로 프로세스를 끝내야 합니다.
+
+        헬퍼는 부모 PID 종료를 기다린 뒤 교체하므로, GUI는 작업 drain을 마친 다음 호출한다.
+        """
+        if not getattr(sys, "frozen", False):
+            # 개발 환경에서는 직접 교체 대신 에러를 발생시켜 GUI/호출자가 처리하도록 함
+            self.logger.info(t("update.dev_skip", path=staged_path))
+            raise RuntimeError(t("update.dev_unsupported", path=staged_path))
+        target = Path(sys.executable).resolve()
+        backup = target.parent / f"{target.name}.v{self.current_version}.bak"
+        launch_update_helper(
+            target=target,
+            staged=staged_path,
+            backup=backup,
+            parent_pid=os.getpid(),
+            expected_sha256=manifest.artifact_sha256,
+            expected_size=manifest.artifact_size,
+            result_file=update_result_path(self.staging_root),
+        )
+        self.logger.info(t("update.helper_started"))
+
     def launch_update_and_exit(
         self,
         staged_path: Path,
         manifest: ReleaseManifest,
     ) -> None:
-        """헬퍼 프로세스를 구동하고 현재 프로세스를 종료하여 안전한 교체를 진행합니다."""
-        target = Path(sys.executable).resolve()
-        backup = target.parent / f"{target.name}.v{self.current_version}.bak"
-        result_file = update_result_path(self.staging_root)
+        """헬퍼 구동 후 즉시 종료 (GUI 외 호출자 호환용).
 
-        if getattr(sys, "frozen", False):
-            launch_update_helper(
-                target=target,
-                staged=staged_path,
-                backup=backup,
-                parent_pid=os.getpid(),
-                expected_sha256=manifest.artifact_sha256,
-                expected_size=manifest.artifact_size,
-                result_file=result_file,
-            )
-            self.logger.info(t("update.helper_started"))
-            sys.exit(0)
-        else:
-            # 개발 환경에서는 직접 교체 대신 에러를 발생시켜 GUI/호출자가 처리하도록 함
-            self.logger.info(t("update.dev_skip", path=staged_path))
-            raise RuntimeError(t("update.dev_unsupported", path=staged_path))
+        GUI는 진행 중 작업을 정리하지 않는 이 경로 대신 launch_update + _on_close를 쓴다.
+        """
+        self.launch_update(staged_path, manifest)
+        sys.exit(0)

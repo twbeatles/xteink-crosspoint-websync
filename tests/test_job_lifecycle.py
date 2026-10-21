@@ -97,3 +97,44 @@ def test_async_exception_updates_status_and_unlocks(tmp_path, monkeypatch):
     svc._pipeline_thread.join(3)
     assert svc.get_last_pipeline_result()["status"] == "failed"
     assert not svc.is_pipeline_running()
+
+
+def test_gui_close_runs_after_drain_before_destroy(tmp_path):
+    svc = make_service(tmp_path)
+    order = []
+    callbacks = []
+    app = AppSyncControlMixin()
+    app.service = svc
+    app._background_threads_lock = threading.Lock()
+    app._background_threads = set()
+    app.root = SimpleNamespace(
+        after=lambda delay, fn: callbacks.append(fn),
+        destroy=lambda: order.append("destroy"),
+    )
+    app.tab_settings = SimpleNamespace(_stop_watch_worker=lambda **kw: None)
+    flushed = MagicMock(side_effect=lambda: order.append("flush"))
+    svc.flush_backup_push = flushed
+    app._on_close(after_drain=lambda: order.append("after_drain"))
+    app._close_thread.join(3)
+    callbacks.pop(0)()
+    assert order == ["flush", "after_drain", "destroy"]
+
+
+def test_gui_close_destroys_even_if_after_drain_fails(tmp_path, monkeypatch):
+    svc = make_service(tmp_path)
+    callbacks = []
+    app = AppSyncControlMixin()
+    app.service = svc
+    app._background_threads_lock = threading.Lock()
+    app._background_threads = set()
+    app.root = SimpleNamespace(after=lambda delay, fn: callbacks.append(fn), destroy=MagicMock())
+    app.tab_settings = SimpleNamespace(_stop_watch_worker=lambda **kw: None)
+    monkeypatch.setattr("websync.gui.app_core.sync_control.messagebox.showerror", MagicMock())
+
+    def boom():
+        raise RuntimeError("helper failed")
+
+    app._on_close(after_drain=boom)
+    app._close_thread.join(3)
+    callbacks.pop(0)()
+    app.root.destroy.assert_called_once()

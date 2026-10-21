@@ -283,7 +283,7 @@ Follow the repository guidance in [CONTRIBUTING.md](../CONTRIBUTING.md) and this
 - 새 작업 수락 시 취소 상태를 초기화합니다. GUI 종료는 자기 워커의 처리·이력 commit·백업 flush를 기다리며 Tk event loop를 유지합니다.
 - 대시보드는 취소 버튼과 상태·로그 5초 갱신을 제공합니다. 요청 응답이 불확실하면 재요청 전 상태를 확인합니다.
 - 공유 폴더의 .websync-replicas도 함께 동기화합니다. 설치별 snapshot은 변경 보존·사후 병합을 제공하며 PC 간 전역 전송 락이 아닙니다. 같은 reader의 자동 전송 PC는 하나만 활성화합니다.
-- 기기 전송 파일명은 앱에서 지정한 원본 블로그명(한글 포함)을 그대로 유지하고 파일시스템 금지 문자만 치환합니다(`websync/upload/uploader.py`). 원래 basename hash도 함께 붙고, EPUB 제목은 원래 언어를 유지합니다. 회귀 테스트: `tests/test_uploader_sanitize.py::test_sanitize_filename_keeps_romanized_site_name`.
+- 기기 전송 파일명은 앱에서 지정한 원본 블로그명(한글 포함)을 그대로 유지하고 파일시스템 금지 문자만 치환합니다(`websync/upload/uploader.py`). 원래 basename hash도 함께 붙고, EPUB 제목은 원래 언어를 유지합니다. 생성 EPUB 파일명에는 기사 URL 집합 hash(8자리)가 붙어 같은 날 다른 PC·출력 폴더에서 만든 책이 기기의 같은 경로를 덮어쓰지 않습니다(`epub/builder.py` `_batch_digest`). 회귀 테스트: `tests/test_uploader_sanitize.py::test_sanitize_filename_keeps_original_site_name`, `tests/test_cross_run_filenames.py`.
 - 테스트는 import 전 임시 저장 경로를 사용하고 실제 사용자 파일 접근을 차단합니다. 이 보호는 Python I/O 경계이며 OS sandbox가 아닙니다.
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
@@ -295,7 +295,7 @@ Follow the repository guidance in [CONTRIBUTING.md](../CONTRIBUTING.md) and this
 
 `pipeline/sources.py`는 URL 기반 소스 ID를 표시 이름과 분리합니다. preview/selected/EPUB-only에서도 이 metadata를 전달하며 번역은 현재 설정을 사용합니다. 이름만 가진 모호한 선택은 미리보기를 다시 실행하도록 요구합니다. `watch/retry.py`는 2초~300초 지수 backoff, durable `pending_jobs` fingerprint/targets/completed와 legacy `pending_files`, 파일 안정화 및 종료 중 보존을 담당합니다. 같은 파일의 성공 기기만 건너뛰고 내용/폴더 변경은 새 전송입니다.
 
-이 모듈들과 `gui.config_recovery`를 PyInstaller hiddenimports에 명시합니다. 경량 빌드는 기존 optional 의존성 제외를 유지합니다. 전송 filename hash는 변환 전 basename 기준이며 기존 ASCII 동작은 유지합니다. 자동 원격 이관·삭제나 전역 무충돌 보장은 없습니다.
+이 모듈들과 `gui.config_recovery`를 PyInstaller hiddenimports에 명시합니다. 경량 빌드는 기존 optional 의존성 제외를 유지합니다. 전송 filename hash는 원래 basename 기준이며 기존 ASCII 동작은 유지합니다(로마자 변환과 `upload/romanize.py`는 v1.3.6 이후 제거). 자동 원격 이관·삭제나 전역 무충돌 보장은 없습니다.
 
 [전체 완료 대조표·실행 근거](AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현), [외부/native 검증 절차·중앙 조정 서버 설계](AUDIT_VALIDATION.md)에 범위를 정리했습니다. 이 동기화·복구 검증은 production 설정·DB·실제 기기를 사용하지 않습니다.
 

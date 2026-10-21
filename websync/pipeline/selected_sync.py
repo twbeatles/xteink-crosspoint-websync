@@ -44,6 +44,9 @@ def sync_selected_articles(
     if not service._try_acquire_pipeline_locks(log):
         return False
 
+    # finished: 정상 완료 / marked: 이번 작업이 기록한 이력 수.
+    # 취소·예외로 끝나도 기록한 이력은 공유 폴더에 내보내야 다른 PC가 재전송하지 않는다.
+    state = {"finished": False, "marked": 0}
     try:
         # 공유 데이터 폴더 pull — 본 파이프라인과 동일하게 정본 반영 (N3)
         pull_result = service.maybe_backup_pull(log_callback=log)
@@ -54,228 +57,245 @@ def sync_selected_articles(
                 "message": pull_result.get("message", ""),
             }
             return False
-        service._reload_config()
-        config = copy.deepcopy(service.config)
-        uploader = service.uploader
-        epub_builder = service.epub_builder
-        db = service.db
-        generate_cover = config.get("epub_cover", True)
-        upload_targets = uploader._build_target_list()
-        target_ips = [d["ip"] for d in upload_targets]
-        ip_to_name = {d["ip"]: d["name"] for d in upload_targets}
-        from websync.backup.portable_cfg import get_portable_cfg
-        from websync.upload.device_ids import (
-            group_articles_by_pending_targets,
-            ip_to_history_key_map,
+        ok = _sync_selected_locked(service, selected_articles, log, progress_callback, state)
+        if not (state["finished"] or state["marked"]):
+            return ok
+        return _push_after_selected_sync(service, ok, log_callback)
+    except Exception as error:
+        service.record_job_failure(error)
+        if state["marked"]:
+            try:
+                service.maybe_backup_push(log_callback=log_callback)
+            except Exception as push_error:
+                service.logger.warning(t("pipeline.selected.backup_push_fail", error=push_error))
+        raise
+    finally:
+        service._release_pipeline_locks()
+
+
+def _push_after_selected_sync(service, ok: bool, log_callback) -> bool:
+    previous = service._last_pipeline_result
+    # 취소 상태는 사용자가 본 결과이므로 push 실패로 덮어쓰지 않는다.
+    status = previous.get("status") if previous.get("status") == "cancelled" else "backup_push_failed"
+    try:
+        push_result = service.maybe_backup_push(log_callback=log_callback)
+    except Exception as e:
+        service.logger.warning(t("pipeline.selected.backup_push_fail", error=e))
+        service._last_pipeline_result = {
+            **previous, "status": status, "success": False, "message": str(e),
+        }
+        return False
+    if push_result.get("ok") is False:
+        service._last_pipeline_result = {
+            **previous, "status": status, "success": False, "backup_push": push_result,
+        }
+        return False
+    return ok
+
+
+def _sync_selected_locked(service, selected_articles, log, progress_callback, state) -> bool:
+    """락·pull 이후 선택 기사 빌드·전송·이력 기록. push는 호출자가 수행한다."""
+    service._reload_config()
+    config = copy.deepcopy(service.config)
+    uploader = service.uploader
+    epub_builder = service.epub_builder
+    db = service.db
+    generate_cover = config.get("epub_cover", True)
+    upload_targets = uploader._build_target_list()
+    target_ips = [d["ip"] for d in upload_targets]
+    ip_to_name = {d["ip"]: d["name"] for d in upload_targets}
+    from websync.backup.portable_cfg import get_portable_cfg
+    from websync.upload.device_ids import (
+        group_articles_by_pending_targets,
+        ip_to_history_key_map,
+    )
+
+    ip_hist_map = ip_to_history_key_map(upload_targets)
+    history_mode = get_portable_cfg(config).get("history_mode", "per_device")
+    epub_merge_mode = config.get("epub_merge_mode", "per_site")
+
+    if not target_ips:
+        log(t("pipeline.no_targets"))
+        service._last_pipeline_result = {"status": "no_targets", "success": False}
+        return False
+
+    summarizer = Summarizer(config, logger=service.logger)
+    translator = Translator(config, logger=service.logger)
+
+    articles_by_site, source_options = selected_source_groups(
+        selected_articles, config.get("sites", []), t("pipeline.selected.other_site")
+    )
+    for source_key, arts in articles_by_site.items():
+        site_name = arts[0]["_source_name"]
+        translate_to = source_options[source_key].get("translate_to", "").strip()
+        if translate_to and translator.is_available_for_site(translate_to):
+            log(t("pipeline.selected.translate", site=site_name, lang=translate_to))
+            for art in arts:
+                art["content"] = translator.translate_html(art["content"], target_lang=translate_to)
+
+    # AI 요약 후처리 적용
+    if summarizer.is_available():
+        log(t("pipeline.selected.summarize"))
+        for site_name, arts in articles_by_site.items():
+            for art in arts:
+                if "summary_html" not in art:
+                    art["summary_html"] = summarizer.summarize(art.get("title", ""), art.get("content", ""))
+
+    success_count = 0
+    partial_count = 0
+    actual_work = len(articles_by_site)
+
+    if epub_merge_mode == "daily_digest":
+        log(t("pipeline.selected.digest_start"))
+        all_urls = []
+        for site_name, arts in articles_by_site.items():
+            for art in arts:
+                all_urls.append((art["url"], site_name, art.get("title", "")))
+
+        digest_flat = []
+        for digest_site_name, arts in articles_by_site.items():
+            for art in arts:
+                item = dict(art)
+                item["_digest_site_name"] = digest_site_name
+                digest_flat.append(item)
+        upload_batches = group_articles_by_pending_targets(
+            db.is_synced_for_device,
+            db.is_synced,
+            digest_flat,
+            upload_targets,
+            history_mode=history_mode,
         )
+        pending_ips = [ip for ips, _articles in upload_batches for ip in ips]
 
-        ip_hist_map = ip_to_history_key_map(upload_targets)
-        history_mode = get_portable_cfg(config).get("history_mode", "per_device")
-        epub_merge_mode = config.get("epub_merge_mode", "per_site")
+        if pending_ips:
+            upload_results: dict[str, bool] = {}
+            if getattr(service, "is_cancel_requested", lambda: False)():
+                log(t("pipeline.cancelled"))
+                service._last_pipeline_result = {"status": "cancelled", "success": False}
+                return False
+            for batch_ips, batch_articles in upload_batches:
+                if getattr(service, "is_cancel_requested", lambda: False)():
+                    log(t("pipeline.cancelled"))
+                    service._last_pipeline_result = {"status": "cancelled", "success": False}
+                    return False
+                batch_by_site: dict[str, list[dict]] = {}
+                batch_urls: list[tuple[str, str, str]] = []
+                for art in batch_articles:
+                    source_key = art.get("_digest_site_name") or ""
+                    site_name = art.get("_source_name") or source_key
+                    clean_art = {k: v for k, v in art.items() if k != "_digest_site_name"}
+                    batch_by_site.setdefault(source_key, []).append(clean_art)
+                    batch_urls.append(
+                        (art.get("url") or "", site_name, art.get("title") or "")
+                    )
+                epub_path = epub_builder.build_digest(
+                    batch_by_site, generate_cover=generate_cover
+                )
+                log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
+                batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
+                upload_results.update(batch_results)
+                mark_batch = collect_mark_entries_from_triples(
+                    batch_results,
+                    batch_urls,
+                    is_synced_for_device=db.is_synced_for_device,
+                    ip_to_history_key=ip_hist_map,
+                )
+                if mark_batch:
+                    db.mark_synced_many(mark_batch)
+                    state["marked"] += len(mark_batch)
+            any_ok = upload_any_ok(upload_results)
+            all_ok = upload_all_ok(upload_results, pending_ips)
 
-        if not target_ips:
-            log(t("pipeline.no_targets"))
-            service._last_pipeline_result = {"status": "no_targets", "success": False}
-            return False
-
-        summarizer = Summarizer(config, logger=service.logger)
-        translator = Translator(config, logger=service.logger)
-
-        articles_by_site, source_options = selected_source_groups(
-            selected_articles, config.get("sites", []), t("pipeline.selected.other_site")
-        )
-        for source_key, arts in articles_by_site.items():
+            if any_ok:
+                if all_ok:
+                    log(t("pipeline.selected.upload_ok"))
+                    success_count = actual_work
+                else:
+                    failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
+                    log(t("pipeline.selected.partial", names=", ".join(failed)))
+                    partial_count = 1
+            else:
+                log(t("pipeline.selected.upload_fail"))
+        else:
+            log(t("pipeline.selected.already_sent_all"))
+            success_count = actual_work
+    else:
+        # 사이트별 빌드
+        for idx, (_source_key, arts) in enumerate(articles_by_site.items()):
             site_name = arts[0]["_source_name"]
-            translate_to = source_options[source_key].get("translate_to", "").strip()
-            if translate_to and translator.is_available_for_site(translate_to):
-                log(t("pipeline.selected.translate", site=site_name, lang=translate_to))
-                for art in arts:
-                    art["content"] = translator.translate_html(art["content"], target_lang=translate_to)
+            if getattr(service, "is_cancel_requested", lambda: False)():
+                log(t("pipeline.cancelled"))
+                service._last_pipeline_result = {"status": "cancelled", "success": False}
+                return False
+            if progress_callback:
+                progress_callback(idx, actual_work)
 
-        # AI 요약 후처리 적용
-        if summarizer.is_available():
-            log(t("pipeline.selected.summarize"))
-            for site_name, arts in articles_by_site.items():
-                for art in arts:
-                    if "summary_html" not in art:
-                        art["summary_html"] = summarizer.summarize(art.get("title", ""), art.get("content", ""))
-
-        success_count = 0
-        partial_count = 0
-        actual_work = len(articles_by_site)
-
-        if epub_merge_mode == "daily_digest":
-            log(t("pipeline.selected.digest_start"))
-            all_urls = []
-            for site_name, arts in articles_by_site.items():
-                for art in arts:
-                    all_urls.append((art["url"], site_name, art.get("title", "")))
-
-            digest_flat = []
-            for digest_site_name, arts in articles_by_site.items():
-                for art in arts:
-                    item = dict(art)
-                    item["_digest_site_name"] = digest_site_name
-                    digest_flat.append(item)
             upload_batches = group_articles_by_pending_targets(
                 db.is_synced_for_device,
                 db.is_synced,
-                digest_flat,
+                arts,
                 upload_targets,
                 history_mode=history_mode,
             )
             pending_ips = [ip for ips, _articles in upload_batches for ip in ips]
 
-            if pending_ips:
-                upload_results: dict[str, bool] = {}
-                if getattr(service, "is_cancel_requested", lambda: False)():
-                    log(t("pipeline.cancelled"))
-                    service._last_pipeline_result = {"status": "cancelled", "success": False}
-                    return False
-                for batch_ips, batch_articles in upload_batches:
-                    if getattr(service, "is_cancel_requested", lambda: False)():
-                        log(t("pipeline.cancelled"))
-                        service._last_pipeline_result = {"status": "cancelled", "success": False}
-                        return False
-                    batch_by_site: dict[str, list[dict]] = {}
-                    batch_urls: list[tuple[str, str, str]] = []
-                    for art in batch_articles:
-                        source_key = art.get("_digest_site_name") or ""
-                        site_name = art.get("_source_name") or source_key
-                        clean_art = {k: v for k, v in art.items() if k != "_digest_site_name"}
-                        batch_by_site.setdefault(source_key, []).append(clean_art)
-                        batch_urls.append(
-                            (art.get("url") or "", site_name, art.get("title") or "")
-                        )
-                    epub_path = epub_builder.build_digest(
-                        batch_by_site, generate_cover=generate_cover
-                    )
-                    log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
-                    batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
-                    upload_results.update(batch_results)
-                    mark_batch = collect_mark_entries_from_triples(
-                        batch_results,
-                        batch_urls,
-                        is_synced_for_device=db.is_synced_for_device,
-                        ip_to_history_key=ip_hist_map,
-                    )
-                    if mark_batch:
-                        db.mark_synced_many(mark_batch)
-                any_ok = upload_any_ok(upload_results)
-                all_ok = upload_all_ok(upload_results, pending_ips)
+            if not pending_ips:
+                log(t("pipeline.selected.already_sent_site", site=site_name))
+                success_count += 1
+                continue
 
-                if any_ok:
-                    if all_ok:
-                        log(t("pipeline.selected.upload_ok"))
-                        success_count = actual_work
-                    else:
-                        failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
-                        log(t("pipeline.selected.partial", names=", ".join(failed)))
-                        partial_count = 1
-                else:
-                    log(t("pipeline.selected.upload_fail"))
-            else:
-                log(t("pipeline.selected.already_sent_all"))
-                success_count = actual_work
-        else:
-            # 사이트별 빌드
-            for idx, (_source_key, arts) in enumerate(articles_by_site.items()):
-                site_name = arts[0]["_source_name"]
-                if getattr(service, "is_cancel_requested", lambda: False)():
-                    log(t("pipeline.cancelled"))
-                    service._last_pipeline_result = {"status": "cancelled", "success": False}
-                    return False
-                if progress_callback:
-                    progress_callback(idx, actual_work)
-
-                upload_batches = group_articles_by_pending_targets(
-                    db.is_synced_for_device,
-                    db.is_synced,
-                    arts,
-                    upload_targets,
-                    history_mode=history_mode,
-                )
-                pending_ips = [ip for ips, _articles in upload_batches for ip in ips]
-
-                if not pending_ips:
-                    log(t("pipeline.selected.already_sent_site", site=site_name))
-                    success_count += 1
-                    continue
-
-                log(t("pipeline.selected.building", site=site_name))
-                upload_results: dict[str, bool] = {}
-                if getattr(service, "is_cancel_requested", lambda: False)():
-                    log(t("pipeline.cancelled"))
-                    service._last_pipeline_result = {"status": "cancelled", "success": False}
-                    return False
-                for batch_ips, batch_articles in upload_batches:
-                    if getattr(service, "is_cancel_requested", lambda: False)():
-                        log(t("pipeline.cancelled"))
-                        service._last_pipeline_result = {"status": "cancelled", "success": False}
-                        return False
-                    epub_path = epub_builder.build(
-                        site_name, batch_articles, generate_cover=generate_cover
-                    )
-                    batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
-                    upload_results.update(batch_results)
-                    mark_batch = collect_mark_entries(
-                        batch_results,
-                        batch_articles,
-                        site_name=site_name,
-                        is_synced_for_device=db.is_synced_for_device,
-                        ip_to_history_key=ip_hist_map,
-                    )
-                    if mark_batch:
-                        db.mark_synced_many(mark_batch)
-
-                any_ok = upload_any_ok(upload_results)
-                all_ok = upload_all_ok(upload_results, pending_ips)
-
-                if any_ok:
-                    if all_ok:
-                        log(t("pipeline.selected.site_ok", site=site_name))
-                        success_count += 1
-                    else:
-                        failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
-                        log(t("pipeline.selected.site_partial", site=site_name, names=", ".join(failed)))
-                        partial_count += 1
-                else:
-                    log(t("pipeline.selected.site_fail", site=site_name))
-
-        if progress_callback:
-            progress_callback(actual_work, actual_work)
-
-        overall_ok = success_count == actual_work and partial_count == 0
-        service._last_pipeline_result = {
-            "status": "completed",
-            "success": overall_ok,
-            "success_count": success_count,
-            "partial_count": partial_count,
-            "actual_work_sites": actual_work,
-            "site_errors": 0,
-        }
-        try:
-            push_result = service.maybe_backup_push(log_callback=log_callback)
-            if push_result.get("ok") is False:
-                service._last_pipeline_result = {
-                    **service._last_pipeline_result,
-                    "status": "backup_push_failed",
-                    "success": False,
-                    "backup_push": push_result,
-                }
+            log(t("pipeline.selected.building", site=site_name))
+            upload_results: dict[str, bool] = {}
+            if getattr(service, "is_cancel_requested", lambda: False)():
+                log(t("pipeline.cancelled"))
+                service._last_pipeline_result = {"status": "cancelled", "success": False}
                 return False
-        except Exception as e:
-            service.logger.warning(t("pipeline.selected.backup_push_fail", error=e))
-            service._last_pipeline_result = {
-                **service._last_pipeline_result,
-                "status": "backup_push_failed",
-                "success": False,
-                "message": str(e),
-            }
-            return False
-        return overall_ok
-    except Exception as error:
-        service.record_job_failure(error)
-        raise
-    finally:
-        service._release_pipeline_locks()
+            for batch_ips, batch_articles in upload_batches:
+                if getattr(service, "is_cancel_requested", lambda: False)():
+                    log(t("pipeline.cancelled"))
+                    service._last_pipeline_result = {"status": "cancelled", "success": False}
+                    return False
+                epub_path = epub_builder.build(
+                    site_name, batch_articles, generate_cover=generate_cover
+                )
+                batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
+                upload_results.update(batch_results)
+                mark_batch = collect_mark_entries(
+                    batch_results,
+                    batch_articles,
+                    site_name=site_name,
+                    is_synced_for_device=db.is_synced_for_device,
+                    ip_to_history_key=ip_hist_map,
+                )
+                if mark_batch:
+                    db.mark_synced_many(mark_batch)
+                    state["marked"] += len(mark_batch)
+
+            any_ok = upload_any_ok(upload_results)
+            all_ok = upload_all_ok(upload_results, pending_ips)
+
+            if any_ok:
+                if all_ok:
+                    log(t("pipeline.selected.site_ok", site=site_name))
+                    success_count += 1
+                else:
+                    failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
+                    log(t("pipeline.selected.site_partial", site=site_name, names=", ".join(failed)))
+                    partial_count += 1
+            else:
+                log(t("pipeline.selected.site_fail", site=site_name))
+
+    if progress_callback:
+        progress_callback(actual_work, actual_work)
+
+    overall_ok = success_count == actual_work and partial_count == 0
+    service._last_pipeline_result = {
+        "status": "completed",
+        "success": overall_ok,
+        "success_count": success_count,
+        "partial_count": partial_count,
+        "actual_work_sites": actual_work,
+        "site_errors": 0,
+    }
+    state["finished"] = True
+    return overall_ok

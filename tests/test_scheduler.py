@@ -181,3 +181,24 @@ def test_crontab_write_backs_up_existing(tmp_path):
     bak = tmp_path / "logs" / "cron.bak"
     assert bak.read_text(encoding="utf-8") == existing
 
+
+
+def test_windows_register_rejects_overlong_tr_before_schtasks():
+    """schtasks /TR 261자 제한: 등록 시도 전에 명확한 사유와 함께 실패한다."""
+    long_dir = "C:\\" + "\\".join(["very_long_folder_name_" + str(i) for i in range(10)])
+    mgr = SchedulerManager(script_path=long_dir + r"\x3_websync.py")
+    with patch("sys.platform", "win32"), patch.object(sys, "executable", _WIN_PYTHON), \
+         patch("os.path.exists", return_value=True), patch("subprocess.run") as mock_run:
+        assert mgr.register_daily_task("07", "00") is False
+    mock_run.assert_not_called()
+    assert str(SchedulerManager.WINDOWS_TR_MAX_LENGTH) in mgr.last_error
+
+
+def test_windows_register_short_path_still_calls_schtasks():
+    mgr = SchedulerManager(script_path=_WIN_SCRIPT)
+    with patch("sys.platform", "win32"), patch.object(sys, "executable", _WIN_PYTHON), \
+         patch("os.path.exists", return_value=True), patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        assert mgr.register_daily_task("07", "00") is True
+    assert mock_run.call_args.args[0][0] == "schtasks"
+    assert mgr.last_error == ""

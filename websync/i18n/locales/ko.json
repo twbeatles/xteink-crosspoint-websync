@@ -443,6 +443,8 @@
         "ready_body": "v{version} 다운로드 및 디지털 서명 검증이 완료되었습니다.\n\n프로그램을 재시작하여 업데이트를 적용하시겠습니까?",
         "apply_fail_title": "업데이트 적용 실패",
         "apply_fail": "업데이터 기동 실패:\n{error}",
+        "busy_title": "작업 진행 중",
+        "busy_body": "동기화·미리보기 등 작업이 진행 중이라 지금은 업데이트를 적용할 수 없습니다.\n작업이 끝난 뒤 다시 '업데이트 확인'을 눌러 주세요.",
         "dl_fail_status": "❌ 업데이트 다운로드 실패: {error}",
         "fail_title": "업데이트 실패",
         "fail_body": "업데이트 다운로드 또는 무결성 검증에 실패했습니다:\n{error}"
@@ -1019,6 +1021,7 @@
     "hour_not_int": "❌ 오류: 스케줄러 시간 인자는 숫자여야 합니다.",
     "hour_range": "❌ 오류: 지정한 시간 범주(00-23시 / 00-59분)가 올바르지 않습니다.",
     "register_failed": "스케줄 등록 오류: {error}",
+    "tr_too_long": "❌ 스케줄 명령이 너무 깁니다 ({length}자, Windows 제한 {limit}자). 프로그램을 더 짧은 경로(예: C:\\X3WebSync)로 옮긴 뒤 다시 등록하세요.",
     "macos_register_failed": "macOS 스케줄 등록 오류: {error}",
     "linux_register_failed": "Linux 크론 등록 오류: {error}",
     "unregister_failed": "스케줄 해제 오류: {error}",

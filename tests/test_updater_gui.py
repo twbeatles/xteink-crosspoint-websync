@@ -123,3 +123,64 @@ def test_startup_state_ignores_missing_result():
         SyncAppGui._on_update_startup_state(view, [], None)
     view._log_message.assert_not_called()
     warn.assert_not_called()
+
+
+def _apply_view(busy: bool):
+    return SimpleNamespace(
+        check_update_btn=Mock(),
+        cancel_download_btn=Mock(),
+        update_status_lbl=Mock(),
+        service=SimpleNamespace(is_pipeline_running=lambda: busy),
+        app=SimpleNamespace(_on_close=Mock()),
+    )
+
+
+def test_download_apply_drains_app_before_launching_helper(tmp_path):
+    staged = tmp_path / "update-9.9.9-abc.exe"
+    staged.write_bytes(b"fake-binary")
+    manifest = SimpleNamespace(version="9.9.9")
+    service = Mock()
+    view = _apply_view(busy=False)
+    with patch(
+        "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=True
+    ), patch("sys.frozen", True, create=True):
+        SettingsUpdaterMixin._on_download_complete(view, staged, manifest, service)
+
+    service.launch_update_and_exit.assert_not_called()
+    service.launch_update.assert_not_called()  # helper waits for the drain
+    after_drain = view.app._on_close.call_args.kwargs["after_drain"]
+    after_drain()
+    service.launch_update.assert_called_once_with(staged, manifest)
+    assert staged.exists()
+
+
+def test_download_apply_refused_while_job_running(tmp_path):
+    staged = tmp_path / "update-9.9.9-abc.exe"
+    staged.write_bytes(b"fake-binary")
+    manifest = SimpleNamespace(version="9.9.9")
+    service = Mock()
+    view = _apply_view(busy=True)
+    with patch(
+        "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=True
+    ), patch("websync.gui.settings_tab.updater.messagebox.showwarning") as warn, patch(
+        "sys.frozen", True, create=True
+    ):
+        SettingsUpdaterMixin._on_download_complete(view, staged, manifest, service)
+
+    warn.assert_called_once()
+    view.app._on_close.assert_not_called()
+    service.launch_update.assert_not_called()
+    service.launch_update_and_exit.assert_not_called()
+    assert not staged.exists()
+
+
+def test_launch_update_starts_helper_without_exiting(tmp_path):
+    from websync.core.update.service import UpdateService
+
+    svc = UpdateService(current_version="1.0.0", storage_root=tmp_path)
+    manifest = SimpleNamespace(artifact_sha256="ab" * 32, artifact_size=3)
+    with patch("sys.frozen", True, create=True), patch(
+        "websync.core.update.service.launch_update_helper"
+    ) as helper:
+        svc.launch_update(tmp_path / "update-2.0.0-x.exe", manifest)
+    helper.assert_called_once()

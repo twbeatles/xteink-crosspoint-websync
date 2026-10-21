@@ -41,7 +41,8 @@ class X3Uploader:
     def _sanitize_filename(self, file_path: str) -> str:
         """기기 전송용 파일명 정리 — 앱에서 지정한 원본 블로그명(한글 포함)을 그대로 유지하고 파일시스템 금지 문자만 치환"""
         base, ext = os.path.splitext(os.path.basename(file_path))
-        # 동일 base에 대해 결정적인 짧은 해시를 붙여 충돌로 인한 덮어쓰기를 방지한다.
+        # 원본 basename의 결정적 짧은 해시: 정리 후 같아지는 서로 다른 원본(가/ga)을 구분한다.
+        # basename 자체가 같으면 결과도 같다. 실행 간 고유성은 EpubBuilder 파일명이 맡는다.
         h = hashlib.md5(base.encode("utf-8", errors="replace")).hexdigest()[:6]
         safe_base = "".join([c if c.isalnum() or c in ("-", "_") else "_" for c in base])
         while "__" in safe_base:

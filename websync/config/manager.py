@@ -179,11 +179,10 @@ class ConfigManager:
             try:
                 with open(source, "r", encoding="utf-8") as handle:
                     candidate = json.load(handle)
+                # load_config와 같은 기준: 구조 오류만 거부하고 의미 경고는 로드처럼 기록만 한다.
                 self._require_structure(candidate, ConfigLoadError)
                 candidate, _ = self._normalize_loaded(candidate)
-                errors = validate_config(candidate)
-                if errors:
-                    raise ConfigLoadError("\n".join(errors))
+                log_validation_warnings(candidate)
                 preserved = None
                 if os.path.exists(self.config_path):
                     preserved = f"{self.config_path}.rejected.{uuid.uuid4().hex}.json"

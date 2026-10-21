@@ -230,7 +230,8 @@ class AppSyncControlMixin:
     # 종료 처리
     # ------------------------------------------------------------------
 
-    def _on_close(self):
+    def _on_close(self, after_drain=None):
+        """종료 drain. after_drain은 drain 완료 후 Tk destroy 직전에 메인 스레드에서 호출된다."""
         if getattr(self, "_closing", False):
             return
         self._closing = True
@@ -264,6 +265,15 @@ class AppSyncControlMixin:
 
         def poll():
             if finished.is_set():
+                if after_drain is not None:
+                    try:
+                        after_drain()
+                    except Exception as error:
+                        self.service.logger.exception("Post-shutdown action failed")
+                        try:
+                            messagebox.showerror(t("dialog.error"), str(error))
+                        except Exception:
+                            pass
                 self.root.destroy()
             else:
                 self.root.after(50, poll)

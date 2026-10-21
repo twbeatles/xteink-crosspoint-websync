@@ -164,3 +164,28 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 ### 남은 운영 검증과 지원 한계
 
 [별도 검증 절차](AUDIT_VALIDATION.md)는 실기기 overwrite/receipt 의미, cloud 지연·숨김 replica 동기화, native OS 등록/GUI, 외부 scraper·provider·Calibre, 실제 브라우저 흐름을 구체적인 입력·기대 결과로 정리한다. 중앙 서버 설계는 lease만으로 exactly-once를 주장하지 않으며 firmware/gateway fencing과 idempotent commit·receipt가 필요함을 명시한다. 이 운영·설계 범위는 사용자 승인에 부합하며 이번 로컬 코드 완료의 누락 버그 목록이 아니다.
+
+## 2026-10-21 후속 구현
+
+[PROJECT_AUDIT.md](../PROJECT_AUDIT.md)(2026-10-21, 기준 `5caebe4`)의 권고를 구현했다. 감사 문서의 이슈 설명은 감사 당시 기록으로 유지한다.
+
+### 감사 권고 대조표
+
+| 권고 | 상태 | 변경 | 회귀 테스트 |
+|---|---|---|---|
+| ISSUE-001: 같은 날 다른 PC·출력 폴더의 원격 파일명 충돌 | 수정 | `epub/builder.py` `_batch_digest`로 파일명·identifier에 기사 집합 hash8 추가 (사이트별·합본) | `test_cross_run_filenames.py`: 출력 폴더별 이름 상이, 같은 집합 결정성, 날짜 파서 호환, 공유 이력 두 서비스 → 대체형 fake 기기에 두 책 보존(per_site·daily_digest). 수정 전 코드에서 4건 실패 확인 |
+| ISSUE-002: 업데이트 적용의 drain 우회 | 수정 | `UpdateService.launch_update`, `_on_close(after_drain=)`, 작업 중 적용 거부(`busy_title/busy_body`) | `test_updater_gui.py`(drain 뒤 헬퍼, 작업 중 거부, 종료 없는 launch), `test_job_lifecycle.py`(flush → after_drain → destroy 순서, 콜백 실패 시에도 destroy) |
+| ISSUE-003: 선택 전송 취소·예외 시 push 누락 | 수정 | `pipeline/selected_sync.py` 본문 분리, 완료 또는 기록 있음 → push, 취소 상태 보존 | `test_selected_sync.py`: 취소 후 push 1회, push 실패에도 `cancelled` 유지, 기록 없는 취소는 push 없음, 예외 후 push 뒤 재발생·락 해제 |
+| ISSUE-004: 경고만 있는 설정의 복구 거부 | 수정 | `restore_config`는 구조 오류만 거부, 경고는 로그 | `test_config_input_recovery.py::test_recovery_accepts_config_with_only_semantic_warnings`, 기존 구조 오류 거부 테스트 유지 |
+| Likely Gap: 충돌 병합의 최상위 키 덮어쓰기 | 수정 | `_merge_config_on_conflict`: Watch 상태·공유 폴더 비편집 키·기기 채택 ID는 디스크, alias·tombstone은 합집합 | `test_config_conflict_merge.py` 6건. 수정 전 코드에서 4건 실패 확인 |
+| 추정: `schtasks /TR` 261자 | 보완 | 등록 전 길이 검사, `SchedulerManager.last_error`를 GUI에 표시 | `test_scheduler.py`: 긴 경로는 schtasks 미호출·사유 기록, 짧은 경로는 정상 호출 |
+| Confirmed Gap: `romanize.py` dead code | 제거 | 모듈 삭제, 관련 테스트 단언 정리 | `test_uploader_sanitize.py` |
+| 문서 불일치 1~4 | 수정 | CLAUDE.md(파일명 표·알림·이슈표·후속 계약), README/README.ko, USER_GUIDE, DEVELOPER(테스트 이름·hash 설명), uploader 주석 | — (사용자 제공 untracked AGENTS.md는 이전 방침대로 수정하지 않음) |
+| 추정: 한글 전송명과 펌웨어 호환 | 미실행 | 실기기 필요 | `AUDIT_VALIDATION.md` 실기기 절차 |
+| Phase 3: 원격 전송 receipt 모델 | 미구현(설계 검토) | 펌웨어의 조회·idempotency 지원이 전제 | — |
+
+### 실제 검증 근거
+
+- 로컬 전체 suite(Windows, Python 3.15.0): `python -B -m pytest tests/ -q --tb=short -ra -p no:cacheprovider -W error::RuntimeWarning` **674 passed, 1 skipped**, 103.00초 (skip: POSIX directory descriptors). 변경 전 기준선은 651 passed / 1 skipped.
+- 새 회귀 테스트가 결함을 실제로 잡는지 확인하려고 수정 전 코드로 되돌려 실행했다: `test_cross_run_filenames.py` 4건 실패, `test_config_conflict_merge.py` 4건 실패. 수정 코드로 복원 후 모두 통과.
+- `git diff --check` 오류 없음. v1.3.8 버전으로 `python scripts/verify_isolated_build.py` **exit 0** (`Isolated frozen build and --smoke passed`, 41.5초) — 임시 폴더에서 실제 frozen EXE를 빌드·실행했으며 사용자 dist·데이터는 쓰지 않았다. 실기기·native 스케줄러 등록은 실행하지 않았다.

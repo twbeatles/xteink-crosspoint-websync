@@ -294,7 +294,7 @@ run_sync_pipeline()
 | 언어 메타 | `lang="ko"` 설정, UTF-8 인코딩 명시 |
 | CSS | font/size/line-height **범위·문자 검증** 후 삽입 |
 | 본문 | `script`/`style` 태그 제거 |
-| 파일명 | `{site_name}_{YYYY-MM-DD}.epub` |
+| 파일명 | `{site_name}_{YYYY-MM-DD}_{hash8}.epub` (합본 `Daily_Digest_{YYYY-MM-DD}_{hash8}.epub`). `hash8`은 기사 URL 집합의 SHA-256 앞 8자리라 같은 날 다른 PC·출력 폴더에서 만든 다른 책과 이름이 겹치지 않는다. 로컬에 같은 이름이 있으면 시각 suffix를 더 붙인다 |
 
 ---
 
@@ -303,7 +303,7 @@ run_sync_pipeline()
 | 항목 | 내용 |
 |------|------|
 | 역할 | X3 기기의 `/upload` HTTP 엔드포인트로 파일 POST |
-| 파일명 | ASCII 전송명: 한글 prefix 로마자 표기 + 변환 전 원본 basename 해시. 배치 내 동일 전송명은 사전 거부 (아래 2026-10-15 계약 참고) |
+| 파일명 | 원래 문자(한글 포함) 유지 + 파일시스템 금지 문자만 `_` 치환 + 원본 basename MD5 6자리 (v1.3.6부터 로마자 변환 없음). 실행 간 고유성은 빌더 파일명의 기사 집합 hash가 담당. 수동 업로드 배치 내 동일 전송명은 사전 거부 |
 | 결과 | `{ip: bool}` — 기기 **IP/호스트**를 키로 사용 |
 | 부분 전송 | `only_ips=[...]` 로 대상 기기 제한 |
 | 대상 폴더 | `remote_dir` / `upload_to_targets(..., remote_dir=)` — `device_files.default_upload_path` |
@@ -345,7 +345,7 @@ run_sync_pipeline()
 
 | 항목 | 내용 |
 |------|------|
-| 역할 | 윈도우 BalloonTip 시스템 알림 |
+| 역할 | 크로스플랫폼 알림 — Windows BalloonTip(PowerShell) / macOS `osascript` / Linux `notify-send` |
 | 보안 | 스크립트와 데이터 분리: `$args[0]`, `$args[1]`, `$args[2]` 사용 |
 
 ---
@@ -591,7 +591,7 @@ DEFAULT_CONFIG = {
 | `동기화가 이미 실행 중` | GUI와 `--sync` 또는 이중 실행 | 정상 방어 — `process_lock` / pipeline lock 대기 후 재시도 |
 | `database is locked` 오류 | 동시 동기화 실행 | `websync/db/history.py`의 `timeout=10.0` 및 Lock 확인 |
 | 네이버 포스트 본문 없음 | `div.se-main-container` 미발견 | `#postViewArea` 폴백 확인, 네이버 HTML 구조 변경 여부 점검 |
-| CrossPoint 기기 크래시 | 한글/공백 파일명 전송 | `websync/upload/uploader.py` 세니타이징 로직 확인 |
+| CrossPoint 기기 크래시 | (구버전) 공백·특수문자 파일명 전송. v1.3.6부터 한글은 그대로 유지 | `websync/upload/uploader.py` 세니타이징 확인. 한글 파일명이 의심되면 `docs/AUDIT_VALIDATION.md` 실기기 절차로 확인 |
 | EPUB 한글 깨짐 | 인코딩 문제 | `websync/epub/builder.py`의 UTF-8 메타 선언 확인 |
 | pythonw 실행 후 아무 일도 없음 | stdout=None 크래시 | `x3_websync.py`의 `NullWriter` 확인 |
 | 동시 기동 시 config.json 저장 충돌 | Race Condition | `websync/config/manager.py`의 config 경로별 `ProcessFileLock`과 revision 확인 |
@@ -628,7 +628,7 @@ feat(gui): Add sync history viewer tab with re-send capability
 - 새 작업 수락 시 취소 상태를 초기화합니다. GUI 종료는 자기 워커의 처리·이력 commit·백업 flush를 기다리며 Tk event loop를 유지합니다.
 - 대시보드는 취소 버튼과 상태·로그 5초 갱신을 제공합니다. 요청 응답이 불확실하면 재요청 전 상태를 확인합니다.
 - 공유 폴더의 .websync-replicas도 함께 동기화합니다. 설치별 snapshot은 변경 보존·사후 병합을 제공하며 PC 간 전역 전송 락이 아닙니다. 같은 reader의 자동 전송 PC는 하나만 활성화합니다.
-- 기기 전송 파일명은 ASCII와 원래 basename hash를 사용하며 EPUB 제목은 원래 언어를 유지합니다.
+- 기기 전송 파일명은 원래 문자와 원래 basename hash를 사용하며(v1.3.6부터 로마자 변환 없음) EPUB 제목은 원래 언어를 유지합니다.
 - 테스트는 import 전 임시 저장 경로를 사용하고 실제 사용자 파일 접근을 차단합니다. 이 보호는 Python I/O 경계이며 OS sandbox가 아닙니다.
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
@@ -640,7 +640,20 @@ feat(gui): Add sync history viewer tab with re-send capability
 - `ConfigManager.restore_config(JSON)`과 GUI `config_recovery.offer_config_recovery`는 명시적으로 복구한다. CLI는 `python x3_websync.py --recover-config <정상 전체 config JSON>`이며 성공 0/실패 1, 전송 없이 종료한다. 검증 후 원본을 `.rejected.<id>.json`으로 보존하며 기존 `.bak`은 유지한다. `--sync`는 대화상자 없이 실패한다.
 - `pipeline/sources.py`의 feed URL 기반 ID와 표시 이름을 구분한다. ID는 URL 대소문자 경로를 보존하고 이름 변경에는 유지된다. preview metadata를 full/selected/EPUB-only에 전달하고 번역 옵션은 현재 config에서 찾는다. 이름만 가진 옛 선택이 여러 소스에 맞으면 다시 미리보기하도록 실패시킨다.
 - `watch/retry.py`는 경로별 단일 큐·2초부터 최대 300초 지수 backoff를 사용한다. `calibre_watch.pending_jobs`는 fingerprint/targets/completed, 기존 `pending_files`는 호환 목록이다. 성공은 durable 저장 후 제거하고 미완료는 재기동한다. 내용·대상 폴더 변경은 새 전송이며 같은 안정 ID의 주소 변경은 기존 성공을 유지한다. 중지는 대기·backoff를 깨우고 미완료 이벤트를 보존하지만 진행 중 HTTP는 timeout까지 걸릴 수 있다.
-- 원본 basename hash는 로마자 변환 전에 계산한다. 기존 ASCII 전송명 동작은 유지하며 비ASCII 새 이름과 옛 기기 파일은 공존할 수 있다. 자동 이관·삭제는 없다. 배치 내 결과 이름은 사전 검사하되 유한 hash의 전역 무충돌을 주장하지 않는다.
+- 원본 basename hash는 정리 전 원래 이름으로 계산한다. v1.3.6부터 비ASCII 문자는 로마자로 바꾸지 않고 유지하며(`romanize.py` 삭제), 옛 로마자 전송명 기기 파일과 새 파일은 공존할 수 있다. 자동 이관·삭제는 없다. 배치 내 결과 이름은 사전 검사하되 유한 hash의 전역 무충돌을 주장하지 않는다.
 - 새 모듈 `websync.gui.config_recovery`, `websync.pipeline.sources`, `websync.watch.retry`는 spec hiddenimports에 포함한다. 경량 EXE의 optional 기능 제외는 유지한다.
 
 [완료 대조표](docs/AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현), [외부 검증 절차와 중앙 조정 서버 설계](docs/AUDIT_VALIDATION.md)를 참조한다. 중앙 서버 구현은 승인 범위 밖이며 lease만으로 true exactly-once를 보장하지 않는다.
+
+## 감사 후속 구현 계약 (2026-10-21)
+
+[PROJECT_AUDIT.md](PROJECT_AUDIT.md)의 2026-10-21 감사 권고를 구현했다. 상세 대조표는 [docs/AUDIT_IMPLEMENTATION.md](docs/AUDIT_IMPLEMENTATION.md#2026-10-21-후속-구현)에 있다.
+
+- 생성 EPUB 파일명은 `{사이트}_{YYYY-MM-DD}_{hash8}.epub`, 합본은 `Daily_Digest_{YYYY-MM-DD}_{hash8}.epub`이다. `hash8`은 기사 URL 집합(정렬, URL이 없으면 제목+본문)의 SHA-256 앞 8자리다(`epub/builder.py` `_batch_digest`). 같은 집합의 재빌드는 같은 이름이고, 로컬에 같은 파일이 있으면 시각 suffix를 더한다. EPUB identifier에도 `hash8`을 넣는다. 기기 정리의 날짜 파서는 마지막 `YYYY-MM-DD`를 계속 읽는다.
+- GUI의 업데이트 적용은 `UpdateService.launch_update`(종료 없음)와 `_on_close(after_drain=...)`를 사용한다. drain(Watch 이벤트 보존, 작업 대기, 백업 flush)을 마친 뒤 헬퍼를 띄우고 Tk를 destroy한다. `is_pipeline_running()`이면 적용을 거부한다. `launch_update_and_exit`는 GUI 외 호출자 호환용이다.
+- 선택 전송은 정상 완료했거나 이력을 1건 이상 기록했으면 락을 풀기 전에 push한다. 취소 상태는 push 실패로 덮어쓰지 않는다. 예외로 끝나면 기록이 있을 때 push를 시도한 뒤 예외를 다시 던진다.
+- `restore_config`는 구조 오류만 거부하고 의미 경고는 `load_config`처럼 로그만 남긴다.
+- GUI revision 충돌 병합(`_merge_config_on_conflict`)은 백그라운드 writer 소유 필드를 디스크 값으로 유지한다: `calibre_watch.enabled/pending_files/pending_jobs`, 공유 폴더의 비편집 키(push 시각·마법사 완료 등), 기본 기기 ID, 채택된 기기 ID. alias는 합집합으로, 사이트 tombstone은 시각 기준 합집합으로 합친다. 기기 추가·삭제·이름·주소와 GUI 편집 키는 메모리 값이 이긴다.
+- Windows 스케줄 등록은 `schtasks /TR`가 261자를 넘으면 실행 전에 거부하고, `SchedulerManager.last_error`의 사유를 GUI 오류창에 표시한다.
+- production에서 쓰지 않던 `websync/upload/romanize.py`를 제거했다.
+- 남은 범위: 실기기의 같은 경로 업로드 의미와 한글 파일명 표시는 `docs/AUDIT_VALIDATION.md` 절차로 별도 확인한다. 원격 전송 receipt 모델(응답 유실 조정)은 설계 검토 대상이며 구현하지 않았다.

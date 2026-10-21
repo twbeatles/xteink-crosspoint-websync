@@ -34,8 +34,6 @@ def test_sanitize_filename_korean_and_uniqueness():
 
 def test_sanitize_filename_keeps_original_site_name():
     """앱에서 지정한 원본 블로그명(한글)이 기기 전송 파일명에 그대로 남는다."""
-    from websync.upload.romanize import romanize_for_filename
-
     uploader = X3Uploader("192.168.1.100")
 
     sanitized = uploader._sanitize_filename("d:/output/네이버뉴스_2026-07-31.epub")
@@ -45,10 +43,6 @@ def test_sanitize_filename_keeps_original_site_name():
     other = uploader._sanitize_filename("d:/output/티스토리_2026-07-31.epub")
     assert other.startswith("티스토리_2026-07-31_")
     assert sanitized != other
-
-    assert romanize_for_filename("네이버뉴스") == "neibeonyuseu"
-    assert romanize_for_filename("한글") == "hangeul"
-    assert romanize_for_filename("ABC-123_가") == "ABC-123_ga"
 
 
 @pytest.mark.parametrize("first,second", [

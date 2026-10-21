@@ -272,7 +272,16 @@ class SettingsUpdaterMixin:
             t("gui.settings.update.ready_title"),
             t("gui.settings.update.ready_body", version=manifest.version),
         )
-        if apply_now:
+        app_service = getattr(self, "service", None)
+        if apply_now and app_service is not None and app_service.is_pipeline_running():
+            # 교체 종료가 진행 중 전송의 이력 기록을 끊지 않도록 작업이 없을 때만 적용한다.
+            messagebox.showwarning(t("gui.settings.update.busy_title"), t("gui.settings.update.busy_body"))
+            apply_now = False
+        close_app = getattr(getattr(self, "app", None), "_on_close", None)
+        if apply_now and close_app is not None:
+            # 정상 종료 drain(Watch 보존·작업 대기·백업 flush) 뒤에 헬퍼를 띄운다.
+            close_app(after_drain=lambda: service.launch_update(staged_path, manifest))
+        elif apply_now:
             try:
                 service.launch_update_and_exit(staged_path, manifest)
             except Exception as exc:
