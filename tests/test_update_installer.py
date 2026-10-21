@@ -289,19 +289,21 @@ def test_apply_staged_update_retries_transient_lock(tmp_path, monkeypatch):
 
     assert target.read_bytes() == b"new"
     assert backup.read_bytes() == b"old"
-    assert calls["count"] == 3
+    # target -> backup (locked twice, then ok), staged -> target
+    assert calls["count"] == 4
 
 
 def test_apply_rollback_retries_transient_lock(tmp_path, monkeypatch):
     import os as _os
 
     real_replace = _os.replace
-    calls = {"count": 0}
+    calls = {"count": 0, "rollback_locked": False}
 
     def flaky_replace(src, dst):
         calls["count"] += 1
-        # 1st: staged -> target (ok), 2nd: rollback attempt (locked once)
-        if calls["count"] == 2:
+        # The rollback (backup -> target) is locked once before it succeeds.
+        if Path(src).name.endswith(".bak") and not calls["rollback_locked"]:
+            calls["rollback_locked"] = True
             raise PermissionError(13, "access denied")
         return real_replace(src, dst)
 
@@ -323,4 +325,5 @@ def test_apply_rollback_retries_transient_lock(tmp_path, monkeypatch):
         )
 
     assert target.read_bytes() == b"good version 1.0.0"
-    assert calls["count"] == 3
+    # target -> backup, staged -> target, rollback (locked once, then ok)
+    assert calls["count"] == 4

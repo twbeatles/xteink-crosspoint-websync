@@ -6,7 +6,7 @@ import subprocess
 import time
 
 from websync.core.instance_lock import _is_process_running
-from websync.core.update.installer import apply_staged_update, write_update_result
+from websync.core.update.installer import apply_staged_update, clean_frozen_environment, write_update_result
 from websync.i18n import t
 
 
@@ -43,7 +43,7 @@ def handle_apply_update(args) -> int:
             write_update_result(result_file, {"status": "applied", "target": target})
         # 타겟 프로세스 재기동
         if os.path.exists(target):
-            subprocess.Popen([target], close_fds=True)
+            subprocess.Popen([target], close_fds=True, env=clean_frozen_environment())
         return 0
     except Exception as exc:
         if result_file:

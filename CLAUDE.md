@@ -656,4 +656,5 @@ feat(gui): Add sync history viewer tab with re-send capability
 - GUI revision 충돌 병합(`_merge_config_on_conflict`)은 백그라운드 writer 소유 필드를 디스크 값으로 유지한다: `calibre_watch.enabled/pending_files/pending_jobs`, 공유 폴더의 비편집 키(push 시각·마법사 완료 등), 기본 기기 ID, 채택된 기기 ID. alias는 합집합으로, 사이트 tombstone은 시각 기준 합집합으로 합친다. 기기 추가·삭제·이름·주소와 GUI 편집 키는 메모리 값이 이긴다.
 - Windows 스케줄 등록은 `schtasks /TR`가 261자를 넘으면 실행 전에 거부하고, `SchedulerManager.last_error`의 사유를 GUI 오류창에 표시한다.
 - production에서 쓰지 않던 `websync/upload/romanize.py`를 제거했다.
+- v1.3.9 업데이터 수정: `apply_staged_update`는 복사 후 덮어쓰기 대신 타겟을 백업으로, staged를 타겟으로 **이동**한다(실행 중 exe도 이름 변경은 가능). 낡은 백업은 덮어쓰고, 중단된 교체는 백업에서 복구하며, 헬퍼·재기동·smoke는 `clean_frozen_environment()`를 쓴다. 회귀 방지는 `tests/test_update_swap_regression.py`(Windows CI 목록 포함)와 릴리즈 전 `scripts/verify_update_swap.py`다. v1.3.8 이하 설치본의 자동 업데이트는 이 결함 때문에 실패하므로 v1.3.9는 exe를 한 번 직접 교체해야 한다.
 - 남은 범위: 실기기의 같은 경로 업로드 의미와 한글 파일명 표시는 `docs/AUDIT_VALIDATION.md` 절차로 별도 확인한다. 원격 전송 receipt 모델(응답 유실 조정)은 설계 검토 대상이며 구현하지 않았다.

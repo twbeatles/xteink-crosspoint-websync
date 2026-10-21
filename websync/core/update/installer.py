@@ -268,8 +268,8 @@ def _validate_apply_paths(target: Path, staged: Path, backup: Path) -> None:
         raise ValueError("Update backup must stay in the target install directory")
     if not target.is_file() or not staged.is_file():
         raise FileNotFoundError("Update target or staged artifact is missing")
-    if backup.exists():
-        raise FileExistsError(f"Update backup already exists: {backup}")
+    # An existing backup is a leftover of an earlier failed attempt. The target
+    # was never replaced in that case, so the new backup simply supersedes it.
     backup.parent.mkdir(parents=True, exist_ok=True)
 
 
@@ -291,6 +291,21 @@ def cleanup_update_backups(target: str | Path, *, keep_count: int | None = None)
             continue
 
 
+def clean_frozen_environment() -> dict[str, str]:
+    """Environment for spawning another PyInstaller one-file executable.
+
+    A child that inherits the bootloader's private variables may try to reuse this
+    process's temporary extraction directory, which disappears when we exit.
+    """
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("_PYI_") and key != "_MEIPASS2"
+    }
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return env
+
+
 def apply_staged_update(
     *,
     target: str | Path,
@@ -302,14 +317,18 @@ def apply_staged_update(
 ) -> None:
     """
     스테이징된 새 실행 파일로 타겟 실행 파일을 교체합니다.
-    - 이전 버전을 backup 경로로 복사
-    - os.replace로 원자적 교체
+    - 실행 중인 exe는 덮어쓰거나 삭제할 수 없지만 이름 변경(이동)은 가능하므로,
+      타겟을 backup 경로로 옮긴 뒤 staged를 타겟 자리로 옮깁니다.
     - 교체된 실행 파일에 대해 --smoke 검증 실행
     - 검증 실패 시 백업으로 즉시 자동 롤백
+    - 첫 이동이 실패하면 설치된 파일은 변경되지 않습니다.
     """
     target_path = Path(target).resolve()
     staged_path = Path(staged).resolve()
     backup_path = Path(backup).resolve()
+    if not target_path.exists() and backup_path.is_file():
+        # 이전 교체가 이동 사이에 중단된 경우: 백업이 유일한 정상 사본이다.
+        _replace_with_retry(backup_path, target_path)
     _validate_apply_paths(target_path, staged_path, backup_path)
 
     if expected_size is not None and staged_path.stat().st_size != int(expected_size):
@@ -322,7 +341,12 @@ def apply_staged_update(
         if digest.hexdigest().lower() != str(expected_sha256).strip().lower():
             raise ValueError("Update artifact hash mismatch before replacement")
 
-    shutil.copy2(target_path, backup_path)
+    try:
+        _replace_with_retry(target_path, backup_path)
+    except OSError as exc:
+        raise UpdateApplyError(
+            f"Update failed before replacement; the installed executable was not changed: {exc}"
+        ) from exc
     try:
         _replace_with_retry(staged_path, target_path)
         if smoke_runner is None:
@@ -331,6 +355,7 @@ def apply_staged_update(
                 timeout=60,
                 check=False,
                 capture_output=True,
+                env=clean_frozen_environment(),
             )
             smoke_ok = completed.returncode == 0
         else:
@@ -389,4 +414,5 @@ def launch_update_helper(
         ],
         close_fds=True,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        env=clean_frozen_environment(),
     )

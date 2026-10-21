@@ -46,6 +46,7 @@ python scripts/verify_isolated_build.py
 
 일회용 VM/계정에서 공백·한글이 있는 설치 경로와 임시 저장소로 수행한다. 실제 사용 계정의 schtasks/crontab/launchd를 바꾸지 않는다. 소스/EXE도 사용자 데이터가 없는 별도 테스트 사본을 사용한다. 스케줄러가 현재 shell의 `X3_WEBSYNC_STORAGE_ROOT`를 자동 상속한다고 가정하지 말고 실제 등록된 실행 환경을 확인한다. 환경변수가 없을 때의 기본 저장 위치도 테스트 사본 안이어야 한다. 로그가 기대한 임시 경로에 없으면 통과로 처리하지 않는다.
 
+- Windows 업데이트 교체: 빌드한 exe로 `python scripts/verify_update_swap.py --exe <exe>`를 실행한다. 임시 폴더에서 설치본을 실제로 실행한 채 헬퍼가 낡은 백업이 있는 상태로 교체해야 하며(`Update swap verified`), 실패하면 업데이트 경로를 배포하지 않는다.
 - Windows: 테스트 GUI에서 일일 작업을 등록하고 Task Scheduler에서 명령·cwd·현재 권한을 확인한다. 빈 사이트 설정으로 수동 실행하면 `no_sites` 결과와 `--sync` exit 1이 예상된다. 해당 임시 저장소 로그로 작업이 올바른 앱/경로를 실행했는지 판정하며 이것을 동기화 성공으로 기록하지 않는다. 성공 경로는 loopback 소스·fake reader를 별도로 연결해 exit 0와 이력을 확인한다. 등록 해제 뒤 테스트 작업만 사라져야 한다. frozen `--smoke`도 수행한다.
 - Linux/macOS: 등록 전후 `crontab -l` 또는 해당 launchd job 목록을 저장한다. GUI 등록→빈 소스 실행→해제를 수행하고 기존 항목이 보존되었는지 비교한다. 빈 소스는 scrape/upload 없이 `no_sites`와 exit 1이 예상되며 로그로 올바른 실행을 확인한다. 성공 경로는 별도의 loopback 소스·fake reader로 exit 0와 이력을 확인한다. cron/launchd의 제한된 PATH·UTF-8 경로·로그 위치·알림 권한을 확인한다.
 - 세 OS GUI: 느린 loopback 전송, pending Watch, 서버 요청 중 창을 닫는다. UI 이벤트 처리가 유지되고 새 작업이 거부되며 자기 worker·commit·백업 flush 이후 종료되어야 한다. 재기동 시 락 해제·미완료 Watch 복구를 확인한다. forced kill의 exactly-once 보장은 없다.

@@ -243,7 +243,9 @@ Follow the repository guidance in [CONTRIBUTING.md](../CONTRIBUTING.md) and this
   2. Ed25519 서명, HTTPS URL, SHA-256 해시, 크기 상한(500MB), 만료일 무결성 검증.
   3. 실시간 스트리밍 해시 검증 및 다운로드 취소(`cancel_event`) 지원.
   4. 이전 버전 자동 백업(`.bak`) 및 `--smoke`(핵심 모듈 import) 실패 시 자동 롤백.
-5. 교체·롤백의 `os.replace`는 일시 파일 잠금(Windows WinError 5 등)에 최대 약 10초 재시도합니다 (`_replace_with_retry`).
+5. 교체는 **이동 방식**입니다 (`apply_staged_update`): 실행 중인 exe는 Windows에서 덮어쓰기·삭제는 막혀도 이름 변경은 되므로 `타겟 → 백업`, `staged → 타겟` 순으로 옮깁니다. 첫 이동이 실패하면 설치본은 그대로이고, 이전 시도의 낡은 백업은 덮어쓰며, 이동 사이에 중단된 경우 다음 실행이 백업에서 복구합니다. 모든 이동은 일시 잠금에 최대 약 10초 재시도합니다 (`_replace_with_retry`). (v1.3.8 이하는 복사 후 덮어쓰기라 실행 중 exe에서 WinError 5로 실패했고, 남은 백업이 이후 시도를 막았습니다.)
+5-1. 헬퍼·재기동·`--smoke` 자식 프로세스는 `clean_frozen_environment()`로 PyInstaller 부트로더 환경변수(`_PYI_*`, `_MEIPASS2`)를 지우고 `PYINSTALLER_RESET_ENVIRONMENT=1`을 설정해 부모의 임시 압축해제 폴더를 재사용하지 않게 합니다.
+5-2. 회귀 방지: `tests/test_update_swap_regression.py`(Windows에서는 실제 실행 중인 exe를 교체)와 릴리즈 전 수동 종단 검증 `python scripts/verify_update_swap.py --exe <빌드한 exe>`(실제 frozen exe + 실제 헬퍼, 낡은 백업 포함). 업데이트 경로를 수정하면 두 가지를 모두 실행하세요.
 6. 스테이징 잔재(`.updates/update-*.exe`)는 다운로드 시작·앱 시작 시 정리되며 (`cleanup_stale_update_artifacts`), 적용 거절 시 받은 파일도 즉시 삭제합니다.
 7. 이전 업데이트 결과(`last-update-result.json`)는 앱 시작 시 1회 소비되어 로그·알림으로 표시됩니다 (`SyncAppGui._check_update_startup_state`).
 8. 스테이징 복사본 직접 실행은 진입점에서 차단됩니다 (`is_running_from_staging`, `--apply-update` 헬퍼 제외).
