@@ -15,7 +15,8 @@
     "reportAttributeAccessIssue": "none",
     "reportOperatorIssue": "none",
     "reportOptionalMemberAccess": "none",
+    "reportOptionalSubscript": "none",
+    "reportOptionalIterable": "none",
     "reportGeneralTypeIssues": "none",
     "reportCallIssue": "none"
-
 }
