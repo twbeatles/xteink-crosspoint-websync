@@ -7,10 +7,14 @@
         "**/__pycache__",
         "output"
     ],
+    "extraPaths": [
+        ".",
+        "tests/support"
+    ],
     "pythonVersion": "3.10",
     "typeCheckingMode": "basic",
     "useLibraryCodeForTypes": true,
-    "reportMissingImports": "warning",
+    "reportMissingImports": "none",
     "reportArgumentType": "none",
     "reportAttributeAccessIssue": "none",
     "reportOperatorIssue": "none",
