@@ -76,7 +76,8 @@ GUI·validator·factory 가 이 목록을 공유합니다.
 | `soonsal` | `soonsal.py` | 순살브리핑 |
 | `moneyletter` | `moneyletter.py` | 어피티 머니레터 |
 
-한국 추천 프리셋: `websync/scrapers/presets.py`  
+한국 추천 프리셋: `websync/scrapers/presets.py` — 각 항목은 `category`(`PRESET_CATEGORIES`: tech/blog/life/global)를 가지며, 사이트 추가 대화상자는 카테고리 → 프리셋 2단계로 고른다(`presets_for_category`). `category`가 없는 항목(직접 입력·CSS 직접설정)은 항상 보인다. 정치 성향이 있는 뉴스 매체는 프리셋에 넣지 않는다(`test_presets_exclude_political_news_outlets`). 요약만 주는 피드는 `preset.note.summary_feed` 노트를 붙인다.  
+프리셋 EPUB 계약: `tests/test_preset_epub_pipeline.py`가 Medium·WordPress·Atom·요약형 피드 픽스처(`tests/fixtures/scrapers/rss/*_shape.xml`)를 `RssScraper`→`EpubBuilder`로 끝까지 검사한다. `WEBSYNC_LIVE_CONTRACTS=1 python -m pytest tests/test_preset_epub_pipeline.py -k live`는 모든 RSS 프리셋의 실제 피드를 받아 EPUB 구조와 본문 길이(전문 제공 800자 이상)를 확인한다. 새 프리셋을 추가하면 라이브로 한 번 돌려 보세요.  
 새 스크래퍼 추가 절차는 `CLAUDE.md` §6 참고.
 
 ### 실사이트 스모크 검증

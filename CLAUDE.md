@@ -645,6 +645,12 @@ feat(gui): Add sync history viewer tab with re-send capability
 
 [완료 대조표](docs/AUDIT_IMPLEMENTATION.md#2026-10-15-후속-구현), [외부 검증 절차와 중앙 조정 서버 설계](docs/AUDIT_VALIDATION.md)를 참조한다. 중앙 서버 구현은 승인 범위 밖이며 lease만으로 true exactly-once를 보장하지 않는다.
 
+## 프리셋 카테고리 · EPUB 정화 계약 (2026-10-26, v1.4.0)
+
+- 프리셋은 `category`(tech/blog/life/global)로 나뉘고 사이트 추가 창에서 「카테고리 → 프리셋」 2단계로 고른다. 새 프리셋은 `presets.py` + `locales/ko.json`·`en.json`(`preset.<key>`, 필요하면 `preset.note.*`)을 함께 추가하고 `category`를 지정한다. 정치 성향이 있는 뉴스 매체는 넣지 않는다(테스트가 막는다). 요약만 주는 피드는 `note_key: preset.note.summary_feed`, 영어 원문은 `preset.note.english_source`.
+- `epub/sanitize.py`는 `svg`·`button`·`video`·`audio`·`noscript`·입력 요소를 제거하고, 네임스페이스 태그(`<o:p>`)는 내용만 남기며, `xlink:`·`og:` 같은 접두사 속성을 지운다(`xml:lang`만 허용). 남기면 XHTML이 미선언 접두사로 XML 파싱에 실패한다(실제 Dezeen 피드에서 발견).
+- 회귀: `tests/test_preset_epub_pipeline.py`(오프라인 + `WEBSYNC_LIVE_CONTRACTS=1` 라이브), `tests/test_epub_sanitize.py`.
+
 ## 감사 후속 구현 계약 (2026-10-21)
 
 [PROJECT_AUDIT.md](PROJECT_AUDIT.md)의 2026-10-21 감사 권고를 구현했다. 상세 대조표는 [docs/AUDIT_IMPLEMENTATION.md](docs/AUDIT_IMPLEMENTATION.md#2026-10-21-후속-구현)에 있다.

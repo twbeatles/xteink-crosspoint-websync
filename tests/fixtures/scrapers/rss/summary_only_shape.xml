@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Fixture Summary Feed</title><link>https://news.example</link>
+<item><title>요약만 오는 기사 제목</title><link>https://news.example/a/1</link><description><![CDATA[짧은 요약입니다.]]></description></item>
+</channel></rss>

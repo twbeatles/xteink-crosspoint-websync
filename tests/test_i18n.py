@@ -90,3 +90,28 @@ def test_preset_labels_follow_ui_language():
     assert get_preset_by_label("뉴닉 (공식)") is not None
     assert get_preset_by_label("NEWNEEK (official)") is not None
     init_i18n("ko")
+
+
+def test_preset_categories_filter_and_keep_custom_entries():
+    from websync.scrapers.presets import (
+        KOREAN_SITE_PRESETS,
+        PRESET_CATEGORIES,
+        category_display_label,
+        presets_for_category,
+    )
+
+    init_i18n("ko")
+    assert presets_for_category("") == KOREAN_SITE_PRESETS
+    keys = {k for k, _ in PRESET_CATEGORIES}
+    # 카테고리가 있는 프리셋은 모두 정의된 카테고리에 속한다
+    assert {p.get("category") for p in KOREAN_SITE_PRESETS if p.get("category")} <= keys
+    for key in keys:
+        shown = presets_for_category(key)
+        assert any(p.get("label_key") == "preset.custom" for p in shown)
+        assert any(p.get("label_key") == "preset.css_manual" for p in shown)
+        assert any(p.get("category") == key for p in shown)
+        assert len(shown) < len(KOREAN_SITE_PRESETS)
+    assert category_display_label("") == "전체"
+    init_i18n("en")
+    assert category_display_label("tech") == "Tech blogs"
+    init_i18n("ko")

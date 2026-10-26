@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Fixture Atom Blog</title><link href="https://blog.example/"/><id>https://blog.example/</id><updated>2026-10-26T00:00:00Z</updated>
+<entry><title>1부: 데이터도 정답도 없다</title><link href="https://blog.example/2026/part1.html" rel="alternate"/><id>https://blog.example/2026/part1.html</id><updated>2026-10-26T00:00:00Z</updated>
+<summary type="html">&lt;p&gt;요약 한 줄&lt;/p&gt;</summary>
+<content type="html" xml:base="https://blog.example/">&lt;p&gt;1번째 문단입니다. 전자잉크 단말에서 읽기 좋은 긴 본문을 흉내 내는 픽스처 문장이고, 한글과 English words 가 섞여 있습니다.&lt;/p&gt;&lt;p&gt;2번째 문단입니다. 전자잉크 단말에서 읽기 좋은 긴 본문을 흉내 내는 픽스처 문장이고, 한글과 English words 가 섞여 있습니다.&lt;/p&gt;&lt;p&gt;3번째 문단입니다. 전자잉크 단말에서 읽기 좋은 긴 본문을 흉내 내는 픽스처 문장이고, 한글과 English words 가 섞여 있습니다.&lt;/p&gt;&lt;p&gt;4번째 문단입니다. 전자잉크 단말에서 읽기 좋은 긴 본문을 흉내 내는 픽스처 문장이고, 한글과 English words 가 섞여 있습니다.&lt;/p&gt;&lt;p&gt;5번째 문단입니다. 전자잉크 단말에서 읽기 좋은 긴 본문을 흉내 내는 픽스처 문장이고, 한글과 English words 가 섞여 있습니다.&lt;/p&gt;&lt;p&gt;6번째 문단입니다. 전자잉크 단말에서 읽기 좋은 긴 본문을 흉내 내는 픽스처 문장이고, 한글과 English words 가 섞여 있습니다.&lt;/p&gt;&lt;p&gt;7번째 문단입니다. 전자잉크 단말에서 읽기 좋은 긴 본문을 흉내 내는 픽스처 문장이고, 한글과 English words 가 섞여 있습니다.&lt;/p&gt;&lt;p&gt;8번째 문단입니다. 전자잉크 단말에서 읽기 좋은 긴 본문을 흉내 내는 픽스처 문장이고, 한글과 English words 가 섞여 있습니다.&lt;/p&gt;&lt;pre&gt;&lt;code&gt;def hello():
+    return &amp;quot;안녕&amp;quot; &amp;amp; 1 &amp;lt; 2
+&lt;/code&gt;&lt;/pre&gt;</content></entry>
+</feed>

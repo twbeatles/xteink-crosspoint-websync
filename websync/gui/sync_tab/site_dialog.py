@@ -16,7 +16,13 @@ from websync.gui.widgets import (
     get_font, make_button, setup_dialog,
 )
 from websync.scrapers.types import SCRAPER_TYPES, SPECIALIZED_TYPES
-from websync.scrapers.presets import KOREAN_SITE_PRESETS, preset_display_label
+from websync.scrapers.presets import (
+    KOREAN_SITE_PRESETS,
+    PRESET_CATEGORIES,
+    category_display_label,
+    preset_display_label,
+    presets_for_category,
+)
 from websync.gui.sync_tab.sites import site_type_label
 from websync.gui.sync_tab.selector_wizard import (
     SelectorWizardPanel,
@@ -90,13 +96,24 @@ class SiteDialogMixin:
         src.columnconfigure(1, weight=1)
 
         ctk.CTkLabel(src, text=t("gui.sync.preset_label"), font=get_font(13)).grid(row=0, column=0, sticky="w", padx=(0, 8), pady=5)
-        preset_labels = [preset_display_label(p) for p in KOREAN_SITE_PRESETS]
         preset_by_label = {preset_display_label(p): p for p in KOREAN_SITE_PRESETS}
-        preset_cb = ctk.CTkOptionMenu(
-            src, values=preset_labels, font=get_font(12), dropdown_font=get_font(12), dynamic_resizing=False, width=320,
+        category_all = category_display_label("")
+        category_by_label = {category_display_label(k): k for k, _ in PRESET_CATEGORIES}
+        preset_row = ctk.CTkFrame(src, fg_color="transparent")
+        preset_row.grid(row=0, column=1, columnspan=2, sticky="w", pady=5)
+        # 프리셋이 많아져도 목록이 길어지지 않도록 카테고리로 먼저 좁힌다
+        category_cb = ctk.CTkOptionMenu(
+            preset_row, values=[category_all, *category_by_label], font=get_font(12), dropdown_font=get_font(12),
+            dynamic_resizing=False, width=150,
         )
-        preset_cb.grid(row=0, column=1, columnspan=2, sticky="w", pady=5)
-        preset_cb.set(preset_labels[0] if preset_labels else "")
+        category_cb.pack(side="left", padx=(0, 6))
+        category_cb.set(category_all)
+        initial_labels = [preset_display_label(p) for p in presets_for_category("")]
+        preset_cb = ctk.CTkOptionMenu(
+            preset_row, values=initial_labels, font=get_font(12), dropdown_font=get_font(12), dynamic_resizing=False, width=320,
+        )
+        preset_cb.pack(side="left")
+        preset_cb.set(initial_labels[0] if initial_labels else "")
         preset_note = ctk.CTkLabel(
             src, text=t("gui.sync.preset_hint"), font=get_font(11), text_color=COLOR_SECONDARY_FG, anchor="w",
         )
@@ -342,6 +359,14 @@ class SiteDialogMixin:
                     _fill_entry(name_entry, suggestion)
 
         type_cb.configure(command=on_type_change)
+
+        def on_category_change(label: str) -> None:
+            labels = [preset_display_label(p) for p in presets_for_category(category_by_label.get(label, ""))]
+            preset_cb.configure(values=labels)
+            if preset_cb.get() not in labels:
+                preset_cb.set(labels[0] if labels else "")
+
+        category_cb.configure(command=on_category_change)
         preset_cb.configure(command=on_preset_change)
         url_entry.bind("<FocusOut>", on_url_committed, add="+")
         url_entry.bind("<Return>", on_url_committed, add="+")
