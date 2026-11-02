@@ -39,7 +39,9 @@ class SyncScheduleMixin:
             config["schedule"]["enabled"] = False
             self.app._safe_save_config(config)
         else:
-            messagebox.showwarning(t("gui.schedule.title"), t("gui.schedule.unregister_failed"))
+            detail = getattr(self.scheduler, "last_error", "")
+            message = t("gui.schedule.unregister_failed")
+            messagebox.showwarning(t("gui.schedule.title"), f"{message}\n\n{detail}" if detail else message)
         self._refresh_schedule_status()
 
     def _refresh_schedule_status(self):

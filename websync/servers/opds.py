@@ -1,6 +1,5 @@
 """OPDS 카탈로그 HTTP 서버"""
 import os
-import re
 import secrets
 import sys
 import threading
@@ -10,6 +9,7 @@ from typing import Optional
 from urllib.parse import quote, unquote, urlparse, parse_qs
 from xml.sax.saxutils import escape
 
+from websync.epub.filenames import display_title
 from websync.i18n import t
 from websync.servers.http_lifecycle import ExclusiveBindMixin, GracefulHTTPHandler
 
@@ -114,8 +114,7 @@ class OPDSHandler(GracefulHTTPHandler):
             fpath = os.path.join(output_dir, fname)
             size = os.path.getsize(fpath) if os.path.exists(fpath) else 0
             safe_name = escape(fname)
-            title = re.sub(r"_\d{4}-\d{2}-\d{2}\.epub$", "", fname.replace("_", " ")).strip()
-            safe_title = escape(title)
+            safe_title = escape(display_title(fname))
             mtime = datetime.fromtimestamp(
                 os.path.getmtime(fpath), timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%SZ")

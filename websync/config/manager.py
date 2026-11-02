@@ -349,7 +349,9 @@ class ConfigManager:
                 config, updated = self._normalize_loaded(config)
 
                 if updated:
-                    self._save_config_unlocked(config, bump_revision=False)
+                    # 보강이 새 기기 ID·토큰을 만들 수 있으므로 revision을 올려,
+                    # 이전 revision을 가진 writer의 CAS 저장이 충돌로 감지되게 한다.
+                    self._save_config_unlocked(config, bump_revision=True)
                 log_validation_warnings(config)
                 return config
 

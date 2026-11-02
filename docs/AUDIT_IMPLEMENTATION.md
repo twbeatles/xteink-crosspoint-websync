@@ -1,6 +1,6 @@
 # Audit Implementation
 
-최신 후속 기록: [2026-10-15 후속 구현](#2026-10-15-후속-구현). 아래 2026-10-13 기록은 당시 실행·릴리즈 이력으로 보존하며 현재 검증 결과로 재사용하지 않는다.
+최신 후속 기록: [2026-11-02 후속 구현](#2026-11-02-후속-구현). 이전 기록: [2026-10-21](#2026-10-21-후속-구현), [2026-10-15](#2026-10-15-후속-구현). 아래 2026-10-13 기록은 당시 실행·릴리즈 이력으로 보존하며 현재 검증 결과로 재사용하지 않는다.
 
 2026-10-13 — PROJECT_AUDIT.md 후속 구현 및 검증 기록.
 
@@ -189,3 +189,32 @@ coverage 실행 시 COVERAGE_FILE을 임시 경로로 지정한다. 사용자 co
 - 로컬 전체 suite(Windows, Python 3.15.0): `python -B -m pytest tests/ -q --tb=short -ra -p no:cacheprovider -W error::RuntimeWarning` **674 passed, 1 skipped**, 103.00초 (skip: POSIX directory descriptors). 변경 전 기준선은 651 passed / 1 skipped.
 - 새 회귀 테스트가 결함을 실제로 잡는지 확인하려고 수정 전 코드로 되돌려 실행했다: `test_cross_run_filenames.py` 4건 실패, `test_config_conflict_merge.py` 4건 실패. 수정 코드로 복원 후 모두 통과.
 - `git diff --check` 오류 없음. v1.3.8 버전으로 `python scripts/verify_isolated_build.py` **exit 0** (`Isolated frozen build and --smoke passed`, 41.5초) — 임시 폴더에서 실제 frozen EXE를 빌드·실행했으며 사용자 dist·데이터는 쓰지 않았다. 실기기·native 스케줄러 등록은 실행하지 않았다.
+
+## 2026-11-02 후속 구현
+
+[PROJECT_AUDIT.md](../PROJECT_AUDIT.md)(2026-11-02, 기준 `7560567`, v1.4.0)의 권고를 구현했다. 감사 문서의 이슈 설명은 감사 당시 기록으로 유지한다.
+
+### 감사 권고 대조표
+
+| 권고 | 상태 | 변경 | 회귀 테스트 |
+|---|---|---|---|
+| ISSUE-001: 다운로드가 같은 이름의 PC 파일을 경고 없이 덮어씀 | 수정 | 새 `upload/local_path.py`(`safe_local_filename`, `plan_local_downloads`, `find_local_conflicts`). `_download_selected`는 충돌 시 예/아니요/취소를 묻고 기본(아니요)은 `이름 (1).ext`로 저장, 취소는 다운로드 없음. 로그에 덮어쓰기·새 이름 개수 기록. `warn_overwrite` 문구에 다운로드는 항상 확인함을 명시 | `test_device_download_conflicts.py` 17건: 기본 답은 기존 bytes 보존, 명시적 덮어쓰기, 취소 시 작업 미시작, 충돌 없으면 질문 없음, 배치 내 같은 이름 구분 |
+| 추정: 기기 파일명의 Windows 특수 형식(`C:x`, ADS, `CON`) | 수정 | 위 모듈이 basename만 쓰고 `<>:"/\|?*`·제어 문자를 `_`로, 예약어 앞에 `_`, 끝 점·공백 제거 | 같은 파일의 `safe_local_filename` 매개변수 10건. Windows CI 계약 목록에 추가 |
+| ISSUE-002: 스케줄 등록 실패 사유 미표시 | 수정 | `SchedulerManager._fail`: 도구·종료 코드·stderr(없으면 stdout) 300자 요약을 `last_error`와 logger에 기록. 등록·해제 3개 플랫폼 모두 적용, GUI 해제 실패에도 표시. Windows 출력은 `GetOEMCP` 코드 페이지 + `errors="replace"`(기존 `cp949` 고정 제거) | `test_scheduler.py`: schtasks stderr·예외, launchctl bytes stderr |
+| 추정: `crontab -l` 읽기 실패 시 사용자 줄 삭제 | 수정 | `_read_crontab`: `no crontab`만 빈 crontab, 그 외 실패는 쓰지 않고 사유 기록 (등록·해제 공통) | `test_scheduler.py`: permission denied면 `crontab -` 미호출, `no crontab`이면 새 블록 생성 |
+| ISSUE-003: OPDS 요약 제목 정리식이 일치하지 않음 | 수정 | 새 `epub/filenames.py`의 `display_title`을 OPDS가 사용(`뉴스 (2026-11-02)`) | `test_epub_filenames.py`: 신·구·합본·시각·전송 hash 형식 6건, 실제 OPDS 서버 카탈로그 응답 |
+| Phase 3: 파일명 규칙 한 곳으로 | 수정 | `batch_digest`·`epub_basename`·`safe_site_component`·`DIGEST_PREFIX`를 `epub/filenames.py`로 이동, 빌더가 사용(`builder._batch_digest`는 같은 함수의 별칭). `sync_epub.py` 주석 갱신 | `test_epub_filenames.py::test_builder_names_follow_shared_format`(빌더 이름 → 표시 제목·날짜 파서), 기존 `test_cross_run_filenames.py` |
+| Likely Gap: 요약·번역 중 취소 반응 지연 | 수정 | `sync_pipeline.py`, `selected_sync.py`의 번역·요약 기사 루프 안에서 취소 확인 → `status=cancelled`(업로드·이력 전) | `test_cancel_during_enrichment.py`: 전체·선택 동기화 모두 10개(5개) 중 2개 요약 후 중단, 업로드 0, 이력 0 |
+| 추정: `load_config` 보강 저장이 revision을 올리지 않음 | 수정 | `load_config`의 보강 저장을 `bump_revision=True`로 | `test_cancel_during_enrichment.py::test_load_config_normalize_save_bumps_revision`: 다른 프로세스가 부여한 기기 ID를 이전 revision writer가 덮지 못함 |
+| Likely Gap: 헬퍼 기동 실패 후 처리 | 확인 | 동작 변경 없음 (drain 후 오류 표시 → 종료, 재기동 시 잔재 정리) | 기존 `test_job_lifecycle.py::test_gui_close_destroys_even_if_after_drain_fails` |
+| 문서 불일치 1~3 | 수정 | AGENTS.md를 CLAUDE.md와 같은 내용으로 갱신(원본은 작업자 임시 폴더에 백업), CLAUDE.md 2026-11-02 계약 절, DEVELOPER(파일명 규칙 정본), USER_GUIDE(다운로드 충돌), `sync_epub.py` 주석 | — |
+| 새 모듈 패키징 | 수정 | `x3_websync.spec` hiddenimports에 `websync.upload.local_path`, `websync.epub.filenames` | 격리 frozen 빌드 `--smoke` 통과(아래) |
+| Phase 3: 원격 전송 receipt 모델 | 미구현(설계 검토) | 펌웨어의 조회·idempotency 지원이 전제 | — |
+
+### 실제 검증 근거
+
+- 로컬 전체 suite(Windows, Python 3.15.1): `python -m pytest tests/ -q --tb=short -ra -p no:cacheprovider -W error::RuntimeWarning` **737 passed, 28 skipped**, 99.88초. skip은 네트워크 라이브 프리셋 27건(`WEBSYNC_LIVE_CONTRACTS=1` 필요)과 POSIX directory descriptor 1건. 변경 전 기준선은 703 passed / 28 skipped.
+- 새 revision 테스트가 결함을 잡는지 확인하려고 `load_config` 수정만 되돌려 실행했다: 1건 실패. 수정 코드로 복원 후 통과.
+- `git diff --check` 오류 없음. `basedpyright websync/` 0 errors. 변경 전부터 있던 `sync_pipeline.py`·`selected_sync.py`의 `upload_results` 재선언(`reportRedeclaration`)은 두 번째 타입 주석을 빼 재할당으로 바꿔 해소했다(동작 변화 없음).
+- v1.4.0 소스로 `python scripts/verify_isolated_build.py` **exit 0** (`Isolated frozen build and --smoke passed`, PyInstaller 6.22.3) — 새 hiddenimports 포함, 임시 폴더에서 빌드·실행했으며 사용자 dist·데이터는 쓰지 않았다.
+- 실행하지 않은 것: 실기기 다운로드, native 스케줄러(schtasks/launchd/crontab) 실제 등록, macOS·Linux 환경.

@@ -21,6 +21,7 @@ from websync.upload.device_client import (
     format_file_size,
     filter_old_sync_epubs,
 )
+from websync.upload.local_path import find_local_conflicts, plan_local_downloads
 from websync.upload.uploader import X3Uploader, normalize_upload_remote_dir
 from websync.i18n import t
 
@@ -237,18 +238,39 @@ class DeviceFilesActionsMixin:
         if not dest_dir:
             return
 
+        names = [item["name"] for item in items]
+        # 같은 이름의 PC 파일은 묻지 않고 바꾸지 않는다. 기본(아니요)은 새 이름으로 저장.
+        conflicts = find_local_conflicts(dest_dir, names)
+        overwrite = False
+        if conflicts:
+            answer = messagebox.askyesnocancel(
+                t("gui.device.download_conflict_title"),
+                t(
+                    "gui.device.download_conflict_body",
+                    count=len(conflicts),
+                    names="\n".join(conflicts[:8]),
+                ),
+                default=messagebox.NO,
+            )
+            if answer is None:
+                return
+            overwrite = bool(answer)
+        plan = plan_local_downloads(dest_dir, names, overwrite=overwrite)
+
         ip = self._selected_ip()
         self._set_busy(True)
         self.app._log_message(t("gui.device.log_download_start", ip=ip, count=len(items), dest=dest_dir))
+        if conflicts:
+            key = "gui.device.log_download_overwrite" if overwrite else "gui.device.log_download_renamed"
+            self.app._log_message(t(key, count=len(conflicts)))
 
         def task():
             client = self._make_client()
             ok = 0
             errors: list[str] = []
-            for item in items:
-                local = os.path.join(dest_dir, item["name"])
+            for item, entry in zip(items, plan):
                 try:
-                    client.download(item["path"], local, ip=ip)
+                    client.download(item["path"], entry["path"], ip=ip)
                     ok += 1
                 except DeviceClientError as e:
                     errors.append(f"{item['name']}: {e}")

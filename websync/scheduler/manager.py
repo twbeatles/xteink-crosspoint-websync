@@ -7,6 +7,31 @@ from pathlib import PureWindowsPath
 from websync.i18n import t
 
 
+def _windows_console_encoding() -> str:
+    """schtasks 같은 콘솔 도구의 출력 코드 페이지 (예: 한국어 cp949, 영어 cp437)."""
+    try:
+        import codecs
+        import ctypes
+
+        name = f"cp{ctypes.windll.kernel32.GetOEMCP()}"  # type: ignore[attr-defined]
+        codecs.lookup(name)
+        return name
+    except Exception:
+        return "mbcs" if sys.platform == "win32" else "utf-8"
+
+
+def _process_output(result) -> str:
+    """실패한 하위 프로세스의 stderr(없으면 stdout) 요약."""
+    for attr in ("stderr", "stdout"):
+        value = getattr(result, attr, None)
+        if isinstance(value, bytes):
+            value = value.decode("utf-8", errors="replace")
+        if isinstance(value, str) and value.strip():
+            text = " ".join(value.split())
+            return text[:300] + ("…" if len(text) > 300 else "")
+    return ""
+
+
 class SchedulerManager:
     """작업 스케줄러 등록 및 제어를 전담하는 클래스 (Windows/macOS/Linux 크로스플랫폼 지원)"""
     TASK_NAME = "XteinkX3WebSyncTask"
@@ -100,11 +125,16 @@ class SchedulerManager:
             "/f"
         ]
         try:
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="cp949", errors="ignore")
-            return result.returncode == 0
+            result = subprocess.run(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                encoding=_windows_console_encoding(), errors="replace",
+            )
+            if result.returncode == 0:
+                return True
+            return self._fail("schtasks", result)
         except Exception as e:
             print(t("scheduler.register_failed", error=e))
-            return False
+            return self._fail("schtasks", error=e)
 
     @staticmethod
     def _xml_escape(value: str) -> str:
@@ -167,10 +197,12 @@ class SchedulerManager:
             if os.path.exists(plist_path):
                 subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
             result = subprocess.run(["launchctl", "load", plist_path], capture_output=True)
-            return result.returncode == 0
+            if result.returncode == 0:
+                return True
+            return self._fail("launchctl", result)
         except Exception as e:
             print(t("scheduler.macos_register_failed", error=e))
-            return False
+            return self._fail("launchctl", error=e)
 
     # Linux crontab 관리 블록 마커 — 이 블록 안의 줄만 도구가 관리한다.
     CRON_BLOCK_BEGIN = "# XteinkX3WebSyncTask BEGIN"
@@ -242,27 +274,65 @@ class SchedulerManager:
         """Linux crontab 기반 등록 (마커 블록만 관리 — 사용자 크론 줄 보존)."""
         cron_cmd = self._build_cron_line(h_val, m_val)
         try:
-            # 기존 크론탭 읽기
-            result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-            existing = result.stdout if result.returncode == 0 else ""
+            existing = self._read_crontab()
+            if existing is None:
+                return False
             self._backup_crontab(existing)
             new_crontab = self._merge_crontab(existing, cron_cmd)
             proc = subprocess.run(["crontab", "-"], input=new_crontab, text=True, capture_output=True)
-            return proc.returncode == 0
+            if proc.returncode == 0:
+                return True
+            return self._fail("crontab", proc)
         except Exception as e:
             print(t("scheduler.linux_register_failed", error=e))
-            return False
+            return self._fail("crontab", error=e)
+
+    def _read_crontab(self):
+        """현재 crontab 내용. 아직 없으면 "", 읽기 자체가 실패하면 None (덮어쓰기 금지)."""
+        result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout
+        err = getattr(result, "stderr", "")
+        if isinstance(err, str) and "no crontab" in err.lower():
+            return ""
+        # 권한·데몬 문제로 못 읽은 것을 "빈 crontab"으로 보면 사용자 줄이 지워진다.
+        self._fail("crontab -l", result)
+        return None
+
+    def _fail(self, tool: str, result=None, *, error: Exception | None = None) -> bool:
+        """실패 사유를 last_error와 로그에 남기고 False를 반환한다."""
+        detail = str(error) if error is not None else _process_output(result)
+        code = getattr(result, "returncode", None)
+        self.last_error = t(
+            "scheduler.tool_failed",
+            tool=tool,
+            code="-" if code is None else code,
+            detail=detail or t("scheduler.no_detail"),
+        )
+        try:
+            from websync.core.logger import get_logger
+
+            get_logger().warning(self.last_error)
+        except Exception:
+            pass
+        return False
 
 
     def unregister_task(self) -> bool:
+        self.last_error = ""
         if sys.platform == "win32":
             cmd = ["schtasks", "/delete", "/tn", self.TASK_NAME, "/f"]
             try:
-                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="cp949", errors="ignore")
-                return result.returncode == 0
+                result = subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                    encoding=_windows_console_encoding(), errors="replace",
+                )
+                if result.returncode == 0:
+                    return True
+                return self._fail("schtasks", result)
             except Exception as e:
                 print(t("scheduler.unregister_failed", error=e))
-                return False
+                return self._fail("schtasks", error=e)
         elif sys.platform == "darwin":
             plist_path = os.path.expanduser(f"~/Library/LaunchAgents/com.x3websync.{self.TASK_NAME}.plist")
             try:
@@ -272,25 +342,31 @@ class SchedulerManager:
                 return True
             except Exception as e:
                 print(t("scheduler.macos_unregister_failed", error=e))
-                return False
+                return self._fail("launchctl", error=e)
         else:
             try:
-                result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-                existing = result.stdout if result.returncode == 0 else ""
+                existing = self._read_crontab()
+                if existing is None:
+                    return False
                 self._backup_crontab(existing)
                 new_crontab = self._merge_crontab(existing, None)
                 proc = subprocess.run(["crontab", "-"], input=new_crontab, text=True, capture_output=True)
-                return proc.returncode == 0
+                if proc.returncode == 0:
+                    return True
+                return self._fail("crontab", proc)
             except Exception as e:
                 print(t("scheduler.linux_unregister_failed", error=e))
-                return False
+                return self._fail("crontab", error=e)
 
     def get_task_status(self) -> str:
         """스케줄 작업이 등록되어 있는지 상태 문자열 반환"""
         if sys.platform == "win32":
             cmd = ["schtasks", "/query", "/tn", self.TASK_NAME, "/fo", "csv"]
             try:
-                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="cp949", errors="ignore")
+                result = subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                    encoding=_windows_console_encoding(), errors="replace",
+                )
                 return t("scheduler.registered_waiting") if result.returncode == 0 else t("scheduler.not_registered")
             except Exception:
                 return t("scheduler.status_unknown")

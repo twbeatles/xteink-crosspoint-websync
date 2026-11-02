@@ -664,3 +664,16 @@ feat(gui): Add sync history viewer tab with re-send capability
 - production에서 쓰지 않던 `websync/upload/romanize.py`를 제거했다.
 - v1.3.9 업데이터 수정: `apply_staged_update`는 복사 후 덮어쓰기 대신 타겟을 백업으로, staged를 타겟으로 **이동**한다(실행 중 exe도 이름 변경은 가능). 낡은 백업은 덮어쓰고, 중단된 교체는 백업에서 복구하며, 헬퍼·재기동·smoke는 `clean_frozen_environment()`를 쓴다. 회귀 방지는 `tests/test_update_swap_regression.py`(Windows CI 목록 포함)와 릴리즈 전 `scripts/verify_update_swap.py`다. v1.3.8 이하 설치본의 자동 업데이트는 이 결함 때문에 실패하므로 v1.3.9는 exe를 한 번 직접 교체해야 한다.
 - 남은 범위: 실기기의 같은 경로 업로드 의미와 한글 파일명 표시는 `docs/AUDIT_VALIDATION.md` 절차로 별도 확인한다. 원격 전송 receipt 모델(응답 유실 조정)은 설계 검토 대상이며 구현하지 않았다.
+
+## 감사 후속 구현 계약 (2026-11-02)
+
+[PROJECT_AUDIT.md](PROJECT_AUDIT.md)의 2026-11-02 감사 권고를 구현했다. 상세 대조표는 [docs/AUDIT_IMPLEMENTATION.md](docs/AUDIT_IMPLEMENTATION.md#2026-11-02-후속-구현)에 있다.
+
+- 기기 → PC 다운로드는 `upload/local_path.py`로 로컬 이름을 정한다. 기기가 보고한 이름은 basename만 쓰고 Windows 금지 문자(`:` 포함 — 드라이브 상대 경로·ADS 차단)와 예약어(`CON` 등)를 정리한다. 같은 이름의 PC 파일이 있으면 예/아니요/취소로 묻고 기본은 **아니요(`이름 (1).ext`로 저장)**다. 배치 안에서 같아지는 이름은 항상 구분한다.
+- 스케줄러는 등록·해제 실패 시 `SchedulerManager._fail`로 도구 이름·종료 코드·stderr(없으면 stdout) 요약을 `last_error`와 로그에 남기고 GUI가 표시한다. Windows 콘솔 출력은 OEM 코드 페이지(`GetOEMCP`)로 디코딩한다. Linux는 `crontab -l` 실패가 `no crontab`일 때만 빈 crontab으로 보고, 그 밖의 읽기 실패에는 쓰지 않는다.
+- 전체·선택 동기화는 번역·AI 요약의 기사 루프 안에서도 취소를 확인한다. 이 시점에는 아직 업로드·이력이 없으므로 `status=cancelled`로 끝낸다.
+- `load_config`가 결손 키를 보강해 저장할 때 revision을 올린다. 새 기기 ID·토큰이 이전 revision을 가진 writer의 CAS 저장으로 덮이지 않는다.
+- 생성 EPUB 파일명 규칙의 정본은 `epub/filenames.py`다(`batch_digest`, `epub_basename`, `safe_site_component`, `display_title`). 빌더와 OPDS 카탈로그 제목이 이 모듈을 쓰고, 기기 정리 날짜 파서는 같은 형식의 마지막 `YYYY-MM-DD`를 읽는다. 형식을 바꾸면 이 모듈과 `tests/test_epub_filenames.py`를 함께 고친다.
+- 새 모듈 `websync.upload.local_path`, `websync.epub.filenames`는 spec hiddenimports에 포함한다.
+- AGENTS.md는 CLAUDE.md와 같은 내용을 유지한다(정본은 CLAUDE.md).
+- 남은 범위: 원격 전송 receipt 모델(응답 유실 조정)은 여전히 설계 검토 대상이다.

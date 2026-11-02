@@ -1,7 +1,6 @@
 """수집된 기사 데이터를 EPUB 파일로 빌드."""
 from __future__ import annotations
 
-import hashlib
 import html
 import logging
 import os
@@ -12,23 +11,15 @@ from ebooklib import epub
 from websync.core.logger import get_logger
 from websync.epub.cover import make_cover_image
 from websync.epub.css import build_default_css, load_theme_css, resolve_css
+from websync.epub.filenames import (
+    DIGEST_PREFIX,
+    batch_digest as _batch_digest,
+    epub_basename,
+    safe_site_component,
+)
 from websync.epub.sanitize import sanitize_body_html
 from websync.i18n import t
 from websync.epub.images import ImageAssets
-
-
-def _batch_digest(articles) -> str:
-    """기사 집합의 짧은 결정적 식별자.
-
-    파일명은 날짜만으로는 PC·출력 폴더 사이에서 고유하지 않다. 같은 날 다른 PC가
-    다른 새 글로 만든 EPUB이 기기의 같은 경로를 덮어쓰지 않도록 내용 집합을 반영한다.
-    같은 기사 집합의 재빌드는 같은 값을 가진다.
-    """
-    keys = sorted(
-        (art.get("url") or "").strip() or f"{art.get('title', '')}\n{art.get('content', '')}"
-        for art in articles
-    )
-    return hashlib.sha256("\n".join(keys).encode("utf-8", errors="replace")).hexdigest()[:8]
 
 
 class EpubBuilder:
@@ -92,17 +83,13 @@ class EpubBuilder:
             os.makedirs(self.output_dir)
 
         today_str = datetime.now().strftime("%Y-%m-%d")
-        safe_site_name = "".join(
-            [c for c in site_name if c.isalnum() or c in (" ", "_", "-")]
-        ).strip()
-        safe_site_name = safe_site_name.replace(" ", "_")
+        safe_site_name = safe_site_component(site_name)
         batch_id = _batch_digest(articles)
-        file_name = f"{safe_site_name}_{today_str}_{batch_id}.epub"
+        file_name = epub_basename(safe_site_name, today_str, batch_id)
         file_path = os.path.join(self.output_dir, file_name)
 
         if os.path.exists(file_path):
-            time_suffix = datetime.now().strftime("%H%M%S_%f")
-            file_name = f"{safe_site_name}_{today_str}_{batch_id}_{time_suffix}.epub"
+            file_name = epub_basename(safe_site_name, today_str, batch_id, time_suffix=True)
             file_path = os.path.join(self.output_dir, file_name)
 
         book = epub.EpubBook()
@@ -187,11 +174,10 @@ class EpubBuilder:
             raise ValueError(t("epub.digest.empty"))
 
         batch_id = _batch_digest([art for arts in articles_by_site.values() for art in arts])
-        filename = f"Daily_Digest_{today}_{batch_id}.epub"
+        filename = epub_basename(DIGEST_PREFIX, today, batch_id)
         epub_path = os.path.join(self.output_dir, filename)
         if os.path.exists(epub_path):
-            suffix = datetime.now().strftime("%H%M%S_%f")
-            filename = f"Daily_Digest_{today}_{batch_id}_{suffix}.epub"
+            filename = epub_basename(DIGEST_PREFIX, today, batch_id, time_suffix=True)
             epub_path = os.path.join(self.output_dir, filename)
 
         book = epub.EpubBook()

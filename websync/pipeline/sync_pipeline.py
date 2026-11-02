@@ -40,6 +40,15 @@ def run_sync_pipeline_locked(
         else:
             print(msg)
 
+    def cancel_requested() -> bool:
+        return getattr(service, "is_cancel_requested", lambda: False)()
+
+    def stop_cancelled() -> bool:
+        log(t("pipeline.cancelled"))
+        service._last_pipeline_result = {"status": "cancelled", "success": False}
+        ToastNotifier.show_toast(t("toast.cancel_title"), t("toast.cancelled"), is_error=True)
+        return False
+
     log(t("pipeline.start"))
     service._reload_config()
 
@@ -173,11 +182,16 @@ def run_sync_pipeline_locked(
             if translate_to and translator.is_available_for_site(translate_to):
                 log(t("pipeline.translate_site", site=name, lang=translate_to))
                 for art in new_articles:
+                    # 기사당 네트워크 호출이라 사이트 경계까지 기다리지 않고 취소에 반응한다
+                    if cancel_requested():
+                        return stop_cancelled()
                     art["content"] = translator.translate_html(art["content"], target_lang=translate_to)
 
             if summarizer.is_available():
                 log(t("pipeline.summarize_site", site=name))
                 for art in new_articles:
+                    if cancel_requested():
+                        return stop_cancelled()
                     art["summary_html"] = summarizer.summarize(art.get("title", ""), art.get("content", ""))
 
             if epub_merge_mode == "daily_digest":
@@ -301,7 +315,7 @@ def run_sync_pipeline_locked(
                     sites=len(digest_articles),
                     articles=len(all_new_urls),
                 ))
-                upload_results: dict[str, bool] = {}
+                upload_results = {}
                 for batch_ips, batch_articles in upload_batches:
                     if getattr(service, "is_cancel_requested", lambda: False)():
                         log(t("pipeline.cancelled"))

@@ -202,3 +202,78 @@ def test_windows_register_short_path_still_calls_schtasks():
         assert mgr.register_daily_task("07", "00") is True
     assert mock_run.call_args.args[0][0] == "schtasks"
     assert mgr.last_error == ""
+
+
+def _proc(returncode, stdout="", stderr=""):
+    m = MagicMock()
+    m.returncode = returncode
+    m.stdout = stdout
+    m.stderr = stderr
+    return m
+
+
+def test_windows_schtasks_failure_reason_is_reported():
+    """2026-11-02 감사 ISSUE-002: schtasks 실패 출력이 last_error로 전달된다."""
+    mgr = SchedulerManager(script_path=_WIN_SCRIPT)
+    with patch("sys.platform", "win32"), patch.object(sys, "executable", _WIN_PYTHON), \
+         patch("os.path.exists", return_value=True), \
+         patch("subprocess.run", return_value=_proc(1, stderr="ERROR: Access is denied.")):
+        assert mgr.register_daily_task("07", "00") is False
+    assert "Access is denied." in mgr.last_error
+    assert "schtasks" in mgr.last_error
+
+
+def test_windows_schtasks_exception_is_reported():
+    mgr = SchedulerManager(script_path=_WIN_SCRIPT)
+    with patch("sys.platform", "win32"), patch.object(sys, "executable", _WIN_PYTHON), \
+         patch("os.path.exists", return_value=True), \
+         patch("subprocess.run", side_effect=FileNotFoundError("schtasks not found")):
+        assert mgr.register_daily_task("07", "00") is False
+    assert "schtasks not found" in mgr.last_error
+
+
+def test_macos_launchctl_failure_reason_is_reported():
+    mgr = SchedulerManager(script_path="/tmp/x3_websync.py")
+    with patch("sys.platform", "darwin"), \
+         patch("os.path.expanduser", return_value="/tmp/LaunchAgents"), \
+         patch("os.makedirs"), patch("os.path.exists", return_value=False), \
+         patch("builtins.open", MagicMock()), \
+         patch("subprocess.run", return_value=_proc(5, stderr=b"Load failed: 5: Input/output error")):
+        assert mgr.register_daily_task("08", "00") is False
+    assert "Input/output error" in mgr.last_error
+
+
+def test_crontab_read_failure_does_not_overwrite_user_crontab(tmp_path):
+    """crontab -l이 'no crontab'이 아닌 이유로 실패하면 쓰지 않는다."""
+    mgr = SchedulerManager(script_path=str(tmp_path / "x3_websync.py"))
+    mgr.project_dir = str(tmp_path)
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(list(cmd))
+        if list(cmd[:2]) == ["crontab", "-l"]:
+            return _proc(1, stderr="crontab: permission denied")
+        return _proc(0)
+
+    with patch("sys.platform", "linux"), patch("subprocess.run", side_effect=fake_run):
+        assert mgr.register_daily_task("07", "30") is False
+        assert mgr.unregister_task() is False
+    assert ["crontab", "-"] not in calls
+    assert "permission denied" in mgr.last_error
+
+
+def test_crontab_absent_is_created(tmp_path):
+    mgr = SchedulerManager(script_path=str(tmp_path / "x3_websync.py"))
+    mgr.project_dir = str(tmp_path)
+    written = {}
+
+    def fake_run(cmd, **kwargs):
+        if list(cmd[:2]) == ["crontab", "-l"]:
+            return _proc(1, stderr="no crontab for user")
+        written["input"] = kwargs.get("input")
+        return _proc(0)
+
+    with patch("sys.platform", "linux"), patch("subprocess.run", side_effect=fake_run):
+        assert mgr.register_daily_task("07", "30") is True
+    assert SchedulerManager.CRON_BLOCK_BEGIN in written["input"]
+    assert mgr.last_error == ""

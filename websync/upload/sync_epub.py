@@ -5,7 +5,8 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Any
 
-# WebSync가 생성하는 EPUB: site_YYYY-MM-DD.epub, Daily_Digest_YYYY-MM-DD.epub 등
+# WebSync가 생성하는 EPUB: 사이트_YYYY-MM-DD_hash8.epub, Daily_Digest_YYYY-MM-DD_hash8.epub
+# (형식 정본은 websync/epub/filenames.py). 옛 사이트_YYYY-MM-DD.epub도 같은 규칙으로 읽는다.
 _SYNC_DATE_IN_NAME = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
 

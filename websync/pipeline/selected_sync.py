@@ -95,6 +95,14 @@ def _push_after_selected_sync(service, ok: bool, log_callback) -> bool:
 
 def _sync_selected_locked(service, selected_articles, log, progress_callback, state) -> bool:
     """락·pull 이후 선택 기사 빌드·전송·이력 기록. push는 호출자가 수행한다."""
+    def cancel_requested() -> bool:
+        return getattr(service, "is_cancel_requested", lambda: False)()
+
+    def stop_cancelled() -> bool:
+        log(t("pipeline.cancelled"))
+        service._last_pipeline_result = {"status": "cancelled", "success": False}
+        return False
+
     service._reload_config()
     config = copy.deepcopy(service.config)
     uploader = service.uploader
@@ -131,6 +139,8 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
         if translate_to and translator.is_available_for_site(translate_to):
             log(t("pipeline.selected.translate", site=site_name, lang=translate_to))
             for art in arts:
+                if cancel_requested():
+                    return stop_cancelled()
                 art["content"] = translator.translate_html(art["content"], target_lang=translate_to)
 
     # AI 요약 후처리 적용
@@ -138,6 +148,8 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
         log(t("pipeline.selected.summarize"))
         for site_name, arts in articles_by_site.items():
             for art in arts:
+                if cancel_requested():
+                    return stop_cancelled()
                 if "summary_html" not in art:
                     art["summary_html"] = summarizer.summarize(art.get("title", ""), art.get("content", ""))
 
@@ -245,7 +257,7 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
                 continue
 
             log(t("pipeline.selected.building", site=site_name))
-            upload_results: dict[str, bool] = {}
+            upload_results = {}
             if getattr(service, "is_cancel_requested", lambda: False)():
                 log(t("pipeline.cancelled"))
                 service._last_pipeline_result = {"status": "cancelled", "success": False}
