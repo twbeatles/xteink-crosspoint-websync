@@ -198,3 +198,54 @@ def test_googletrans_availability_does_not_construct_client():
     clients = _google_factory(translator)
     assert translator.is_available_for_site("ko")
     assert not clients
+
+
+def test_googletrans_article_deadline_cancels_pending_request_and_closes_client():
+    translator = Translator(_config(provider="googletrans"), logger=MagicMock())
+    translator.ARTICLE_TIMEOUT = 0.02
+    clients = _google_factory(translator)
+    cancelled = []
+
+    async def slow(self, *args, **kwargs):
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
+
+    html = "<p>first sentence</p><p>second sentence</p>"
+    with patch.object(_AsyncGoogleClient, "translate", slow):
+        assert translator.translate_html(html) == html
+    assert cancelled == [True]
+    assert clients[0].closed and clients[0].loop.is_closed()
+
+
+def test_googletrans_cancellation_interrupts_inflight_request():
+    translator = Translator(_config(provider="googletrans"), logger=MagicMock())
+    cancel = threading.Event()
+    translator.cancel_requested = cancel.is_set
+    clients = _google_factory(translator)
+
+    async def waiting(self, *args, **kwargs):
+        cancel.set()
+        await asyncio.sleep(10)
+
+    html = "<p>first sentence</p>"
+    with patch.object(_AsyncGoogleClient, "translate", waiting):
+        assert translator.translate_html(html) == html
+    assert clients[0].closed
+
+
+def test_libretranslate_stops_between_nodes_without_returning_partial_translation():
+    translator = Translator(_config(), logger=MagicMock())
+    cancel = threading.Event()
+    translator.cancel_requested = cancel.is_set
+    html = "<p>first sentence</p><p>second sentence</p>"
+
+    def translate(*args):
+        cancel.set()
+        return "translated"
+
+    with patch.object(translator, "_do_translate", side_effect=translate) as request:
+        assert translator.translate_html(html) == html
+    assert request.call_count == 1

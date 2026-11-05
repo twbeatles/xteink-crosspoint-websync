@@ -37,4 +37,21 @@ jobs:
       - name: Run platform and lifecycle contracts
         env:
           COVERAGE_FILE: "${{ runner.temp }}/.coverage"
-        run: python -m pytest tests/test_storage_isolation.py tests/test_job_lifecycle.py tests/test_dashboard_request_contract.py tests/test_http_server_lifecycle.py tests/test_cloud_replica_recovery.py tests/test_epub_offline_images.py tests/test_scheduler.py tests/test_calibre.py tests/test_device_path_properties.py tests/test_pipeline_multiprocess_lock.py tests/test_source_to_device.py tests/test_base_scraper_session.py tests/test_pipeline_failure_recovery.py tests/test_pipeline_http_integration.py tests/test_update_installer.py tests/test_update_swap_regression.py tests/test_device_download_conflicts.py -q --tb=short -ra -W error::RuntimeWarning
+        run: python -m pytest tests/test_storage_isolation.py tests/test_job_lifecycle.py tests/test_dashboard_request_contract.py tests/test_http_server_lifecycle.py tests/test_cloud_replica_recovery.py tests/test_epub_offline_images.py tests/test_scheduler.py tests/test_audit_20261105.py tests/test_calibre.py tests/test_device_path_properties.py tests/test_pipeline_multiprocess_lock.py tests/test_source_to_device.py tests/test_base_scraper_session.py tests/test_pipeline_failure_recovery.py tests/test_pipeline_http_integration.py tests/test_update_installer.py tests/test_update_swap_regression.py tests/test_device_download_conflicts.py -q --tb=short -ra -W error::RuntimeWarning
+
+  full-macos-optional:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install core and optional dependencies
+        run: python -m pip install -r requirements-optional.txt
+      - name: Run full suite and isolated native launchd contract
+        env:
+          COVERAGE_FILE: "${{ runner.temp }}/.coverage"
+          WEBSYNC_NATIVE_SCHEDULER: "1"
+        run: python -m pytest tests/ -q --tb=short -ra -W error::RuntimeWarning

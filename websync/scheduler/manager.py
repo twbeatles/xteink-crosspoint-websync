@@ -192,11 +192,14 @@ class SchedulerManager:
 </dict>
 </plist>"""
         try:
+            # Do not destroy the existing schedule when unloading it failed.
+            if os.path.exists(plist_path):
+                result = subprocess.run(["launchctl", "unload", plist_path], capture_output=True, timeout=15)
+                if result.returncode != 0 and self._macos_job_loaded() is not False:
+                    return self._fail("launchctl unload", result)
             with open(plist_path, "w", encoding="utf-8") as f:
                 f.write(plist_content)
-            if os.path.exists(plist_path):
-                subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
-            result = subprocess.run(["launchctl", "load", plist_path], capture_output=True)
+            result = subprocess.run(["launchctl", "load", plist_path], capture_output=True, timeout=15)
             if result.returncode == 0:
                 return True
             return self._fail("launchctl", result)
@@ -209,16 +212,27 @@ class SchedulerManager:
     CRON_BLOCK_END = "# XteinkX3WebSyncTask END"
     _LEGACY_CRON_MARKER = "# XteinkX3WebSyncTask"
 
+    @staticmethod
+    def _cron_quote(value: str) -> str:
+        """Quote one shell word while protecting cron's earlier percent parsing.
+
+        Separate quoted percent segments also handle literal backslashes before %.
+        Cronie removes the escape before %, leaving a quoted shell literal.
+        """
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise ValueError("Scheduler paths must not contain control characters")
+        return "'\\%'".join(shlex.quote(part) for part in value.split("%"))
+
     def _build_cron_line(self, h_val: int, m_val: int) -> str:
         """crontab에 기록할 실행 줄 (등록·테스트 공용)."""
-        project_q = shlex.quote(self.project_dir)
-        log_path = shlex.quote(os.path.join(self.project_dir, "logs", "cron.log"))
+        project_q = self._cron_quote(self.project_dir)
+        log_path = self._cron_quote(os.path.join(self.project_dir, "logs", "cron.log"))
         if getattr(sys, "frozen", False):
-            script_q = shlex.quote(self.script_path)
+            script_q = self._cron_quote(self.script_path)
             run_part = f"cd {project_q} && {script_q} --sync"
         else:
-            python_q = shlex.quote(sys.executable)
-            script_q = shlex.quote(self.script_path)
+            python_q = self._cron_quote(sys.executable)
+            script_q = self._cron_quote(self.script_path)
             run_part = f"cd {project_q} && {python_q} {script_q} --sync"
         return f"{m_val} {h_val} * * * {run_part} >> {log_path} 2>&1"
 
@@ -272,8 +286,8 @@ class SchedulerManager:
 
     def _register_linux(self, h_val: int, m_val: int) -> bool:
         """Linux crontab 기반 등록 (마커 블록만 관리 — 사용자 크론 줄 보존)."""
-        cron_cmd = self._build_cron_line(h_val, m_val)
         try:
+            cron_cmd = self._build_cron_line(h_val, m_val)
             existing = self._read_crontab()
             if existing is None:
                 return False
@@ -318,6 +332,19 @@ class SchedulerManager:
         return False
 
 
+    def _macos_job_loaded(self) -> bool | None:
+        """True/False for a known job state; command/permission errors stay unknown."""
+        result = subprocess.run(
+            ["launchctl", "list", f"com.x3websync.{self.TASK_NAME}"],
+            capture_output=True, timeout=15,
+        )
+        if result.returncode == 0:
+            return True
+        detail = _process_output(result).lower()
+        if "could not find service" in detail or "could not find specified service" in detail:
+            return False
+        return None
+
     def unregister_task(self) -> bool:
         self.last_error = ""
         if sys.platform == "win32":
@@ -336,7 +363,9 @@ class SchedulerManager:
         elif sys.platform == "darwin":
             plist_path = os.path.expanduser(f"~/Library/LaunchAgents/com.x3websync.{self.TASK_NAME}.plist")
             try:
-                subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
+                result = subprocess.run(["launchctl", "unload", plist_path], capture_output=True, timeout=15)
+                if result.returncode != 0 and self._macos_job_loaded() is not False:
+                    return self._fail("launchctl unload", result)
                 if os.path.exists(plist_path):
                     os.remove(plist_path)
                 return True
@@ -371,8 +400,13 @@ class SchedulerManager:
             except Exception:
                 return t("scheduler.status_unknown")
         elif sys.platform == "darwin":
-            plist_path = os.path.expanduser(f"~/Library/LaunchAgents/com.x3websync.{self.TASK_NAME}.plist")
-            return t("scheduler.registered_launchd") if os.path.exists(plist_path) else t("scheduler.not_registered")
+            try:
+                loaded = self._macos_job_loaded()
+                if loaded is None:
+                    return t("scheduler.status_unknown")
+                return t("scheduler.registered_launchd") if loaded else t("scheduler.not_registered")
+            except Exception:
+                return t("scheduler.status_unknown")
         else:
             try:
                 result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)

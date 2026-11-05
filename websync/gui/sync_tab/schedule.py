@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import copy
 import sys
 import hashlib
 import threading
@@ -22,10 +23,12 @@ class SyncScheduleMixin:
             return
         h, m = self.hour_cb.get(), self.min_cb.get()
         if self.scheduler.register_daily_task(h, m):
-            messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.registered", hour=h, minute=m))
-            config = self.service.config
+            config = copy.deepcopy(self.service.config)
             config["schedule"]["enabled"] = True
-            self.app._safe_save_config(config)
+            if self.app._safe_save_config(config):
+                messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.registered", hour=h, minute=m))
+            else:
+                messagebox.showwarning(t("gui.schedule.title"), t("gui.schedule.state_save_failed"))
         else:
             detail = getattr(self.scheduler, "last_error", "")
             message = t("gui.schedule.register_failed")
@@ -34,10 +37,12 @@ class SyncScheduleMixin:
 
     def _unregister_schedule(self):
         if self.scheduler.unregister_task():
-            messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.unregistered"))
-            config = self.service.config
+            config = copy.deepcopy(self.service.config)
             config["schedule"]["enabled"] = False
-            self.app._safe_save_config(config)
+            if self.app._safe_save_config(config):
+                messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.unregistered"))
+            else:
+                messagebox.showwarning(t("gui.schedule.title"), t("gui.schedule.state_save_failed"))
         else:
             detail = getattr(self.scheduler, "last_error", "")
             message = t("gui.schedule.unregister_failed")

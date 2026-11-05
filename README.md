@@ -30,7 +30,7 @@ flowchart LR
     subgraph App["XTEINK WebSync Manager"]
         Scrape["Scraping & HTML Sanitization"]
         Builder["E-ink EPUB Builder\n(Themes / Daily Digest / Fonts)"]
-        DB[("SQLite History DB\n(Zero Duplicate Delivery)")]
+        DB[("SQLite History DB\n(Per-device Delivery Tracking)")]
         Upload["CrossPoint Wi-Fi Sync Engine"]
         
         Scrape --> Builder
@@ -148,7 +148,7 @@ Engineered specifically for superior readability on monochrome electronic ink sc
 - **Daily Compilation (Daily Digest)**: Choose between individual EPUB files per subscription or combine all newly scraped articles from the day into a unified **Daily Digest EPUB**.
 - **Content Sanitization & Cover Generator**: Automatically strips distracting ads, social sharing widgets, tracking scripts, and invalid markup. Generates elegant, minimal cover images.
 
-### 3. Smart Wireless Sync & Zero Duplicates
+### 3. Smart Wireless Sync & Incremental Delivery
 - **Wi-Fi Direct Upload**: Delivers EPUBs straight to the reader via CrossPoint's HTTP file management API.
 - **Incremental Deduplication**: Tracks synced article URLs and hashes in an embedded SQLite database (`sync_history.db`). Only delivers genuinely new articles, conserving battery and storage.
 - **Preview and Pick (Selective Sync)**: Review freshly fetched articles (with a body excerpt) before syncing, send only the stories you want, or **Build EPUB only** to check fonts/theme/cover without sending or recording history.
@@ -262,6 +262,7 @@ This project is licensed under the [MIT License](LICENSE) — see the [LICENSE](
 - Closing the GUI cancels and drains accepted work before destroying the window. A new preview or selective sync starts with a fresh cancellation scope.
 - The dashboard includes cancel and refreshes both status and logs every five seconds. An uncertain request result should be checked through status before submitting again.
 - Cloud replicas reconcile per-installation snapshots in `.websync-replicas` alongside canonical JSON. Keep this directory in cloud sync. Only one PC should automatically deliver to the same reader; local cloud-folder locks do not provide cross-PC delivery exclusion.
+- Delivery tracking skips acknowledged articles. A lost device response or a crash before the local history commit can still cause a retry; the current firmware API does not provide a durable delivery receipt.
 - Transfer filenames preserve the original site name as set in the app (including Korean), replacing only filesystem-forbidden characters, plus an original-name hash; EPUB titles preserve their original language.
 
 ## Audit follow-up (2026-10-15)

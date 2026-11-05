@@ -92,6 +92,22 @@ def test_invalid_recovery_does_not_change_config_or_backup(tmp_path, bad):
     assert not list(tmp_path.glob("*.rejected.*"))
 
 
+def test_recovery_invalidates_pre_recovery_cas_writer(tmp_path):
+    from websync.config.exceptions import ConfigConflictError
+
+    cm = manager(tmp_path)
+    stale = cm.load_config()
+    source = tmp_path / "recovery.json"
+    source.write_text(json.dumps(stale), encoding="utf-8")
+    before_backup = Path(cm.config_path + ".bak").read_bytes()
+    cm.restore_config(str(source))
+    recovered = cm.load_config()
+    assert recovered["_config_revision"] > stale["_config_revision"]
+    assert Path(cm.config_path + ".bak").read_bytes() == before_backup
+    with pytest.raises(ConfigConflictError):
+        cm.save_config(stale, expected_revision=stale["_config_revision"])
+
+
 def test_structured_validation_has_stable_field_code_and_legacy_strings():
     issues = validate_config_issues({"sites": [{"name": None}]})
     assert issues[0].field == "sites[0].name"

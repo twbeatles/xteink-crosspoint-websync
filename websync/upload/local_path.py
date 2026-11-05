@@ -26,6 +26,22 @@ def _numbered(name: str, n: int) -> str:
     return f"{stem} ({n}){ext}"
 
 
+def publish_local_download(temp_path: str, local_path: str, *, overwrite: bool = False) -> None:
+    """Publish a complete same-directory file, atomically enforcing overwrite policy.
+
+    Never fall back to exists()+replace: another writer may win between them.
+    Filesystems without a no-replace primitive fail safely instead.
+    """
+    if overwrite:
+        os.replace(temp_path, local_path)
+    elif os.name == "nt":
+        # Windows rename fails if the destination exists (also on FAT volumes).
+        os.rename(temp_path, local_path)
+    else:
+        os.link(temp_path, local_path)
+        os.unlink(temp_path)
+
+
 def plan_local_downloads(
     dest_dir: str,
     names: list[str],

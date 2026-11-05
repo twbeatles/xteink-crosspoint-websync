@@ -17,6 +17,8 @@
 
 SQLite 기반의 스마트 증분 동기화로 이미 읽은 글은 자동으로 중복 방지되며, PC에 보관 중인 **Calibre** 서재의 전자책이나 로컬 소장 도서(EPUB, PDF, MOBI, TXT)도 원클릭으로 리더기에 무선 전송할 수 있습니다.
 
+중복 방지는 전송 완료 응답을 기록한 이력 기준입니다. 기기 저장 후 응답이 유실되거나 이력 기록 전에 앱이 종료되면 재전송될 수 있습니다. 같은 리더기의 자동 전송은 PC 한 대에서 활성화하세요.
+
 ```mermaid
 flowchart LR
     subgraph Sources["다양한 콘텐츠 소스"]
@@ -30,7 +32,7 @@ flowchart LR
     subgraph App["XTEINK WebSync Manager"]
         Scrape["콘텐츠 수집 & 본문 정제"]
         Builder["E-ink 맞춤형 EPUB 빌더\n(테마 / 일간 합본 / 폰트)"]
-        DB[("SQLite 전송 이력\n(중복 전송 완벽 방지)")]
+        DB[("SQLite 전송 이력\n(기기별 증분 전송)")]
         Upload["CrossPoint Wi-Fi 전송 엔진"]
         
         Scrape --> Builder

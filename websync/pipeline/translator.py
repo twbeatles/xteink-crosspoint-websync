@@ -3,12 +3,15 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import re
+import time
 
 from websync.i18n import t
 
 
 class Translator:
     """기사 HTML을 지정 언어로 번역하는 클래스."""
+
+    ARTICLE_TIMEOUT = 30.0
 
     def __init__(self, config: dict, *, logger: logging.Logger | None = None):
         cfg = config.get("translation", {})
@@ -18,6 +21,14 @@ class Translator:
         self.libretranslate_api_key = cfg.get("libretranslate_api_key", "")
         self._gtrans = None
         self._logger = logger  # None 이면 print 폴백 (N8)
+        self.cancel_requested = lambda: False
+        self._deadline = None
+
+    def _check_budget(self) -> None:
+        if self.cancel_requested():
+            raise RuntimeError("Translation cancelled")
+        if self._deadline is not None and time.monotonic() >= self._deadline:
+            raise TimeoutError("Article translation time budget exceeded")
 
     def _warn(self, msg: str) -> None:
         if self._logger is not None:
@@ -60,6 +71,7 @@ class Translator:
             async with factory(timeout=10.0, raise_exception=True) as client:
                 translated_parts = []
                 for part in parts:
+                    self._check_budget()
                     stripped = part.strip()
                     if not part.startswith("<") and len(stripped) > 5:
                         result = await client.translate(stripped, dest=target, src=source)
@@ -68,8 +80,26 @@ class Translator:
                         translated_parts.append(part)
                 return translated_parts
 
+        async def bounded() -> list[str]:
+            task = asyncio.create_task(translate_parts())
+            deadline = time.monotonic() + self.ARTICLE_TIMEOUT
+            try:
+                while not task.done():
+                    self._check_budget()
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("Article translation time budget exceeded")
+                    await asyncio.wait({task}, timeout=0.1)
+                return await task
+            finally:
+                if not task.done():
+                    task.cancel()
+                # Await cancellation so the client closes before its loop exits.
+                import contextlib
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+
         def run() -> list[str]:
-            return asyncio.run(translate_parts())
+            return asyncio.run(bounded())
 
         try:
             asyncio.get_running_loop()
@@ -84,18 +114,22 @@ class Translator:
         """HTML 내 텍스트 노드만 번역. 태그 구조는 보존."""
         if not target_lang:
             return html_content
+        self._deadline = time.monotonic() + self.ARTICLE_TIMEOUT
         try:
+            self._check_budget()
             parts = re.split(r"(<[^>]+>)", html_content)
             if self.provider == "googletrans":
                 return "".join(self._translate_google_parts(parts, target_lang, source_lang))
             translated_parts = []
             for part in parts:
+                self._check_budget()
                 if part.startswith("<"):
                     translated_parts.append(part)
                 else:
                     stripped = part.strip()
                     if len(stripped) > 5:
                         translated = self._do_translate(stripped, target_lang, source_lang)
+                        self._check_budget()
                         translated_parts.append(part.replace(stripped, translated))
                     else:
                         translated_parts.append(part)
@@ -103,6 +137,8 @@ class Translator:
         except Exception as e:
             self._warn(t("pipeline.translator.fail", error=e))
             return html_content
+        finally:
+            self._deadline = None
 
     def _do_translate(self, text: str, target: str, source: str) -> str:
         if self.provider == "googletrans":
@@ -126,7 +162,9 @@ class Translator:
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            self._check_budget()
+            remaining = max(0.001, self._deadline - time.monotonic()) if self._deadline else 10.0
+            with urllib.request.urlopen(req, timeout=min(10.0, remaining)) as resp:
                 result = json.loads(resp.read())
             return result.get("translatedText", text)
         return text

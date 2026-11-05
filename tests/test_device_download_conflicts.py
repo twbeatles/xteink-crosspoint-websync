@@ -73,8 +73,8 @@ def _panel(tmp_path, client, *, start=None):
 def _fake_client():
     client = Mock()
 
-    def download(remote, local, ip=None):
-        with open(local, "wb") as handle:
+    def download(remote, local, ip=None, *, overwrite=False):
+        with open(local, "wb" if overwrite else "xb") as handle:
             handle.write(b"DEVICE")
         return True
 

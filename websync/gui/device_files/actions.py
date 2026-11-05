@@ -270,7 +270,7 @@ class DeviceFilesActionsMixin:
             errors: list[str] = []
             for item, entry in zip(items, plan):
                 try:
-                    client.download(item["path"], entry["path"], ip=ip)
+                    client.download(item["path"], entry["path"], ip=ip, overwrite=overwrite)
                     ok += 1
                 except DeviceClientError as e:
                     errors.append(f"{item['name']}: {e}")

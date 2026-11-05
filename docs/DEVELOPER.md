@@ -290,7 +290,7 @@ Follow the repository guidance in [CONTRIBUTING.md](../CONTRIBUTING.md) and this
 - 테스트는 import 전 임시 저장 경로를 사용하고 실제 사용자 파일 접근을 차단합니다. 이 보호는 Python I/O 경계이며 OS sandbox가 아닙니다.
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
-- 2026-10-13 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체 테스트와 Windows 핵심 계약 2개 작업이며 frozen 검증은 릴리즈에서 수행합니다.
+- 2026-10-13 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체·Windows 계약·macOS 전체+optional 작업으로 구성하며 frozen 검증은 릴리즈에서 수행합니다. 새 작업의 실제 원격 실행 결과는 별도 확인합니다.
 
 ## 2026-10-15 감사 후속 계약
 
@@ -305,3 +305,22 @@ Follow the repository guidance in [CONTRIBUTING.md](../CONTRIBUTING.md) and this
 ## 동작 기반 테스트 보강 (2026-10-16)
 
 [테스트 보강 기록](TEST_HARDENING.md)에 CodeGraph 분석 결과, 실제 RSS/CSS HTTP 수집부터 EPUB·기기 전송·SQLite commit까지의 검증, 기존 실패/복구 테스트의 보완 사항과 결함 주입 검증을 정리했습니다.
+
+## 2026-11-05 감사 후속 계약
+
+- `X3DeviceClient.download(..., overwrite=False)`는 최종 게시 시에도 교체를 거부한다. `publish_local_download`는 Windows rename / POSIX hard link를 사용하며 지원되지 않는 파일시스템에서 안전하지 않은 fallback은 하지 않는다. 기존 파일 교체는 명시적 `overwrite=True`만 허용한다. GUI의 사전 이름 계획은 편의 기능이며 동시성 보호는 저장 계층의 책임이다.
+- macOS unload 실패는 job 부재가 확인된 경우만 멱등 성공이다. 다른 실패·상태 조회 불명확은 실패로 반환하고 plist를 보존한다. 상태는 `launchctl list <label>`로 확인한다. GUI는 OS 변경 성공과 config 저장 성공을 따로 처리한다.
+- Linux `_cron_quote`는 shell 단어 인용과 cron의 percent 전처리를 함께 처리한다. `%`를 별도 인용 세그먼트로 분리하여 바로 앞의 원래 백슬래시에도 영향을 받지 않게 한다. 제어문자는 쓰기 전 거부한다. 기준: [Cronie command parser](https://github.com/cronie-crond/cronie/blob/master/src/do_command.c).
+- 번역 예산은 기사당 30초다. Google 작업은 취소 후 await하여 client를 닫고, LibreTranslate는 남은 예산으로 개별 timeout을 줄이고 노드 사이/호출 후 확인한다. 원문의 일부만 번역해 반환하지 않는다. `cancel_requested`는 파이프라인의 취소 콜백이며 기본은 취소 없음이다.
+- `restore_config`는 현재 config와 복구본 revision보다 큰 새 revision을 부여해 복구 전 writer의 CAS를 무효화한다. rejected·기존 bak 보존은 유지한다.
+- CI는 기존 Linux 전체·Windows 계약에 macOS/Python 3.10 전체+optional 패키지 작업을 추가한다. `WEBSYNC_NATIVE_SCHEDULER=1`은 UUID 임시 label·임시 plist·합성 스크립트만 쓰는 launchd 등록/변경/해제 테스트를 켠다. 일반 로컬 실행은 skip한다. CI 설정 추가와 실제 원격 실행 성공은 별개의 검증이다.
+
+### 장기 실행·보존량 점검
+
+`python scripts/storage_report.py --root <앱 폴더>`를 실행하면 기본 output의 EPUB, logs, SQLite 본체/WAL/SHM, `.websync-replicas`의 파일 수·크기만 출력한다. 공유 폴더에도 별도로 실행할 수 있다. 내용·키·기사 본문은 읽지 않고 파일을 삭제하지 않는다. 사용자 지정 output 폴더는 별도로 점검한다. `WatchRetryQueue.get_stats()`는 pending·finished 캐시 개수의 스냅샷을 제공한다.
+
+운영 점검 기준은 EPUB 1 GiB 또는 10,000개, logs 100 MiB, replica 10,000개, Watch finished 캐시 10,000개 이상이면 증가 추이를 조사하는 것이다. 이는 자동 삭제 임계값이나 검증된 성능 한계가 아니다. 출력 EPUB은 OPDS 사용 여부를 확인한 뒤 사용자가 백업·정리한다. 이력 DB·replica·tombstone을 임의로 지우면 중복 방지·오프라인 PC의 삭제 전파가 깨질 수 있으므로 자동 TTL/삭제를 추가하지 않았다. Watch 캐시도 증거 없는 메모리 최적화를 위해 자동 퇴거하지 않는다. pending 작업은 종료/재시작 시 그대로 복구한다.
+
+전체 파이프라인은 사이트 수·기사 수·기기 크기에 따라 작업량이 달라 일률적인 강제 종료 시간을 두지 않는다. 취소는 안전한 경계에서 적용하며 동기 HTTP·OS I/O의 중단은 보장하지 않는다. 느린 HTTP/번역 테스트와 종료 대기 상태로 지연을 확인한다. 엄격한 wall-clock 종료 보장이 필요하면 worker 프로세스 분리와 영속 작업 복구를 별도 설계해야 한다.
+
+[완료 대조표](AUDIT_IMPLEMENTATION.md#2026-11-05-후속-구현)와 [외부 검증·receipt 설계](AUDIT_VALIDATION.md)를 참조한다.

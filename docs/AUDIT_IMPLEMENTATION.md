@@ -1,6 +1,45 @@
 # Audit Implementation
 
-최신 후속 기록: [2026-11-02 후속 구현](#2026-11-02-후속-구현). 이전 기록: [2026-10-21](#2026-10-21-후속-구현), [2026-10-15](#2026-10-15-후속-구현). 아래 2026-10-13 기록은 당시 실행·릴리즈 이력으로 보존하며 현재 검증 결과로 재사용하지 않는다.
+최신 후속 기록: [2026-11-05 후속 구현](#2026-11-05-후속-구현). 이전 기록: [2026-11-02](#2026-11-02-후속-구현), [2026-10-21](#2026-10-21-후속-구현), [2026-10-15](#2026-10-15-후속-구현). 이전 기록의 CI·릴리즈 결과를 현재 검증 결과로 재사용하지 않는다.
+
+## 2026-11-05 후속 구현
+
+기준 `32eb535`의 [감사 문서](../PROJECT_AUDIT.md) 후속이다. 감사 본문은 당시 기록으로 유지한다.
+
+### 권고별 처리
+
+| 권고 | 결과 | 구현·검증 |
+|---|---|---|
+| ISSUE-001·Phase 1/3 저장 정책 | 수정 | `publish_local_download`가 미승인 교체를 원자적으로 거부한다. 기본 False, GUI가 명시적 정책 전달. 파일시스템 미지원은 안전한 실패. 응답 close와 디렉터리 실패의 DeviceClientError 변환도 보강 |
+| ISSUE-001 테스트 | 추가 | `test_audit_20261105.py`: 계획 후/스트림 중/게시 직전 경쟁 파일, 별도 프로세스 생성, 명시적 교체, 디렉터리 오류·부분 파일 정리. 기존 GUI 확인·취소 테스트 유지 |
+| ISSUE-002·OS/config 상태 구분 | 수정 | unload nonzero는 job 부재 확인 시만 멱등 성공, 다른 실패에는 plist 유지. 변경 등록도 unload 실패 시 원본 유지. 상태 조회는 실제 launchctl 사용. GUI는 config 저장 실패를 별도로 표시하고 원래 config dict를 미리 변경하지 않음 |
+| ISSUE-002 테스트 | 추가 | 실패/알 수 없는 상태·성공·이미 부재·기존 plist 보존·GUI OS/config 결과 조합. `test_scheduler_native.py`는 임시 UUID label을 등록·실행·변경·해제하며 macOS CI에서 opt-in |
+| ISSUE-003·경로 검증 | 수정 | percent를 별도 shell 인용 세그먼트로 보호하여 원래 백슬래시와 혼동 방지. 제어문자는 crontab 쓰기 전 실패 처리 |
+| ISSUE-003 테스트 | 추가 | Cronie 전처리 후 shlex argv 검증, POSIX shell에서 생성 명령으로 합성 sync를 실행. 사용자 crontab을 사용하지 않음 |
+| macOS/optional CI | 추가 | 기존 Linux/Python 3.15·Windows/Python 3.10 작업 유지. macOS/Python 3.10에 optional requirements와 전체 suite·native launchd 계약 추가. 원격 실행 결과는 아직 확인하지 않음 |
+| 번역·취소·종료 지연 | 보강 | 기사당 30초 예산, Google 진행 중 task 취소·client 정리, LibreTranslate 노드 사이/응답 후 확인·남은 예산 timeout. 실패 시 전체 원문 반환. 종료 대기 상태 안내 추가. 동기 I/O 강제 중단·전체 job의 절대 시간 상한은 제공하지 않음 |
+| 복구·stale writer 회귀 | 보강 | restore가 현재/복구본보다 큰 revision 부여. 복구 전 revision의 CAS 거부, 기존 bak 보존 테스트 |
+| 장기 자원 보존(추정) | 관측·운영 기준 추가 | 읽기 전용 `scripts/storage_report.py`, Watch `get_stats()`, DEVELOPER의 조사 기준. DB/replica/tombstone/완료 캐시는 자동 삭제하지 않아 중복 방지 계약 보존. 메모리/디스크 고갈이 입증된 것으로 주장하지 않음 |
+| README/CLAUDE/AGENTS 불일치 | 갱신 | 절대적 중복 방지 표현 완화, 다운로드 완료 경쟁·OS/config 결과·번역 예산·CI 범위 설명. CLAUDE와 AGENTS 본문 일치 유지 |
+| receipt·실기기/실서비스 검증 | 설계·외부 검증으로 분리 | 현행 CrossPoint API에는 확인된 idempotent commit/receipt 계약이 없다. 기존 중앙 조정 설계를 보완하고 응답 유실/commit 전 종료의 수락 조건·구현 전제 명시. 파일 존재/길이를 receipt로 오인하거나 가짜 exactly-once 구현을 추가하지 않음 |
+
+### §8 테스트 권고 대조
+
+- 전체/선택/합본·비대칭 기기 이력·부분 실패 재시도: 기존 `test_pipeline_http_integration.py`, 특히 `test_same_name_digest_asymmetric_history_partial_failure_and_retry`; `test_device_article_groups.py` 유지.
+- 공유 JSON 손상·동시 병합·commit 실패: 기존 `test_backup_interleavings.py`, `test_backup_crash_consistency.py`, `test_backup_service.py` 유지.
+- 종료·신규 작업 거부·pending 복구: 기존 `test_job_lifecycle.py`, `test_watch_retry.py`, 새 번역 pending-request 취소·정리 회귀.
+- HTTP 인증·body 제한·동시 수락·탈출: 기존 `test_dashboard_request_contract.py`, `test_crosspoint_http_contract.py`, OPDS 테스트 유지.
+- 업데이트 hash/size·이동 실패·rollback·재기동 결과: 기존 `test_update_installer.py`, `test_update_swap_regression.py` 유지. 새 production 모듈은 없으며 기존 local_path hiddenimport로 helper가 패키징된다.
+- native macOS/POSIX 실행은 플랫폼 조건부다. 실기기·브라우저·라이브 API와 원격 receipt 의미는 [검증 절차](AUDIT_VALIDATION.md)에 따라 별도 확인한다.
+
+### 실제 검증 근거
+
+- Windows/Python 3.15.2에서 변경 중 집중 검사: **109 passed, 1 skipped**, 이후 번역·설정 복구·종료 계약 **91 passed, 1 skipped**. 이 수치는 각 실행 당시의 파일 기준이다.
+- 첫 전체 실행: **766 passed, 1 failed, 30 skipped**. 실패는 후속 개선 날짜 줄이 아직 없던 문서 검사 1건이며 기능 실패는 없었다. 이후 날짜·구현 근거 링크를 작성했다.
+- 최종 전체 실행: `python -m pytest -q -p no:cacheprovider --tb=short -ra -W error::RuntimeWarning` **769 passed, 30 skipped**, 90.90초. skip은 라이브 프리셋 27건·POSIX directory descriptor 1건·새 POSIX shell 1건·opt-in macOS launchd 1건이다. 외부 langsmith DeprecationWarning 13건은 남아 있다.
+- `basedpyright websync/`: **0 errors, 0 warnings**.
+- `python scripts/verify_isolated_build.py`: **exit 0**, `Isolated frozen build and --smoke passed` (PyInstaller 6.22.3). 임시 소스·dist·state만 사용했다.
+- 실기기·macOS/Linux native OS·원격 CI·실서비스 검사는 이 Windows 작업 환경에서 실행하지 않았다. CI 설정 추가는 그 성공 증거가 아니다.
 
 2026-10-13 — PROJECT_AUDIT.md 후속 구현 및 검증 기록.
 

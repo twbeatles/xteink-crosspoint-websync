@@ -235,6 +235,7 @@ class AppSyncControlMixin:
         if getattr(self, "_closing", False):
             return
         self._closing = True
+        self._set_status(t("gui.app.shutdown_waiting"), "warn")
         self.service.prepare_shutdown()
         finished = threading.Event()
 
@@ -276,6 +277,7 @@ class AppSyncControlMixin:
                             pass
                 self.root.destroy()
             else:
+                self._set_status(t("gui.app.shutdown_waiting"), "warn")
                 self.root.after(50, poll)
 
         self._close_thread = threading.Thread(target=drain, name="app-shutdown", daemon=False)

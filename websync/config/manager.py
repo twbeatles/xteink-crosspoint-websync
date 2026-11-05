@@ -183,6 +183,17 @@ class ConfigManager:
                 self._require_structure(candidate, ConfigLoadError)
                 candidate, _ = self._normalize_loaded(candidate)
                 log_validation_warnings(candidate)
+                # Recovery is a new write, not a return to the backup's revision.
+                # A writer holding the pre-recovery revision must fail its CAS.
+                disk_revision = 0
+                try:
+                    with open(self.config_path, "r", encoding="utf-8") as handle:
+                        current = json.load(handle)
+                    if isinstance(current, dict) and type(current.get("_config_revision")) is int:
+                        disk_revision = current["_config_revision"]
+                except (OSError, ValueError):
+                    pass  # The rejected file can be unreadable; preserve it below.
+                candidate["_config_revision"] = max(disk_revision, candidate.get("_config_revision", 0)) + 1
                 preserved = None
                 if os.path.exists(self.config_path):
                     preserved = f"{self.config_path}.rejected.{uuid.uuid4().hex}.json"

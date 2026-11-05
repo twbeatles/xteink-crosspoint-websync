@@ -258,8 +258,11 @@ class X3DeviceClient:
         self._clear_error(host)
         return True
 
-    def download(self, remote_path: str, local_path: str, ip: str | None = None) -> bool:
-        """GET /download?path=... — 파일을 PC로 저장."""
+    def download(
+        self, remote_path: str, local_path: str, ip: str | None = None,
+        *, overwrite: bool = False,
+    ) -> bool:
+        """Download completely before publishing; replacement requires explicit consent."""
         host = self._resolve_host(ip)
         remote = normalize_remote_path(remote_path)
         if remote == "/":
@@ -282,36 +285,38 @@ class X3DeviceClient:
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
 
-        if response.status_code != 200:
-            msg = self._request_error_message(response)
-            self._record_error(host, msg)
-            raise DeviceClientError(msg, host=host, status_code=response.status_code)
-
-        parent_dir = os.path.dirname(os.path.abspath(local_path))
-        if parent_dir:
-            os.makedirs(parent_dir, exist_ok=True)
-
-        temp_path = os.path.join(
-            parent_dir or ".",
-            f".{os.path.basename(local_path)}.{uuid.uuid4().hex}.part",
-        )
+        temp_path = None
         try:
+            if response.status_code != 200:
+                msg = self._request_error_message(response)
+                self._record_error(host, msg)
+                raise DeviceClientError(msg, host=host, status_code=response.status_code)
+            parent_dir = os.path.dirname(os.path.abspath(local_path))
+            os.makedirs(parent_dir, exist_ok=True)
+            temp_path = os.path.join(
+                parent_dir, f".{os.path.basename(local_path)}.{uuid.uuid4().hex}.part",
+            )
             with open(temp_path, "xb") as f:
                 for chunk in response.iter_content(chunk_size=64 * 1024):
                     if chunk:
                         f.write(chunk)
                 f.flush()
                 os.fsync(f.fileno())
-            os.replace(temp_path, local_path)
+            from websync.upload.local_path import publish_local_download
+
+            publish_local_download(temp_path, local_path, overwrite=overwrite)
         except (OSError, requests.RequestException) as e:
             try:
-                if os.path.exists(temp_path):
+                if temp_path is not None and os.path.exists(temp_path):
                     os.remove(temp_path)
             except OSError:
                 pass
             msg = t("device.save_failed", error=e)
             self._record_error(host, msg)
             raise DeviceClientError(msg, host=host) from e
+
+        finally:
+            response.close()
 
         self._clear_error(host)
         return True

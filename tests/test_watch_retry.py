@@ -80,6 +80,18 @@ def test_connection_recovery_without_file_event(harness):
     assert harness.calls == [["a.local", "b.local"], ["a.local", "b.local"]]
 
 
+def test_diagnostics_preserve_acknowledged_dedup_state(harness):
+    queue = harness.start(lambda ips, stop: dict.fromkeys(ips, True))
+    assert queue.get_stats() == {"pending": 0, "finished_cached": 0}
+    queue.enqueue(str(harness.book))
+    eventually(lambda: queue.get_stats() == {"pending": 0, "finished_cached": 1})
+    for _ in range(5):
+        assert queue.get_stats()["finished_cached"] == 1
+    queue.enqueue(str(harness.book))
+    eventually(lambda: queue.get_stats()["pending"] == 0)
+    assert len(harness.calls) == 1
+
+
 def test_partial_success_retries_only_pending_device(harness):
     def attempt(ips, stop):
         return {ip: ip == "a.local" or len(harness.calls) > 1 for ip in ips}

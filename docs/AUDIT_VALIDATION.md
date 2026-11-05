@@ -1,6 +1,15 @@
 # Audit validation and delivery coordination design
 
-2026-10-15. 이 문서는 현재 구현의 검증 절차와 승인된 서버 확장의 설계다. 중앙 서버·새 firmware API를 구현하거나 존재한다고 주장하지 않는다. 실제 기기·외부 서비스·native OS 검사는 아래 절차를 실행한 뒤에만 통과로 기록한다.
+2026-10-15 작성, 2026-11-05 보완. 현재 구현의 검증 절차와 기기 지원을 전제로 한 조정 서버 설계다. 중앙 서버·새 firmware API를 구현하거나 존재한다고 주장하지 않는다. 실제 기기·외부 서비스·native OS 검사는 아래 절차를 실행한 뒤에만 통과로 기록한다.
+
+## 2026-11-05 추가 검증
+
+- 일반 로컬 회귀: `python -m pytest tests/test_audit_20261105.py tests/test_translator.py tests/test_config_input_recovery.py tests/test_watch_retry.py tests/test_storage_report.py -q`. 다운로드 경쟁 파일·원문 fallback·복구 revision·캐시 비파괴 진단을 검사한다.
+- Linux의 `test_cron_generated_command_reaches_fake_sync`는 임시 경로에 percent·백슬래시·공백·따옴표를 넣어 실제 POSIX shell에서 합성 sync만 실행한다. 사용자 crontab을 설치하지 않는다.
+- macOS CI/일회용 계정: `WEBSYNC_NATIVE_SCHEDULER=1 python -m pytest tests/test_scheduler_native.py -q`. UUID로 생성한 테스트 label·임시 plist·마커 파일만 사용하며 실제 reader나 config에 연결하지 않는다. 등록→즉시 합성 실행→시간 변경→해제→반복 해제를 확인한다. 플랫폼/opt-in 미충족 skip은 native 통과가 아니다.
+- 기기 다운로드는 빈 테스트 폴더에서 동일 이름의 합성 파일을 다운로드 중 생성한다. 미승인 모드는 해당 파일을 보존하고 오류를 알리며 승인 모드만 바꿔야 한다. 이미 존재하던 파일뿐 아니라 게시 직전 경쟁도 검사한다.
+- 느린 Google 번역 fake coroutine에 timeout·취소를 주입하면 30초 예산 후 client가 닫히고 원문 전체로 돌아가야 한다. LibreTranslate는 노드 사이와 응답 후 취소를 확인한다. 동기 I/O의 절대 중단 상한은 별도 검증/프로세스 설계 대상이다.
+- 자원 진단: `python scripts/storage_report.py --root <테스트 또는 앱 폴더>`는 메타데이터만 읽는다. 사용자 지정 output은 별도 확인하며 숫자 증가가 곧 손상을 뜻하지 않는다. 조사 기준과 보존 정책은 DEVELOPER를 참조한다.
 
 ## 안전한 검증 경계
 
@@ -63,9 +72,9 @@ python scripts/verify_isolated_build.py
 
 브라우저에서 login→dashboard→sync→5초 status/log polling→busy 상태에서 다시 sync→cancel→완료 뒤 버튼 재활성화를 확인한다. 잘못된 토큰은 401, 실행 중 재시작은 409, 취소는 현재 작업만 대상으로 해야 한다. proxy로 mutation 응답 하나를 폐기하면 안내가 표시되고 mutation이 자동 재전송되지 않아야 한다. 브라우저 console error·네트워크 요청 수·callback 횟수·최종 상태를 기록한다. 원격 CI/실제 브라우저를 실행하지 않았다면 HTTP 계약 통과만으로 브라우저 E2E 통과라고 적지 않는다.
 
-## 향후 중앙 조정 서버 설계 — 구현 범위 밖
+## 향후 중앙 조정 서버 설계 — 기기 지원 전제
 
-사용자 승인 범위는 설계와 검증 절차다. 아래 저장 필드/프로토콜은 제안이며 현재 CrossPoint API가 아니다.
+아래 저장 필드/프로토콜은 제안이며 현재 확인된 CrossPoint API가 아니다. 2026-11-05 후속 개선에서도 기기 측 idempotent commit·receipt 조회 계약이 확보되지 않았으므로 실행 가능한 로컬 수정과 프로토콜 설계를 구분한다. 구현 재개 전에는 지원 펌웨어 버전·endpoint·인증·receipt 검증 형식을 확인한다. 파일 존재나 길이만으로 성공을 기록하는 대체 구현은 하지 않는다.
 
 ### 식별성과 상태
 

@@ -127,6 +127,11 @@ class WatchRetryQueue:
         with self._condition:
             self._condition.notify_all()
 
+    def get_stats(self) -> dict[str, int]:
+        """Read-only diagnostics; never evict acknowledged dedup state implicitly."""
+        with self._condition:
+            return {"pending": len(self._jobs), "finished_cached": len(self._finished)}
+
     def _process(self, path: str, job: _Job) -> bool:
         if not os.path.isfile(path):
             # Keep missing files pending: network/removable libraries may return.

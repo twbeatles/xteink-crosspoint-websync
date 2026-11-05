@@ -464,6 +464,7 @@
       "backup_pull_log": "☁ 시작 시 공유 데이터 가져오기: {msg}",
       "backup_pull_fail": "☁ 시작 시 공유 데이터 가져오기 실패: {error}",
       "cancel_requested": "⏹ 동기화 취소를 요청했습니다. 현재 사이트 처리가 끝나면 중단됩니다.",
+      "shutdown_waiting": "종료 중: 진행 중인 요청과 저장 작업이 끝나기를 기다리고 있습니다.",
       "sync_requested": "\n=== 동기화 실행 요청 받음 ===",
       "sync_finished": "=== 동기화 프로세스 종료 ===\n",
       "no_devices": "등록된 기기 없음",
@@ -615,6 +616,7 @@
       "registered": "매일 {hour}:{minute}에 백그라운드 동기화 스케줄이 등록되었습니다.",
       "register_failed": "스케줄러 등록에 실패했습니다. 관리자 권한을 확인하세요.",
       "unregistered": "스케줄 작업이 해제되었습니다.",
+      "state_save_failed": "OS 예약 작업은 변경됐지만 앱 설정을 저장하지 못했습니다. 표시된 OS 상태를 확인하고 설정을 다시 저장하세요.",
       "unregister_failed": "스케줄 해제에 실패했거나 등록된 작업이 없습니다.",
       "status": "스케줄러 상태: {status}"
     },

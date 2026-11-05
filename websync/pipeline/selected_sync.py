@@ -129,6 +129,7 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
 
     summarizer = Summarizer(config, logger=service.logger)
     translator = Translator(config, logger=service.logger)
+    translator.cancel_requested = lambda: getattr(service, "is_cancel_requested", lambda: False)()
 
     articles_by_site, source_options = selected_source_groups(
         selected_articles, config.get("sites", []), t("pipeline.selected.other_site")

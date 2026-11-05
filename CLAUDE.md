@@ -632,7 +632,7 @@ feat(gui): Add sync history viewer tab with re-send capability
 - 테스트는 import 전 임시 저장 경로를 사용하고 실제 사용자 파일 접근을 차단합니다. 이 보호는 Python I/O 경계이며 OS sandbox가 아닙니다.
 - EPUB만 만들기도 같은 파이프라인 락을 사용합니다. googletrans 지원 범위는 >=4.0.2,<5이며 async API를 await하고 client를 정리합니다.
 - frozen 검증은 python scripts/verify_isolated_build.py로 사용자 데이터·dist를 사용하지 않고 수행합니다.
-- 2026-10-13 감사 개선 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체 테스트와 Windows 핵심 계약 2개 작업이며 frozen 빌드는 릴리즈에서 검사합니다.
+- 2026-10-13 감사 개선 당시 Linux/Windows/macOS × Python 3.10/3.15 계약 CI, optional translation 및 frozen smoke가 성공했습니다. 현재 일반 CI는 Linux 전체·Windows 핵심 계약·macOS 전체+optional 작업으로 구성하며 frozen 빌드는 릴리즈에서 검사합니다. 설정 추가만으로 새 CI 실행의 성공을 뜻하지는 않습니다.
 
 ## 감사 후속 구현 계약 (2026-10-15)
 
@@ -677,3 +677,12 @@ feat(gui): Add sync history viewer tab with re-send capability
 - 새 모듈 `websync.upload.local_path`, `websync.epub.filenames`는 spec hiddenimports에 포함한다.
 - AGENTS.md는 CLAUDE.md와 같은 내용을 유지한다(정본은 CLAUDE.md).
 - 남은 범위: 원격 전송 receipt 모델(응답 유실 조정)은 여전히 설계 검토 대상이다.
+
+## 감사 후속 구현 계약 (2026-11-05)
+
+- 다운로드는 `X3DeviceClient.download(..., overwrite=False)`가 기본이며 `upload/local_path.publish_local_download`에서 최종 게시도 배타적으로 수행한다. 계획 뒤 경쟁 파일이 생기면 보존하고 오류를 반환한다. 명시적 승인만 replace를 허용한다.
+- macOS 예약 해제/변경은 unload 실패를 확인하고 실제 job 부재가 확인된 경우만 멱등 성공으로 처리한다. 실패 시 plist를 보존하며 상태는 launchctl에서 조회한다. GUI는 OS 변경 성공과 앱 설정 저장 성공을 구분한다.
+- Linux 예약 경로는 cron percent 전처리와 shell 인용을 각각 처리하고 제어문자를 쓰기 전에 거부한다.
+- 번역은 기사당 30초 예산과 취소 콜백을 적용한다. Google 비동기 작업은 취소 후 client를 정리하고 LibreTranslate는 호출 사이와 완료 후 확인한다. 종료 대기 상태를 표시하지만 동기 I/O를 강제 중단하는 절대 시간 상한은 주장하지 않는다.
+- 설정 복구는 새 revision을 부여해 복구 전 writer의 CAS를 무효화한다. 기존 bak와 rejected 사본은 보존한다.
+- 보존량은 `scripts/storage_report.py --root <폴더>`와 Watch `get_stats()`로 읽기 전용 점검한다. 이력·replica·tombstone·완료 캐시는 임의 자동 삭제하지 않는다. 기준과 외부 검증 범위는 `docs/DEVELOPER.md`, `docs/AUDIT_IMPLEMENTATION.md`, `docs/AUDIT_VALIDATION.md`에 기록한다.

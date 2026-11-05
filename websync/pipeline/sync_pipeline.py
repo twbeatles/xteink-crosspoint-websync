@@ -60,6 +60,7 @@ def run_sync_pipeline_locked(
 
     summarizer = Summarizer(config, logger=service.logger)
     translator = Translator(config, logger=service.logger)
+    translator.cancel_requested = lambda: getattr(service, "is_cancel_requested", lambda: False)()
 
     enabled_sites = [s for s in config.get("sites", []) if s.get("enabled", True)]
     if not enabled_sites:
