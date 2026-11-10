@@ -34,14 +34,8 @@ from websync import __version__
 from websync.core.instance_lock import (
     acquire_instance_lock,
     release_instance_lock,
-    _lock_path,
-    _is_process_running,
-    _read_lock_pid,
-    _remove_stale_lock,
-    _acquire_windows_mutex,
-    _release_windows_mutex,
 )
-from websync.core.smoke import SMOKE_MODULES, run_smoke_check
+from websync.core.smoke import SMOKE_MODULES, run_smoke_check  # noqa: F401 # re-export (tests/test_updater_cli.py imports from x3_websync)
 from websync.cli.update_apply import handle_apply_update as _handle_apply_update
 
 

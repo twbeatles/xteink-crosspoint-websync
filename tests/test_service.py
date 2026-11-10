@@ -474,7 +474,6 @@ def test_pipeline_skips_non_http_site_url():
         with patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
             svc.run_sync_pipeline()
     # file:// 사이트는 get_scraper 호출 없이 스킵
-    called_sites = [c.args[0] for c in mock_scraper.fetch_articles.call_args_list] if mock_scraper.fetch_articles.called else []
     # fetch_articles 인자인 site dict
     urls = [c.kwargs.get("site") if False else c.args[0].get("url") for c in mock_scraper.fetch_articles.call_args_list]
     assert "file:///tmp/x" not in urls

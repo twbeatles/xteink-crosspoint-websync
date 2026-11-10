@@ -1,20 +1,13 @@
 from __future__ import annotations
 
-import os
-import queue
-import threading
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox
 
 from websync.gui.widgets import (
-    RED_COLOR, GREEN_COLOR, ACCENT_COLOR, HINT_COLOR, BG_COLOR,
-    create_scrollable_frame, setup_dialog
+    RED_COLOR, GREEN_COLOR
 )
 from websync.core.paths import resolve_path
-from websync.core.logger import get_log_dir
 from websync.servers.opds import OPDSServer
 from websync.servers.web_dashboard import WebDashboard
-from websync.watch.calibre import CalibreWatcher
 from websync.i18n import t
 
 

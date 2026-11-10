@@ -6,7 +6,6 @@ File Transfer / Calibre Wireless 모드에서 동작하는 웹서버 API를 사�
 from __future__ import annotations
 
 import json
-import mimetypes
 import os
 import uuid
 from typing import Any, Optional

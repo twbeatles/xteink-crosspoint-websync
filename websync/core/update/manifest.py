@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+import time
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -167,8 +168,6 @@ def verify_release_manifest(
         signature=signature_text,
     )
 
-
-import time
 
 
 def download_release_manifest(url: str) -> bytes:

@@ -1,0 +1,20 @@
+# Ruff S1 baseline: pyflakes + pycodestyle errors only (E4,E7,E9,F).
+# S2 (I) / S3 (B) / S4 (UP) intentionally deferred.
+[lint]
+select = ["E4", "E7", "E9", "F"]
+fixable = []
+
+[lint.per-file-ignores]
+# Ordered test/storage bootstrap MUST precede project imports: conftest
+# installs the storage guard + sandbox env; pipeline/backup tests prepend
+# tests/support for FakeCrosspointServer. Moving imports up breaks isolation.
+"tests/conftest.py" = ["E402"]
+"tests/test_backup_interleavings.py" = ["E402"]
+"tests/test_pipeline_failure_recovery.py" = ["E402"]
+"tests/test_pipeline_http_integration.py" = ["E402"]
+# Entry point: pythonw stdout/UTF-8 guards must precede project imports
+# (import-time logging would crash with stdout=None).
+"x3_websync.py" = ["E402"]
+# Standalone scripts insert REPO_ROOT into sys.path (load-bearing).
+"scripts/build_update_manifest.py" = ["E402"]
+"scripts/verify_update_release_key.py" = ["E402"]

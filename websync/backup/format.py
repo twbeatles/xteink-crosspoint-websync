@@ -52,10 +52,10 @@ def is_remote_newer(remote_at: str | None, local_at: str | None) -> bool:
     r = parse_iso(remote_at)
     if r is None:
         return False
-    l = parse_iso(local_at)
-    if l is None:
+    loc = parse_iso(local_at)
+    if loc is None:
         return True
-    return r > l
+    return r > loc
 
 
 def build_sites_payload(

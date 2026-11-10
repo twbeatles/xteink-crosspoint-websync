@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import os
 import sys
-import threading
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox, filedialog
 import customtkinter as ctk
 
 from websync.backup.portable_cfg import (
@@ -16,8 +15,8 @@ from websync.backup.portable_cfg import (
     normalize_history_mode,
 )
 from websync.gui.widgets import (
-    CardFrame, COLOR_CARD_BG, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
-    COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING, get_font
+    CardFrame, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
+    COLOR_SUCCESS, COLOR_DANGER, get_font
 )
 from websync.i18n import t
 
@@ -255,7 +254,7 @@ class SettingsBackupSyncMixin:
 
                 self.app.root.after(0, done)
             except Exception as e:
-                def err():
+                def err(e=e):
                     messagebox.showerror(t("gui.settings.backup.sync_error_title"), str(e))
                     self.backup_status_label.configure(text=str(e), text_color=COLOR_DANGER[0])
 

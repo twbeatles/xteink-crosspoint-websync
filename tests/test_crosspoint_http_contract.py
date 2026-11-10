@@ -6,7 +6,6 @@ preserves local bytes and cleans .part; destructive paths are refused.
 from __future__ import annotations
 
 import hashlib
-import os
 
 import pytest
 import requests

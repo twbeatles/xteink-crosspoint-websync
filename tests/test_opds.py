@@ -6,6 +6,7 @@ import urllib.request
 
 import pytest
 import requests
+from websync.servers.opds import OPDSServer
 
 
 class _Response:
@@ -46,7 +47,6 @@ def _urlopen(request, timeout=3):
         )
     return _Response(response)
 
-from websync.servers.opds import OPDSServer
 
 
 def _free_port() -> int:
@@ -166,7 +166,6 @@ def test_opds_unicode_filename_download():
 
 def test_opds_serves_concurrent_requests():
     """대용량 다운로드(느린 요청) 중 카탈로그(빠른 요청)가 동시 처리되는지."""
-    import threading
     from concurrent.futures import ThreadPoolExecutor
 
     with tempfile.TemporaryDirectory() as tmp:

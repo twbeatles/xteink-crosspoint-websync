@@ -1,25 +1,12 @@
 """기기 SD 카드 파일 관리 탭 (CustomTkinter 기반)"""
 from __future__ import annotations
 
-import os
-import threading
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, simpledialog
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    CardFrame, COLOR_CARD_BG, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
-    COLOR_DANGER, COLOR_WARNING, get_font, create_scrollable_frame, create_scrolled_tree
+    CardFrame, COLOR_FG, COLOR_SECONDARY_FG, COLOR_DANGER, COLOR_WARNING, get_font, create_scrollable_frame, create_scrolled_tree
 )
-from websync.upload.device_client import (
-    X3DeviceClient,
-    DeviceClientError,
-    normalize_remote_path,
-    parent_remote_path,
-    format_file_size,
-    filter_old_sync_epubs,
-)
-from websync.upload.uploader import X3Uploader, normalize_upload_remote_dir
 
 from websync.gui.device_files.settings import DeviceFilesSettingsMixin
 from websync.gui.device_files.browser import DeviceFilesBrowserMixin

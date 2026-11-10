@@ -1,32 +1,16 @@
 """메인 GUI 컨트롤러 (조립)."""
 from __future__ import annotations
 
-import os
-import hashlib
-import subprocess
 import threading
-import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 import customtkinter as ctk
 
 from websync.integrations.calibre import CalibreManager
-from websync.core.paths import resolve_path
-from websync.upload.uploader import X3Uploader, normalize_device_host
 from websync.scheduler.manager import SchedulerManager
-from websync.integrations.notifier import ToastNotifier
 from websync.pipeline.service import SyncService
-from websync.core.logger import get_log_dir
-from websync.config.exceptions import ConfigSaveError
 from websync.gui.widgets import (
-    COLOR_BG, COLOR_CARD_BG, COLOR_FG, COLOR_ACCENT, FONT_FAMILY, get_font,
-    center_window, setup_dialog, apply_global_fonts
+    FONT_FAMILY, apply_global_fonts
 )
-from websync.gui.tab_sync import SyncTab
-from websync.gui.tab_calibre import CalibreTab
-from websync.gui.tab_history import HistoryTab
-from websync.gui.tab_device_files import DeviceFilesTab
-from websync.gui.tab_settings import SettingsTab
-from websync.gui.bottom_bar import BottomBar
 
 from websync.gui.app_core.layout import AppLayoutMixin
 from websync.gui.app_core.helpers import AppHelpersMixin
@@ -233,7 +217,7 @@ class SyncAppGui(
 
                 self.root.after(0, done)
             except Exception as e:
-                self.root.after(0, lambda: self._log_message(t("gui.app.backup_pull_fail", error=e)))
+                self.root.after(0, lambda e=e: self._log_message(t("gui.app.backup_pull_fail", error=e)))
 
         self._start_background_task(task, name="backup-pull")
 

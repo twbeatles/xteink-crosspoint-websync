@@ -1,7 +1,6 @@
 """설정 탭 내 소프트웨어 업데이트 관련 서브패널 (CustomTkinter 기반)."""
 from __future__ import annotations
 
-import os
 import sys
 import threading
 import tkinter as tk

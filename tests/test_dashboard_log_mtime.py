@@ -1,7 +1,5 @@
-import os
 import time
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from websync.servers.dashboard.handler import DashboardHandler
 
 

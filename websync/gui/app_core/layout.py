@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import tkinter as tk
 from tkinter import ttk
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    COLOR_BG, COLOR_CARD_BG, COLOR_FG, COLOR_ACCENT, FONT_FAMILY, get_font,
+    COLOR_ACCENT, FONT_FAMILY, get_font,
     center_window, apply_treeview_style
 )
 from websync.gui.tab_sync import SyncTab

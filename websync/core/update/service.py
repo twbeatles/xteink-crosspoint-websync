@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -15,16 +14,13 @@ from websync.core.update.constants import (
     UPDATE_PUBLIC_KEY_B64,
 )
 from websync.core.update.installer import (
-    apply_staged_update,
     cleanup_stale_update_artifacts,
-    cleanup_update_backups,
     consume_update_result,
     launch_update_helper,
     prepare_staged_update,
     resolve_update_staging_root,
     stream_update_artifact,
     update_result_path,
-    write_update_result,
 )
 from websync.core.update.manifest import (
     NoUpdateAvailableError,

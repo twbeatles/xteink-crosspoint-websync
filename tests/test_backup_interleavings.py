@@ -6,10 +6,8 @@ the shared canonical bytes.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
-import sqlite3
 import sys
 import threading
 from unittest.mock import patch

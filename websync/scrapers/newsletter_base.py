@@ -24,7 +24,6 @@
 """
 
 import re
-from abc import abstractmethod
 from urllib.parse import urldefrag, urljoin
 
 from bs4 import BeautifulSoup
@@ -176,8 +175,8 @@ class BaseNewsletterScraper(BaseScraper):
     def _clean_content(self, container: BeautifulSoup, site_config: dict) -> None:
         """공통 불필요 요소 제거. 하위 클래스에서 추가로 override."""
         for tag_name in ("nav", "header", "footer", "aside", "script", "style", "form", "noscript"):
-            for t in container.find_all(tag_name):
-                t.decompose()
+            for el in container.find_all(tag_name):
+                el.decompose()
 
         # 기본 속성 정리 (필요한 것만)
         for tag in container.find_all(True):

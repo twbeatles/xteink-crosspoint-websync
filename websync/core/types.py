@@ -1,5 +1,5 @@
 """WebSync 공통 타입 정의"""
-from typing import Callable, TypedDict, Any
+from typing import Callable, TypedDict
 
 # 콜백 타입 정의
 LogCallback = Callable[[str], None]

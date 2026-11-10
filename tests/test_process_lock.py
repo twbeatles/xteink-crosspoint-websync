@@ -1,7 +1,5 @@
 import os
 import tempfile
-import threading
-import time
 
 from websync.core import paths
 from websync.core.process_lock import DEFAULT_PIPELINE_LOCK_NAME, ProcessFileLock

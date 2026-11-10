@@ -1,8 +1,6 @@
 """스크래퍼 공통 기반 및 유틸리티"""
-import re
 import requests
 from abc import ABC, abstractmethod
-from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from requests.adapters import HTTPAdapter
 
@@ -11,7 +9,7 @@ try:
 except ImportError:
     Retry = None  # urllib3 미설치 시 폴백
 
-from websync.core.article import ensure_article_url
+from websync.core.article import ensure_article_url  # noqa: F401 # hub re-export (9 scraper modules import from base)
 from websync.i18n import t
 
 HEADERS = {

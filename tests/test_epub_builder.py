@@ -52,7 +52,6 @@ def test_build_has_identifier():
             opf_data = zf.read(opf_name).decode("utf-8")
         # dc:identifier 요소 존재 확인
         root = ET.fromstring(opf_data)
-        ns = {"dc": "http://purl.org/dc/elements/1.1/", "opf": "http://www.idpf.org/2007/opf"}
         identifiers = root.findall(".//{http://purl.org/dc/elements/1.1/}identifier")
         assert len(identifiers) > 0
         ident_text = identifiers[0].text or ""

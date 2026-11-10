@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from websync.db.history import SyncHistoryDb, SyncHistoryDbError, LEGACY_DEVICE_IP
+from websync.db.history import SyncHistoryDb, SyncHistoryDbError
 from contextlib import closing
 
 

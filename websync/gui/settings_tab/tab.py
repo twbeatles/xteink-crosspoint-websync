@@ -1,23 +1,15 @@
 """고급·서버 설정 탭 (CustomTkinter 카드 레이아웃 적용)."""
 from __future__ import annotations
 
-import os
-import queue
-import threading
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    CardFrame, COLOR_CARD_BG, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
-    COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING, get_font,
-    create_scrollable_frame, setup_dialog
+    CardFrame, COLOR_SECONDARY_FG, COLOR_ACCENT,
+    COLOR_DANGER, get_font,
+    create_scrollable_frame
 )
-from websync.core.paths import resolve_path
-from websync.core.logger import get_log_dir
-from websync.servers.opds import OPDSServer
-from websync.servers.web_dashboard import WebDashboard
-from websync.watch.calibre import CalibreWatcher
 
 from websync.gui.settings_tab.epub_settings import SettingsEpubMixin
 from websync.gui.settings_tab.servers import SettingsServersMixin

@@ -1,5 +1,4 @@
 """config.json 설정 값 검증 유틸리티"""
-import re
 import math
 from dataclasses import dataclass
 from typing import Literal

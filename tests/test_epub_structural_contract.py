@@ -6,7 +6,6 @@ per_site vs daily_digest differ exactly as contracted.
 """
 from __future__ import annotations
 
-import io
 import json
 import os
 import zipfile

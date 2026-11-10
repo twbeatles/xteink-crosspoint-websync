@@ -169,8 +169,8 @@ class MoneyLetterScraper(BaseNewsletterScraper):
         """머니레터 특화 정제 (클래스 선택자는 속성 제거 전에 수행)."""
         # 공통 태그 제거 (nav/script 등) — 속성 strip 전에 클래스 기반 제거
         for tag_name in ("nav", "header", "footer", "aside", "script", "style", "form", "noscript"):
-            for t in container.find_all(tag_name):
-                t.decompose()
+            for el in container.find_all(tag_name):
+                el.decompose()
 
         for sel in (
             ".elementor-widget-form",
@@ -254,8 +254,8 @@ class MoneyLetterScraper(BaseNewsletterScraper):
             )
             if not tags:
                 break
-            for t in tags:
-                t.unwrap()
+            for el in tags:
+                el.unwrap()
 
     @staticmethod
     def _unwrap_inline_wrappers(container: Tag) -> None:

@@ -120,23 +120,23 @@ def _unique_keys(keys: list[str]) -> list[str]:
 def ip_to_history_key_map(targets: list[dict]) -> dict[str, str]:
     """upload 결과 IP → 이력 키 매핑."""
     out: dict[str, str] = {}
-    for t in targets:
-        if not isinstance(t, dict):
+    for target in targets:
+        if not isinstance(target, dict):
             continue
-        ip = normalize_device_host(t.get("ip") or "")
+        ip = normalize_device_host(target.get("ip") or "")
         if not ip:
             continue
-        out[ip] = (t.get("history_key") or ip).strip() or ip
+        out[ip] = (target.get("history_key") or ip).strip() or ip
     return out
 
 
 def history_keys_from_targets(targets: list[dict]) -> list[str]:
     keys: list[str] = []
-    for t in targets:
-        if not isinstance(t, dict):
+    for target in targets:
+        if not isinstance(target, dict):
             continue
-        ip = normalize_device_host(t.get("ip") or "")
-        key = (t.get("history_key") or ip).strip()
+        ip = normalize_device_host(target.get("ip") or "")
+        key = (target.get("history_key") or ip).strip()
         if key:
             keys.append(key)
     return keys
@@ -145,15 +145,15 @@ def history_keys_from_targets(targets: list[dict]) -> list[str]:
 def alias_key_groups(targets: list[dict]) -> list[list[str]]:
     """기기별 이력 조회 후보 키 그룹 (id / IP / 레거시 host)."""
     groups: list[list[str]] = []
-    for t in targets:
-        if not isinstance(t, dict):
+    for target in targets:
+        if not isinstance(target, dict):
             continue
-        aliases = t.get("alias_keys")
+        aliases = target.get("alias_keys")
         if isinstance(aliases, list) and aliases:
             groups.append([str(a).strip() for a in aliases if str(a).strip()])
             continue
-        ip = normalize_device_host(t.get("ip") or "")
-        key = (t.get("history_key") or ip).strip()
+        ip = normalize_device_host(target.get("ip") or "")
+        key = (target.get("history_key") or ip).strip()
         groups.append(_unique_keys([key, ip]))
     return groups
 
@@ -184,26 +184,26 @@ def resolve_pending_upload_ips(
     if mode == HISTORY_MODE_GLOBAL_URL:
         if all(is_synced_url(u) for u in clean_urls):
             return []
-        for t in upload_targets:
-            if not isinstance(t, dict):
+        for target in upload_targets:
+            if not isinstance(target, dict):
                 continue
-            ip = normalize_device_host(t.get("ip") or "")
+            ip = normalize_device_host(target.get("ip") or "")
             if ip and ip not in seen:
                 seen.add(ip)
                 pending.append(ip)
         return pending
 
-    for t in upload_targets:
-        if not isinstance(t, dict):
+    for target in upload_targets:
+        if not isinstance(target, dict):
             continue
-        ip = normalize_device_host(t.get("ip") or "")
+        ip = normalize_device_host(target.get("ip") or "")
         if not ip or ip in seen:
             continue
-        aliases = t.get("alias_keys")
+        aliases = target.get("alias_keys")
         if isinstance(aliases, list) and aliases:
             keys = [str(a).strip() for a in aliases if str(a).strip()]
         else:
-            keys = _unique_keys([(t.get("history_key") or ip).strip(), ip])
+            keys = _unique_keys([(target.get("history_key") or ip).strip(), ip])
 
         def _url_synced(u: str) -> bool:
             return any(is_synced_for_device(u, k) for k in keys if k)

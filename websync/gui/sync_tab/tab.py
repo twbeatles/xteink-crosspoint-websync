@@ -1,21 +1,13 @@
 """뉴스 동기화 탭 (CustomTkinter 현대적 카드 UI 적용)."""
 from __future__ import annotations
 
-import os
-import sys
-import hashlib
-import threading
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    CardFrame, COLOR_CARD_BG, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
+    CardFrame, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
     COLOR_ACCENT_SOFT, COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING, Tooltip, get_font,
-    create_scrollable_frame, create_scrolled_tree, make_button, setup_dialog
+    create_scrollable_frame, create_scrolled_tree, make_button
 )
-from websync.upload.uploader import X3Uploader, normalize_device_host
-from websync.config.exceptions import ConfigSaveError, ConfigLoadError
 
 from websync.gui.sync_tab.connection import SyncConnectionMixin
 from websync.gui.sync_tab.schedule import SyncScheduleMixin

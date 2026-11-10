@@ -9,7 +9,6 @@ import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from websync.pipeline.translator import Translator
 

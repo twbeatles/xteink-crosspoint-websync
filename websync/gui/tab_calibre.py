@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import os
-import threading
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox, filedialog
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    CardFrame, COLOR_CARD_BG, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
-    COLOR_SUCCESS, COLOR_DANGER, get_font, create_scrollable_frame, create_scrolled_tree
+    CardFrame, COLOR_SECONDARY_FG, COLOR_ACCENT,
+    get_font, create_scrollable_frame, create_scrolled_tree
 )
 from websync.integrations.notifier import ToastNotifier
 from websync.i18n import t

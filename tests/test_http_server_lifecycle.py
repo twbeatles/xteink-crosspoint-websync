@@ -5,13 +5,10 @@
 - OPDS: unauth denied, traversal/symlink denied, log/response carry no secrets
 - lifecycle: port=0 start/stop, burst of concurrent GETs without reset storm
 """
-import json
 import os
 import tempfile
 import threading
-import urllib.request
 
-import pytest
 import requests
 
 from websync.servers.opds import OPDSServer

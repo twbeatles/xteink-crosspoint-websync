@@ -1,12 +1,11 @@
 import json
 import io
-import tempfile
-import time
 import urllib.error
 import urllib.request
 
 import pytest
 import requests
+from websync.servers.web_dashboard import WebDashboard
 
 
 class _Response:
@@ -49,7 +48,6 @@ def _urlopen(request, timeout=3):
         )
     return _Response(response)
 
-from websync.servers.web_dashboard import WebDashboard
 
 
 def _free_port() -> int:
@@ -212,7 +210,6 @@ def test_login_sets_session_cookie():
 def test_dashboard_serves_concurrent_status_requests():
     """느린 sync_callback 실행 중에도 /api/status 요청이 블로킹되지 않는지."""
     import threading
-    import time
     from concurrent.futures import ThreadPoolExecutor
 
     started = threading.Event()

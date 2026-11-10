@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    CardFrame, COLOR_BG, COLOR_SECONDARY_FG, COLOR_DANGER, Tooltip,
+    CardFrame, COLOR_BG, COLOR_SECONDARY_FG, Tooltip,
     get_font, make_button, setup_dialog,
 )
 from websync.scrapers.types import SCRAPER_TYPES, SPECIALIZED_TYPES

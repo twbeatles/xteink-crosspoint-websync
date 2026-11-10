@@ -1,6 +1,6 @@
 """NaverBlogScraper"""
 from concurrent.futures import ThreadPoolExecutor
-from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, extract_rss_link, ensure_article_url, fetch_url, normalize_limit
+from websync.scrapers.base import BaseScraper, maybe_strip_images, fetch_url, normalize_limit
 import re
 from bs4 import BeautifulSoup
 from websync.core.logger import get_logger

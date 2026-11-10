@@ -1,19 +1,8 @@
 from __future__ import annotations
 
-import os
 import copy
-import sys
-import hashlib
-import threading
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox
 
-from websync.gui.widgets import (
-    BG_COLOR, TEXT_BG, SECONDARY_BG, HINT_COLOR, YELLOW_COLOR, GREEN_COLOR, RED_COLOR,
-    create_scrollable_frame, create_scrolled_tree, setup_dialog, bind_widget_mousewheel
-)
-from websync.upload.uploader import X3Uploader, normalize_device_host
-from websync.config.exceptions import ConfigSaveError, ConfigLoadError
 from websync.i18n import t
 
 

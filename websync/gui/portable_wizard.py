@@ -2,15 +2,14 @@
 from __future__ import annotations
 
 import os
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox, filedialog
 import customtkinter as ctk
 from typing import TYPE_CHECKING, Callable, Optional
 
 from websync.backup.format import MANIFEST_FILENAME, SITES_FILENAME
 from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
 from websync.gui.widgets import (
-    CardFrame, COLOR_CARD_BG, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT, get_font, setup_dialog
+    CardFrame, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT, get_font, setup_dialog
 )
 from websync.i18n import t
 

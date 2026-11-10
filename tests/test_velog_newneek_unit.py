@@ -1,5 +1,4 @@
 """Velog / Newneek 단위 테스트."""
-import pytest
 
 from websync.scrapers.factory import ScraperFactory
 from websync.scrapers.types import SCRAPER_TYPES

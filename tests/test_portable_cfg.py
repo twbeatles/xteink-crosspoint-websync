@@ -7,7 +7,6 @@ from websync.backup.portable_cfg import (
     HISTORY_MODE_GLOBAL_URL,
     apply_portable_cfg,
     get_portable_cfg,
-    migrate_portable_into_config,
 )
 from websync.config.manager import ConfigManager
 from websync.gui.portable_wizard import should_show_portable_wizard

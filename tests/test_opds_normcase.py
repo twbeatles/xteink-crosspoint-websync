@@ -1,5 +1,3 @@
-import os
-import pytest
 from unittest.mock import MagicMock
 from websync.servers.opds import OPDSHandler
 

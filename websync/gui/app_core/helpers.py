@@ -1,31 +1,13 @@
 from __future__ import annotations
 
 import os
-import hashlib
-import subprocess
-import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 
-from websync.integrations.calibre import CalibreManager
-from websync.core.paths import resolve_path
-from websync.upload.uploader import X3Uploader, normalize_device_host
-from websync.scheduler.manager import SchedulerManager
-from websync.integrations.notifier import ToastNotifier
-from websync.pipeline.service import SyncService
+from websync.upload.uploader import X3Uploader
 from websync.core.logger import get_log_dir
 from websync.config.exceptions import ConfigSaveError, ConfigConflictError
 from websync.backup.format import merge_sites
-from websync.gui.widgets import (
-    BG_COLOR, FG_COLOR, ACCENT_COLOR, SECONDARY_BG, TEXT_BG, GREEN_COLOR, RED_COLOR, YELLOW_COLOR, HINT_COLOR,
-    center_window, setup_dialog
-)
-from websync.gui.tab_sync import SyncTab
-from websync.gui.tab_calibre import CalibreTab
-from websync.gui.tab_history import HistoryTab
-from websync.gui.tab_device_files import DeviceFilesTab
-from websync.gui.tab_settings import SettingsTab
-from websync.gui.bottom_bar import BottomBar
 from websync.i18n import t
 
 

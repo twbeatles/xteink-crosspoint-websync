@@ -4,7 +4,7 @@ import secrets
 import sys
 import threading
 from datetime import datetime, timezone
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
 from typing import Optional
 from urllib.parse import quote, unquote, urlparse, parse_qs
 from xml.sax.saxutils import escape

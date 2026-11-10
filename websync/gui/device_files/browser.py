@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import os
-import threading
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, simpledialog
+from tkinter import messagebox
 
 from websync.gui.widgets import (
-    COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING, COLOR_SECONDARY_FG,
-    create_scrollable_frame,
-    create_scrolled_tree,
+    COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING,
 )
 from websync.upload.device_client import (
     X3DeviceClient,
@@ -16,9 +11,7 @@ from websync.upload.device_client import (
     normalize_remote_path,
     parent_remote_path,
     format_file_size,
-    filter_old_sync_epubs,
 )
-from websync.upload.uploader import X3Uploader, normalize_upload_remote_dir
 from websync.i18n import t
 
 
