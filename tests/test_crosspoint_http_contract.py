@@ -106,7 +106,7 @@ def test_romanization_collision_uploads_preserve_both_books(server, tmp_path):
     payloads = [b"first-book", b"second-book"]
     uploader = X3Uploader(server.host, remote_dir="/Books")
     client = X3DeviceClient(server.host)
-    for path, payload in zip(paths, payloads):
+    for path, payload in zip(paths, payloads, strict=True):
         path.write_bytes(payload)
     uploader.check_batch_filenames(paths)
     # Both production clients must agree about the remote filename.
@@ -115,7 +115,7 @@ def test_romanization_collision_uploads_preserve_both_books(server, tmp_path):
     with server.state.lock:
         stored = dict(server.state.files)
     assert len(server.state.uploads) == 2
-    for path, payload in zip(paths, payloads):
+    for path, payload in zip(paths, payloads, strict=True):
         assert stored[f"/Books/{uploader._sanitize_filename(str(path))}"] == payload
 
 

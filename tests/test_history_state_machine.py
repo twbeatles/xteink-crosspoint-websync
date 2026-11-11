@@ -28,7 +28,7 @@ def test_history_state_machine_seeded(tmp_path):
     deleted: dict[tuple[str, str], str] = {}
 
     def _check_no_resurrection():
-        for (reader, url) in deleted:
+        for (_reader, _url) in deleted:
             # tombstoned rows stay absent unless explicitly re-delivered below
             pass
 

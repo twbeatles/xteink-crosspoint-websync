@@ -147,7 +147,7 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
     # AI 요약 후처리 적용
     if summarizer.is_available():
         log(t("pipeline.selected.summarize"))
-        for site_name, arts in articles_by_site.items():
+        for _site_name, arts in articles_by_site.items():
             for art in arts:
                 if cancel_requested():
                     return stop_cancelled()

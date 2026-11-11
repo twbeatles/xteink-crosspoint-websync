@@ -289,7 +289,7 @@ class SyncTab(
             (bool(enabled), t("gui.start.step_sources", count=len(enabled))),
             (False, t("gui.start.step_run")),
         ]
-        for lbl, (done, text) in zip(self._start_step_labels, steps):
+        for lbl, (done, text) in zip(self._start_step_labels, steps, strict=True):
             lbl.configure(
                 text=("✅ " if done else "○ ") + text,
                 text_color=COLOR_SUCCESS if done else COLOR_FG,

@@ -34,6 +34,7 @@ class DeviceFilesActionsMixin:
         self._set_busy(True)
         self.app._log_message(t("gui.device.log_delete_request", ip=ip, count=len(paths)))
 
+        delete_count = len(paths)
         def task():
             err: str | None = None
             try:
@@ -41,7 +42,7 @@ class DeviceFilesActionsMixin:
             except DeviceClientError as e:
                 err = str(e)
             self.app.root.after(
-                0, lambda ip=ip, count=len(paths), err=err: self._delete_finished(ip, count, err)
+                0, lambda ip=ip, count=delete_count, err=err: self._delete_finished(ip, count, err)
             )
 
         self.app._start_background_task(task, name="device-delete")
@@ -254,7 +255,7 @@ class DeviceFilesActionsMixin:
             client = self._make_client()
             ok = 0
             errors: list[str] = []
-            for item, entry in zip(items, plan):
+            for item, entry in zip(items, plan, strict=True):
                 try:
                     client.download(item["path"], entry["path"], ip=ip, overwrite=overwrite)
                     ok += 1

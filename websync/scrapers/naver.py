@@ -98,7 +98,7 @@ class NaverBlogScraper(BaseScraper):
                         post_meta,
                     )
                 )
-            for idx, (meta, art) in enumerate(zip(post_meta, results)):
+            for idx, (meta, art) in enumerate(zip(post_meta, results, strict=True)):
                 if art is not None:
                     articles[idx] = art
                 else:

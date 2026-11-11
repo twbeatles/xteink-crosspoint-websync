@@ -124,7 +124,7 @@ def validate_site_issues(site: object) -> list[ValidationIssue]:
         try:
             parsed = urlsplit(url)
             valid_url = parsed.scheme in ("http", "https") and bool(parsed.hostname)
-            parsed.port  # Reject malformed ports instead of deferring to requests.
+            parsed.port  # noqa: B018 -- intentional validation-via-access: raises ValueError on malformed ports; removing it would accept them
         except ValueError:
             valid_url = False
         if not valid_url:

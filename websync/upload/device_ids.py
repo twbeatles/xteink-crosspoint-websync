@@ -208,8 +208,8 @@ def resolve_pending_upload_ips(
         else:
             keys = _unique_keys([(target.get("history_key") or ip).strip(), ip])
 
-        def _url_synced(u: str) -> bool:
-            return any(is_synced_for_device(u, k) for k in keys if k)
+        def _url_synced(u: str, _keys=keys) -> bool:
+            return any(is_synced_for_device(u, k) for k in _keys if k)
 
         if any(not _url_synced(u) for u in clean_urls):
             seen.add(ip)

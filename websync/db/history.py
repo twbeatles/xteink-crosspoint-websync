@@ -300,7 +300,7 @@ class SyncHistoryDb:
                     )
                     legacy = cursor.fetchall()
                     changed = 0
-                    for url, site_name, title, synced_at in legacy:
+                    for url, _site_name, _title, _synced_at in legacy:
                         cursor.execute(
                             "SELECT 1 FROM synced_posts WHERE url = ? AND device_ip = ?",
                             (url, device_ip),

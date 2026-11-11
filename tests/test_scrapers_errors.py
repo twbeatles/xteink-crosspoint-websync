@@ -21,5 +21,5 @@ def test_scraper_raises_on_network_failure(scraper_cls, site_config, module_path
     scraper = scraper_cls()
     # 각 스크래퍼 모듈이 import한 fetch_url을 직접 패치
     with patch(f"{module_path}.fetch_url", side_effect=ConnectionError("offline")):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017 -- intentional common denominator: brunch wraps network errors into generic Exception (brunch.py:100), others propagate; no single narrower type covers all 4 parametrized scrapers
             scraper.fetch_articles(site_config)
