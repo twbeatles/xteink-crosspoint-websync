@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
+
 import customtkinter as ctk
 
 # CustomTkinter 기본 설정
 ctk.set_appearance_mode("System")  # "System", "Dark", "Light"
 ctk.set_default_color_theme("blue")  # "blue", "green", "dark-blue"
 try:
-    from customtkinter.windows.widgets.theme.theme_manager import ThemeManager as _ThemeManager
+    from customtkinter.windows.widgets.theme.theme_manager import (
+        ThemeManager as _ThemeManager,
+    )
     _ThemeManager.theme["CTkFont"]["family"] = "Malgun Gothic"
 except Exception:
     pass
@@ -43,7 +46,9 @@ def make_combobox(master, *, font_size: int = 12, dropdown_size: int | None = No
 def apply_global_fonts(root: tk.Misc | None = None) -> None:
     """tkinter/ttk 전역 폰트를 맑은 고딕으로 고정한다."""
     try:
-        from customtkinter.windows.widgets.theme.theme_manager import ThemeManager as _TM
+        from customtkinter.windows.widgets.theme.theme_manager import (
+            ThemeManager as _TM,
+        )
         _TM.theme["CTkFont"]["family"] = FONT_FAMILY
     except Exception:
         pass

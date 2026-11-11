@@ -1,10 +1,11 @@
-import json
 import io
+import json
 import urllib.error
 import urllib.request
 
 import pytest
 import requests
+
 from websync.servers.web_dashboard import WebDashboard
 
 

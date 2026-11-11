@@ -6,6 +6,7 @@ import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox
+
 import customtkinter as ctk
 
 from websync import __version__
@@ -14,13 +15,13 @@ from websync.core.update_installer import UpdateCancelledError
 from websync.core.update_manifest import ReleaseManifest
 from websync.core.update_service import UpdateService
 from websync.gui.widgets import (
-    CardFrame,
     COLOR_ACCENT,
     COLOR_DANGER,
     COLOR_FG,
     COLOR_SECONDARY_FG,
     COLOR_SUCCESS,
     COLOR_WARNING,
+    CardFrame,
     get_font,
 )
 from websync.i18n import t

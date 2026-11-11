@@ -1,5 +1,6 @@
 import logging
 import shutil
+
 import pytest
 
 from websync.backup.portable_cfg import apply_portable_cfg

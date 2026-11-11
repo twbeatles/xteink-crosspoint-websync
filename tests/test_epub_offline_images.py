@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from zipfile import ZipFile
 
 import pytest
+
 from websync.epub.builder import EpubBuilder
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ1cAAAAASUVORK5CYII=")

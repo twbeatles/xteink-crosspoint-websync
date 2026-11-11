@@ -1,6 +1,7 @@
 """Catch UTF-8 text replaced by question marks in generated audit updates."""
-from pathlib import Path
 import re
+from pathlib import Path
+
 import pytest
 
 DOCUMENT_ROOT = Path(__file__).resolve().parents[1]

@@ -17,6 +17,7 @@ from websync.scrapers.selector_assistant.constants import (
 from websync.scrapers.selector_assistant.html_dom import _text_preview
 from websync.scrapers.selector_assistant.types import FeedInfo
 
+
 def _looks_like_feed_body(text: str, content_type: str = "") -> bool:
     ct = (content_type or "").lower()
     if "rss" in ct or "atom" in ct or "xml" in ct:

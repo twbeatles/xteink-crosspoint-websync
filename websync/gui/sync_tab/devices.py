@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from tkinter import messagebox
 
-from websync.gui.widgets import (
-    setup_dialog
-)
+from websync.gui.widgets import setup_dialog
 from websync.i18n import t
 
 
@@ -19,7 +17,13 @@ class SyncDevicesMixin:
 
     def _add_device_popup(self):
         import customtkinter as ctk
-        from websync.gui.widgets import COLOR_BG, COLOR_SECONDARY_FG, get_font, make_button
+
+        from websync.gui.widgets import (
+            COLOR_BG,
+            COLOR_SECONDARY_FG,
+            get_font,
+            make_button,
+        )
 
         dialog = ctk.CTkToplevel(self.app.root)
         dialog.title(t("gui.sync.add_device_title"))

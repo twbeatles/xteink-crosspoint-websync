@@ -4,7 +4,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 from websync.scrapers.brunch import BrunchScraper
 from websync.scrapers.newneek import NewneekScraper
 from websync.scrapers.rss import RssScraper

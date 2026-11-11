@@ -1,8 +1,9 @@
-import sqlite3
 import os
+import sqlite3
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
+
 from websync.core.paths import PROJECT_ROOT, resolve_path
 from websync.i18n import t
 

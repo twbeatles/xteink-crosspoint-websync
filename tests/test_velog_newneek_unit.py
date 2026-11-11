@@ -1,9 +1,9 @@
 """Velog / Newneek 단위 테스트."""
 
 from websync.scrapers.factory import ScraperFactory
+from websync.scrapers.newneek import NewneekScraper
 from websync.scrapers.types import SCRAPER_TYPES
 from websync.scrapers.velog import VelogScraper
-from websync.scrapers.newneek import NewneekScraper
 
 
 def test_factory_has_velog_and_newneek():

@@ -5,6 +5,8 @@ import copy
 import os
 from typing import Callable, Optional
 
+from websync.i18n import t
+from websync.pipeline.sources import selected_source_groups
 from websync.pipeline.summarizer import Summarizer
 from websync.pipeline.translator import Translator
 from websync.pipeline.upload_results import (
@@ -13,8 +15,6 @@ from websync.pipeline.upload_results import (
     upload_all_ok,
     upload_any_ok,
 )
-from websync.i18n import t
-from websync.pipeline.sources import selected_source_groups
 
 
 def sync_selected_articles(

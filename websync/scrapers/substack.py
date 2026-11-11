@@ -1,7 +1,15 @@
 """SubstackScraper"""
-from websync.scrapers.base import BaseScraper, maybe_strip_images, ensure_article_url, fetch_url, normalize_limit
 from bs4 import BeautifulSoup
+
 from websync.i18n import t
+from websync.scrapers.base import (
+    BaseScraper,
+    ensure_article_url,
+    fetch_url,
+    maybe_strip_images,
+    normalize_limit,
+)
+
 
 class SubstackScraper(BaseScraper):
     """Substack 뉴스레터 전용 스크래퍼 - RSS 전문을 수신 후 Substack 고유 요소 클렌징"""

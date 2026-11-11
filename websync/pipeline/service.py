@@ -1,21 +1,23 @@
+import logging
 import threading
 import time
-import logging
 from typing import Callable, Optional
 
-from websync.epub.builder import EpubBuilder
-from websync.upload.uploader import X3Uploader
+from websync.backup.service import BackupSyncService
 from websync.config.manager import ConfigManager
-from websync.db.history import SyncHistoryDb
 from websync.core.logger import get_logger
 from websync.core.process_lock import ProcessFileLock
-from websync.backup.service import BackupSyncService
-from websync.pipeline.article_keys import article_sync_key
-from websync.pipeline.sync_pipeline import run_sync_pipeline_locked
-from websync.pipeline.preview import preview_articles as run_preview_articles
-from websync.pipeline.selected_sync import sync_selected_articles as run_sync_selected_articles
-from websync.pipeline.epub_only import build_selected_epubs as run_build_selected_epubs
+from websync.db.history import SyncHistoryDb
+from websync.epub.builder import EpubBuilder
 from websync.i18n import t
+from websync.pipeline.article_keys import article_sync_key
+from websync.pipeline.epub_only import build_selected_epubs as run_build_selected_epubs
+from websync.pipeline.preview import preview_articles as run_preview_articles
+from websync.pipeline.selected_sync import (
+    sync_selected_articles as run_sync_selected_articles,
+)
+from websync.pipeline.sync_pipeline import run_sync_pipeline_locked
+from websync.upload.uploader import X3Uploader
 
 
 class SyncService:

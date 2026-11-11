@@ -19,6 +19,7 @@ from websync.scrapers.selector_assistant.html_dom import (
     _text_preview,
 )
 
+
 def _in_noise_section(tag: Tag) -> bool:
     for p in tag.parents:
         if isinstance(p, Tag) and p.name in _NOISE_ANCESTORS:

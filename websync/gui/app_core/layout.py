@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from tkinter import ttk
+
 import customtkinter as ctk
 
-from websync.gui.widgets import (
-    COLOR_ACCENT, FONT_FAMILY, get_font,
-    center_window, apply_treeview_style
-)
-from websync.gui.tab_sync import SyncTab
-from websync.gui.tab_calibre import CalibreTab
-from websync.gui.tab_history import HistoryTab
-from websync.gui.tab_device_files import DeviceFilesTab
-from websync.gui.tab_settings import SettingsTab
 from websync.gui.bottom_bar import BottomBar
+from websync.gui.tab_calibre import CalibreTab
+from websync.gui.tab_device_files import DeviceFilesTab
+from websync.gui.tab_history import HistoryTab
+from websync.gui.tab_settings import SettingsTab
+from websync.gui.tab_sync import SyncTab
+from websync.gui.widgets import (
+    COLOR_ACCENT,
+    FONT_FAMILY,
+    apply_treeview_style,
+    center_window,
+    get_font,
+)
 from websync.i18n import t
 
 

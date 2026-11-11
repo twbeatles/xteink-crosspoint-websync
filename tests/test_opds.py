@@ -1,11 +1,12 @@
-import os
 import io
+import os
 import tempfile
 import urllib.error
 import urllib.request
 
 import pytest
 import requests
+
 from websync.servers.opds import OPDSServer
 
 

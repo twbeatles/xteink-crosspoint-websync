@@ -6,12 +6,14 @@ success, and the 200-without-commit lie is surfaced by listing check.
 """
 from __future__ import annotations
 
-import pytest
-
 import os as _os
 import sys as _sys
+
+import pytest
+
 _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), "support"))
 from fake_crosspoint_server import FakeCrosspointServer
+
 from websync.upload.device_client import X3DeviceClient
 from websync.upload.errors import DeviceClientError
 from websync.upload.uploader import X3Uploader

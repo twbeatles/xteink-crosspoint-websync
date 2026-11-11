@@ -1,5 +1,6 @@
 import time
 from unittest.mock import patch
+
 from websync.servers.dashboard.handler import DashboardHandler
 
 

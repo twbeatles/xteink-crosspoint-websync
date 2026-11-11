@@ -1,8 +1,14 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
-from websync.scrapers.base import FETCH_MAX_BYTES, _session, fetch_url, is_allowed_fetch_url
+import pytest
 from support.source_server import source_server
+
+from websync.scrapers.base import (
+    FETCH_MAX_BYTES,
+    _session,
+    fetch_url,
+    is_allowed_fetch_url,
+)
 
 
 def test_is_allowed_fetch_url_http_only():

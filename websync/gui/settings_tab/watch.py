@@ -4,13 +4,17 @@ import copy
 import os
 import threading
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import filedialog, messagebox
 
-from websync.gui.widgets import RED_COLOR, GREEN_COLOR
-from websync.watch.calibre import CalibreWatcher, STABLE_SIZE_CHECKS, STABLE_CHECK_INTERVAL
-from websync.watch.retry import WatchRetryQueue
-from websync.upload.uploader import X3Uploader
+from websync.gui.widgets import GREEN_COLOR, RED_COLOR
 from websync.i18n import t
+from websync.upload.uploader import X3Uploader
+from websync.watch.calibre import (
+    STABLE_CHECK_INTERVAL,
+    STABLE_SIZE_CHECKS,
+    CalibreWatcher,
+)
+from websync.watch.retry import WatchRetryQueue
 
 
 class SettingsWatchMixin:

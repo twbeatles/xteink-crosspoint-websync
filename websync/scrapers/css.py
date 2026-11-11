@@ -1,8 +1,17 @@
 """CssSelectorScraper"""
-from websync.scrapers.base import BaseScraper, HEADERS, maybe_strip_images, ensure_article_url, fetch_url, normalize_limit
 from urllib.parse import urljoin
+
 from bs4 import BeautifulSoup
+
 from websync.i18n import t
+from websync.scrapers.base import (
+    HEADERS,
+    BaseScraper,
+    ensure_article_url,
+    fetch_url,
+    maybe_strip_images,
+    normalize_limit,
+)
 
 
 def _reparse_fragment(elem):

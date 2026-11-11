@@ -11,7 +11,11 @@ from tkinter import filedialog
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    CardFrame, COLOR_SECONDARY_FG, Tooltip, get_font, make_button,
+    COLOR_SECONDARY_FG,
+    CardFrame,
+    Tooltip,
+    get_font,
+    make_button,
 )
 from websync.i18n import t
 

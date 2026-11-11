@@ -6,7 +6,11 @@ import subprocess
 import time
 
 from websync.core.instance_lock import _is_process_running
-from websync.core.update.installer import apply_staged_update, clean_frozen_environment, write_update_result
+from websync.core.update.installer import (
+    apply_staged_update,
+    clean_frozen_environment,
+    write_update_result,
+)
 from websync.i18n import t
 
 

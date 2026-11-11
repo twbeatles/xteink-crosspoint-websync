@@ -10,10 +10,10 @@ from urllib.parse import quote
 
 import requests
 
+from websync.i18n import t
+from websync.upload.device_ids import build_targets_with_keys
 from websync.upload.host import normalize_device_host
 from websync.upload.remote_path import normalize_upload_remote_dir
-from websync.upload.device_ids import build_targets_with_keys
-from websync.i18n import t
 
 __all__ = ["X3Uploader", "normalize_device_host", "normalize_upload_remote_dir"]
 

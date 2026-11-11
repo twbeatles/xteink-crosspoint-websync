@@ -33,7 +33,6 @@ from bs4 import BeautifulSoup  # noqa: E402
 
 from websync.scrapers.factory import ScraperFactory  # noqa: E402
 
-
 # 검증용 공개 샘플 (limit=1~2, 저작물 재배포 목적 아님)
 DEFAULT_SAMPLES: list[dict[str, Any]] = [
     {

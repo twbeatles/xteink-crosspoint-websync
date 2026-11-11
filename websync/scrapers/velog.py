@@ -8,9 +8,9 @@ import re
 from urllib.parse import unquote, urlparse
 
 from websync.core.logger import get_logger
+from websync.i18n import t
 from websync.scrapers.base import BaseScraper
 from websync.scrapers.rss import RssScraper
-from websync.i18n import t
 
 
 class VelogScraper(BaseScraper):

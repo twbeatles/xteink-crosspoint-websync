@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import filedialog, messagebox
 
 from websync.gui.widgets import FONT_FAMILY
 from websync.i18n import t

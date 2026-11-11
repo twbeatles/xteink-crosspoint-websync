@@ -15,9 +15,9 @@ from urllib.parse import unquote, urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
 
+from websync.i18n import t
 from websync.scrapers.base import fetch_url, maybe_strip_images
 from websync.scrapers.newsletter_base import BaseNewsletterScraper
-from websync.i18n import t
 
 
 class MoneyLetterScraper(BaseNewsletterScraper):

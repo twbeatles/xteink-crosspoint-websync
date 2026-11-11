@@ -6,9 +6,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from websync.config.manager import ConfigManager
 from websync.config.exceptions import ConfigLoadError, ConfigSaveError
-from websync.config.validator import validate_config, validate_config_issues, validate_site_issues
+from websync.config.manager import ConfigManager
+from websync.config.validator import (
+    validate_config,
+    validate_config_issues,
+    validate_site_issues,
+)
 
 
 def manager(tmp_path):

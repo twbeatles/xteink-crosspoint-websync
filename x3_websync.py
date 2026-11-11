@@ -1,7 +1,8 @@
-import sys
-import os
 import argparse
+import os
+import sys
 from datetime import datetime
+
 
 # 윈도우 pythonw.exe 구동 시 sys.stdout / sys.stderr 가 None 이 되는 현상 대처
 class NullWriter:
@@ -25,18 +26,18 @@ if sys.platform == 'win32':
     except AttributeError:
         pass
 
-from websync.config.manager import ConfigManager
-from websync.config.exceptions import ConfigLoadError
-from websync.pipeline.service import SyncService
-from websync.gui.app import SyncAppGui
-from websync.core.logger import get_logger
 from websync import __version__
+from websync.cli.update_apply import handle_apply_update as _handle_apply_update
+from websync.config.exceptions import ConfigLoadError
+from websync.config.manager import ConfigManager
 from websync.core.instance_lock import (
     acquire_instance_lock,
     release_instance_lock,
 )
+from websync.core.logger import get_logger
 from websync.core.smoke import SMOKE_MODULES, run_smoke_check  # noqa: F401 # re-export (tests/test_updater_cli.py imports from x3_websync)
-from websync.cli.update_apply import handle_apply_update as _handle_apply_update
+from websync.gui.app import SyncAppGui
+from websync.pipeline.service import SyncService
 
 
 def _staging_block_target(args) -> str | None:

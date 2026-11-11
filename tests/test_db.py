@@ -3,11 +3,11 @@ import sqlite3
 import tempfile
 import threading
 import time
+from contextlib import closing
 
 import pytest
 
 from websync.db.history import SyncHistoryDb, SyncHistoryDbError
-from contextlib import closing
 
 
 def _make_db() -> tuple[SyncHistoryDb, str]:

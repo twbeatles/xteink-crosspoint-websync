@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import os
-from tkinter import messagebox, filedialog, simpledialog
+from tkinter import filedialog, messagebox, simpledialog
 
+from websync.i18n import t
 from websync.upload.device_client import (
     DeviceClientError,
     normalize_remote_path,
 )
 from websync.upload.local_path import find_local_conflicts, plan_local_downloads
 from websync.upload.uploader import X3Uploader
-from websync.i18n import t
 
 
 class DeviceFilesActionsMixin:

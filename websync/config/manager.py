@@ -1,18 +1,29 @@
-import os
+import copy
 import json
+import os
 import secrets
 import shutil
 import threading
-import copy
 import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime
+
+from websync.config.exceptions import (
+    ConfigConflictError,
+    ConfigLoadError,
+    ConfigSaveError,
+)
+from websync.config.validator import (
+    log_validation_warnings,
+    validate_config,
+    validate_config_structure,
+    validate_site_issues,
+)
 from websync.core.paths import PROJECT_ROOT, resolve_path
 from websync.core.process_lock import ProcessFileLock
-from websync.config.exceptions import ConfigLoadError, ConfigSaveError, ConfigConflictError
-from websync.config.validator import log_validation_warnings, validate_config, validate_config_structure, validate_site_issues
 from websync.i18n import t
+
 
 class ConfigManager:
 
@@ -553,7 +564,10 @@ class ConfigManager:
                 current_urls.add(url)
                 added_holder.append(site)
             if added_holder:
-                from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
+                from websync.backup.portable_cfg import (
+                    apply_portable_cfg,
+                    get_portable_cfg,
+                )
                 added_urls = {
                     (site.get("url") or "").strip().lower() for site in added_holder
                 }

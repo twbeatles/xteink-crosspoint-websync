@@ -12,19 +12,23 @@ from __future__ import annotations
 
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 from typing import Any, Callable, Optional
 
-from websync.gui.widgets import HINT_COLOR, GREEN_COLOR, FONT_FAMILY, apply_treeview_style
+from websync.gui.widgets import (
+    FONT_FAMILY,
+    GREEN_COLOR,
+    HINT_COLOR,
+    apply_treeview_style,
+)
+from websync.i18n import t
 from websync.scrapers.selector_assistant import (
     PageAnalysis,
     analyze_page,
-    parse_html,
     evaluate_selector,
     is_private_or_local_url,
+    parse_html,
 )
-from websync.i18n import t
-
 
 # 선택자 필드 역할 키
 ROLE_ITEM = "item"

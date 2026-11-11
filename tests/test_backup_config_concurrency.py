@@ -8,7 +8,10 @@ import threading
 import pytest
 
 from websync.backup.format import (
-    HISTORY_FILENAME, SITES_FILENAME, build_history_payload, build_sites_payload,
+    HISTORY_FILENAME,
+    SITES_FILENAME,
+    build_history_payload,
+    build_sites_payload,
 )
 from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
 from websync.backup.service import BackupSyncService

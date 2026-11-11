@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-
+from websync.i18n import t
 from websync.upload.device_client import (
     normalize_remote_path,
 )
 from websync.upload.uploader import normalize_upload_remote_dir
-from websync.i18n import t
 
 
 class DeviceFilesSettingsMixin:

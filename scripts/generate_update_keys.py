@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import subprocess
+
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 

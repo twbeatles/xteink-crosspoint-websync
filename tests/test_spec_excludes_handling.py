@@ -1,7 +1,8 @@
 import sys
 from unittest.mock import patch
-from websync.epub.cover import make_cover_image
+
 from websync.epub.builder import EpubBuilder
+from websync.epub.cover import make_cover_image
 
 
 def test_cover_image_pillow_missing_fallback():

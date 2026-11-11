@@ -5,28 +5,29 @@ import copy
 import os
 from typing import Callable, Optional
 
-from websync.scrapers import ScraperFactory
-from websync.scrapers.base import is_allowed_fetch_url
-from websync.integrations.notifier import ToastNotifier
+from websync.backup.portable_cfg import get_portable_cfg
 from websync.db.history import SyncHistoryDbError
-from websync.pipeline.summarizer import Summarizer
-from websync.pipeline.translator import Translator
+from websync.i18n import t
+from websync.integrations.notifier import ToastNotifier
 from websync.pipeline.article_keys import article_sync_key
 from websync.pipeline.sources import source_id, source_metadata
-from websync.backup.portable_cfg import get_portable_cfg
-from websync.upload.device_ids import (
-    alias_key_groups,
-    group_articles_by_pending_targets,
-    history_keys_from_targets,
-    ip_to_history_key_map,
-)
+from websync.pipeline.summarizer import Summarizer
+from websync.pipeline.translator import Translator
 from websync.pipeline.upload_results import (
     collect_mark_entries,
     collect_mark_entries_from_triples,
     upload_all_ok,
     upload_any_ok,
 )
-from websync.i18n import t
+from websync.scrapers import ScraperFactory
+from websync.scrapers.base import is_allowed_fetch_url
+from websync.upload.device_ids import (
+    alias_key_groups,
+    group_articles_by_pending_targets,
+    history_keys_from_targets,
+    ip_to_history_key_map,
+)
+
 
 def run_sync_pipeline_locked(
     service,

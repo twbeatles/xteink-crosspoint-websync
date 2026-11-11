@@ -9,8 +9,9 @@ from websync.i18n import t
 def make_cover_image(site_name: str, article_count: int, today_str: str) -> bytes | None:
     """Pillow를 사용해 EPUB 표지 이미지를 동적으로 생성. Pillow 미설치 시 None 반환."""
     try:
-        from PIL import Image, ImageDraw, ImageFont
         import textwrap
+
+        from PIL import Image, ImageDraw, ImageFont
 
         W, H = 600, 800
         img = Image.new("RGB", (W, H), color="#1e1e2e")

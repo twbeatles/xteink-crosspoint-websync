@@ -1,8 +1,9 @@
-import os
 import json
+import os
 import subprocess
 
 from websync.i18n import t
+
 
 class CalibreManager:
     """calibredb.exe 명령어를 래핑하여 Calibre 도서 정보를 조회하고 경로를 추적하는 클래스"""

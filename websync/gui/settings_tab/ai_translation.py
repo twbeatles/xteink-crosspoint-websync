@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from tkinter import messagebox
 
-from websync.core.logger import get_log_dir
 from websync.config.secrets import mask_secret
+from websync.core.logger import get_log_dir
 from websync.i18n import t
 
 

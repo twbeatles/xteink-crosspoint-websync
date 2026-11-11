@@ -15,7 +15,10 @@ from websync.backup.format import extract_posts, extract_sites
 from websync.backup.local_import import import_local_sidecars
 from websync.config.manager import ConfigManager
 from websync.db.history import SyncHistoryDb
-from websync.upload.device_ids import build_targets_with_keys, resolve_pending_upload_ips
+from websync.upload.device_ids import (
+    build_targets_with_keys,
+    resolve_pending_upload_ips,
+)
 
 # dist 실물 샘플과 동일한 스키마 (kind 없는 레거시 설정 백업 포함)
 SAMPLE_HISTORY = {

@@ -10,9 +10,9 @@ import zipfile
 from xml.etree import ElementTree as ET
 
 import pytest
-
 from support.fake_crosspoint_server import FakeCrosspointServer
 from support.source_server import source_server
+
 from websync.config.manager import ConfigManager
 from websync.core.process_lock import ProcessFileLock
 from websync.db.history import SyncHistoryDb

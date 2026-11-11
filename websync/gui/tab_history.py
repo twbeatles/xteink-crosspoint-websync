@@ -2,15 +2,26 @@
 from __future__ import annotations
 
 import hashlib
-from tkinter import messagebox, filedialog
+from tkinter import filedialog, messagebox
+
 import customtkinter as ctk
 
-from websync.gui.widgets import (
-    CardFrame, COLOR_FG, COLOR_DANGER, COLOR_WARNING, get_font, create_scrollable_frame, create_scrolled_tree
+from websync.backup.atomic_io import read_json_safe, write_json_atomic
+from websync.backup.format import (
+    build_history_payload,
+    extract_deleted_posts,
+    extract_posts,
 )
 from websync.db.history import SyncHistoryDbError
-from websync.backup.atomic_io import read_json_safe, write_json_atomic
-from websync.backup.format import build_history_payload, extract_deleted_posts, extract_posts
+from websync.gui.widgets import (
+    COLOR_DANGER,
+    COLOR_FG,
+    COLOR_WARNING,
+    CardFrame,
+    create_scrollable_frame,
+    create_scrolled_tree,
+    get_font,
+)
 from websync.i18n import t
 
 

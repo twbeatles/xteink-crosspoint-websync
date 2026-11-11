@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from websync.config.manager import ConfigManager
 from websync.config.exceptions import ConfigSaveError
+from websync.config.manager import ConfigManager
 from websync.gui.settings_tab.watch import SettingsWatchMixin
 from websync.watch.retry import WatchRetryQueue
 
@@ -355,8 +355,9 @@ def test_retained_shutdown_event_cannot_upload_until_restart(harness):
 def test_actual_observer_event_immediate_shutdown_restart_checks_source_stability(harness, monkeypatch):
     import sys
     from types import ModuleType
-    from websync.watch.calibre import CalibreWatcher
+
     import websync.watch.retry as retry_module
+    from websync.watch.calibre import CalibreWatcher
 
     registered = []
     observer = SimpleNamespace(

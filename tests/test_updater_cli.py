@@ -42,8 +42,9 @@ def test_cli_version():
 def test_handle_apply_update_parent_timeout(tmp_path):
     import argparse
     from unittest.mock import patch
-    from x3_websync import _handle_apply_update
+
     from websync.core.update_installer import consume_update_result
+    from x3_websync import _handle_apply_update
 
     res_file = tmp_path / "result.json"
     args = argparse.Namespace(
@@ -69,6 +70,7 @@ def test_handle_apply_update_parent_timeout(tmp_path):
 
 def test_staging_block_allows_dev_and_helper():
     import argparse
+
     from x3_websync import _staging_block_target
 
     assert _staging_block_target(argparse.Namespace(apply_update=False)) is None
@@ -78,6 +80,7 @@ def test_staging_block_allows_dev_and_helper():
 def test_staging_block_detects_helper_copy(tmp_path, monkeypatch):
     import argparse
     import sys
+
     from x3_websync import _staging_block_target
 
     base = tmp_path / "app"
@@ -101,6 +104,7 @@ def test_staging_block_detects_helper_copy(tmp_path, monkeypatch):
 def test_staging_block_allows_normal_frozen_exe(tmp_path, monkeypatch):
     import argparse
     import sys
+
     from x3_websync import _staging_block_target
 
     base = tmp_path / "app"

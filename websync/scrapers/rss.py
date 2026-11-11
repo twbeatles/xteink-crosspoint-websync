@@ -6,15 +6,15 @@ import re
 
 from bs4 import BeautifulSoup
 
+from websync.i18n import t
 from websync.scrapers.base import (
     BaseScraper,
     ensure_article_url,
     extract_rss_link,
     fetch_url,
-    normalize_limit,
     maybe_strip_images,
+    normalize_limit,
 )
-from websync.i18n import t
 
 
 def _decode_feed_xml(response) -> str:

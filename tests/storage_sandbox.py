@@ -12,7 +12,7 @@ import tempfile
 import threading
 from functools import wraps
 from pathlib import Path
-from urllib.parse import unquote, urlsplit, parse_qs
+from urllib.parse import parse_qs, unquote, urlsplit
 
 
 def canonical_path(value) -> Path:

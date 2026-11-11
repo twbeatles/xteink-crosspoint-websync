@@ -4,8 +4,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from websync.config.manager import ConfigManager
-from websync.pipeline.service import SyncService
 from websync.gui.app_core.sync_control import AppSyncControlMixin
+from websync.pipeline.service import SyncService
 
 
 def make_service(tmp_path):

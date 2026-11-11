@@ -16,7 +16,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from websync.core.update_constants import UPDATE_PUBLIC_KEY_B64_DEFAULT
-from websync.core.update_manifest import canonical_manifest_payload, verify_release_manifest
+from websync.core.update_manifest import (
+    canonical_manifest_payload,
+    verify_release_manifest,
+)
 
 
 def verify_release_keypair(private_key_b64: str, public_key_b64: str) -> None:

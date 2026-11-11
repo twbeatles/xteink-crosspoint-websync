@@ -21,6 +21,7 @@ from websync.scrapers.selector_assistant.suggest import (
 from websync.scrapers.selector_assistant.types import PageAnalysis
 from websync.scrapers.selector_assistant.url_safety import is_private_or_local_url
 
+
 def _finalize_analysis(analysis: PageAnalysis) -> PageAnalysis:
     notes: list[str] = list(analysis.notes or [])
     platform = analysis.platform

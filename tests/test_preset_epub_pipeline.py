@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import os
 import re
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch

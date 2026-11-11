@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from tkinter import messagebox
 
+from websync.i18n import t
 from websync.upload.device_client import (
     DeviceClientError,
     filter_old_sync_epubs,
 )
-from websync.i18n import t
 
 
 class DeviceFilesCleanupMixin:

@@ -1,6 +1,6 @@
-import sys
 import os
 import shutil
+import sys
 import tempfile
 import threading
 from pathlib import Path
@@ -48,8 +48,8 @@ def _set_storage_roots(root: Path, patch=None):
 
 
 _set_storage_roots(_COLLECTION_STORAGE)
-from websync.pipeline.service import SyncService
 from websync.core.process_lock import ProcessFileLock
+from websync.pipeline.service import SyncService
 
 SyncService._process_lock = ProcessFileLock()
 from websync.core import logger as _collection_logger

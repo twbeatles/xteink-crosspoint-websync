@@ -3,16 +3,18 @@ from __future__ import annotations
 from tkinter import messagebox
 
 from websync.gui.widgets import (
-    COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING,
-)
-from websync.upload.device_client import (
-    X3DeviceClient,
-    DeviceClientError,
-    normalize_remote_path,
-    parent_remote_path,
-    format_file_size,
+    COLOR_DANGER,
+    COLOR_SUCCESS,
+    COLOR_WARNING,
 )
 from websync.i18n import t
+from websync.upload.device_client import (
+    DeviceClientError,
+    X3DeviceClient,
+    format_file_size,
+    normalize_remote_path,
+    parent_remote_path,
+)
 
 
 class DeviceFilesBrowserMixin:

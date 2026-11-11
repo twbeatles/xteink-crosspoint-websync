@@ -5,8 +5,8 @@ from websync.gui.sync_tab.epub_options import parse_font_size, parse_line_height
 from websync.gui.sync_tab.preview import html_excerpt
 from websync.gui.sync_tab.site_dialog import normalize_site_url, suggest_site_name
 from websync.gui.sync_tab.sites import site_type_label
-from websync.scrapers.types import SCRAPER_TYPES
 from websync.i18n import t
+from websync.scrapers.types import SCRAPER_TYPES
 
 
 def test_font_size_is_clamped_and_falls_back():

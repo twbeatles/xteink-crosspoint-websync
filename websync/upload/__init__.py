@@ -1,3 +1,5 @@
+from websync.upload.device_client import X3DeviceClient
+from websync.upload.errors import DeviceClientError
 from websync.upload.host import normalize_device_host
 from websync.upload.remote_path import (
     format_file_size,
@@ -7,9 +9,7 @@ from websync.upload.remote_path import (
     parent_remote_path,
 )
 from websync.upload.sync_epub import filter_old_sync_epubs, parse_sync_epub_date
-from websync.upload.errors import DeviceClientError
 from websync.upload.uploader import X3Uploader
-from websync.upload.device_client import X3DeviceClient
 
 __all__ = [
     "normalize_device_host",

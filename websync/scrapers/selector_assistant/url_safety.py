@@ -5,6 +5,7 @@ import ipaddress
 import socket
 from urllib.parse import urlparse
 
+
 def is_private_or_local_url(url: str) -> bool:
     """로컬호스트·사설 IP·링크 로컬 등 내부망으로 보이면 True.
 

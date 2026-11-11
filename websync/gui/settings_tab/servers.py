@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from tkinter import messagebox
 
-from websync.gui.widgets import (
-    RED_COLOR, GREEN_COLOR
-)
 from websync.core.paths import resolve_path
+from websync.gui.widgets import GREEN_COLOR, RED_COLOR
+from websync.i18n import t
 from websync.servers.opds import OPDSServer
 from websync.servers.web_dashboard import WebDashboard
-from websync.i18n import t
 
 
 class SettingsServersMixin:

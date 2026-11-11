@@ -28,9 +28,15 @@ from urllib.parse import urldefrag, urljoin
 
 from bs4 import BeautifulSoup
 
-from websync.scrapers.base import BaseScraper, fetch_url, normalize_limit, maybe_strip_images, ensure_article_url
 from websync.core.logger import get_logger
 from websync.i18n import t
+from websync.scrapers.base import (
+    BaseScraper,
+    ensure_article_url,
+    fetch_url,
+    maybe_strip_images,
+    normalize_limit,
+)
 
 
 class BaseNewsletterScraper(BaseScraper):

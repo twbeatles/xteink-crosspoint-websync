@@ -3,9 +3,9 @@ import time
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from websync.watch.calibre import CalibreWatcher, _is_watch_book_file
 from websync.config.manager import ConfigManager
 from websync.gui.settings_tab.watch import SettingsWatchMixin
+from websync.watch.calibre import CalibreWatcher, _is_watch_book_file
 
 
 def test_is_watch_book_file_extensions():

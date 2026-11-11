@@ -2,21 +2,20 @@
 import json
 import os
 import tempfile
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datetime import date
-
 from websync.upload.device_client import (
-    X3DeviceClient,
     DeviceClientError,
+    X3DeviceClient,
+    filter_old_sync_epubs,
+    format_file_size,
+    join_remote_path,
     normalize_remote_path,
     parent_remote_path,
-    join_remote_path,
-    format_file_size,
     parse_sync_epub_date,
-    filter_old_sync_epubs,
 )
 
 

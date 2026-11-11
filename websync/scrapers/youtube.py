@@ -1,9 +1,11 @@
 """YoutubeScraper"""
 from typing import cast
 
-from websync.scrapers.base import BaseScraper, fetch_url, normalize_limit
 from bs4 import BeautifulSoup
+
 from websync.i18n import t
+from websync.scrapers.base import BaseScraper, fetch_url, normalize_limit
+
 
 class YoutubeScraper(BaseScraper):
     """YouTube 채널 최신 영상의 자막을 수집하여 EPUB으로 변환하는 스크래퍼"""

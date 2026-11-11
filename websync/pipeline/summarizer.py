@@ -56,8 +56,8 @@ class Summarizer:
         return ""
 
     def _call_openai(self, prompt: str) -> str:
-        import urllib.request
         import json
+        import urllib.request
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
@@ -83,8 +83,8 @@ class Summarizer:
         return self._format_summary(summary)
 
     def _call_ollama(self, prompt: str) -> str:
-        import urllib.request
         import json
+        import urllib.request
         host = (self.ollama_host or "").strip()
         if not (host.startswith("http://") or host.startswith("https://")):
             self._warn(t("pipeline.summarizer.bad_host", host=host[:80]))

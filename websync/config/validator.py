@@ -2,6 +2,7 @@
 import math
 from dataclasses import dataclass
 from typing import Literal
+
 from websync.core.logger import get_logger
 from websync.i18n import t
 
@@ -108,8 +109,9 @@ def validate_site_issues(site: object) -> list[ValidationIssue]:
     if issues:
         return issues
     assert isinstance(site, dict)
-    from websync.scrapers.types import SCRAPER_TYPES
     from urllib.parse import urlsplit
+
+    from websync.scrapers.types import SCRAPER_TYPES
     issues = []
     def add(field: str, message: str) -> None:
         issues.append(ValidationIssue(field, "invalid_value", message))

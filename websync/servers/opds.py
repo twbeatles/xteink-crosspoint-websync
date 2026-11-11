@@ -6,7 +6,7 @@ import threading
 from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer
 from typing import Optional
-from urllib.parse import quote, unquote, urlparse, parse_qs
+from urllib.parse import parse_qs, quote, unquote, urlparse
 from xml.sax.saxutils import escape
 
 from websync.epub.filenames import display_title

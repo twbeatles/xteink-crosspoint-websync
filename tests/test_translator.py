@@ -2,13 +2,12 @@
 
 외부 번역 API 호출은 mock 하고, logger 주입 동작만 검증한다.
 """
-from io import BytesIO
 import asyncio
 import json
 import threading
+from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-
 
 from websync.pipeline.translator import Translator
 

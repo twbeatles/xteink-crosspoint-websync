@@ -3,8 +3,8 @@ from __future__ import annotations
 import copy
 import tkinter as tk
 
-from websync.upload.uploader import normalize_device_host
 from websync.gui.sync_tab.epub_options import parse_font_size, parse_line_height
+from websync.upload.uploader import normalize_device_host
 
 
 def _set_entry_val(widget, val):

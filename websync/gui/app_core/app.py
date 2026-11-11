@@ -3,20 +3,18 @@ from __future__ import annotations
 
 import threading
 from tkinter import messagebox
+
 import customtkinter as ctk
 
-from websync.integrations.calibre import CalibreManager
-from websync.scheduler.manager import SchedulerManager
-from websync.pipeline.service import SyncService
-from websync.gui.widgets import (
-    FONT_FAMILY, apply_global_fonts
-)
-
-from websync.gui.app_core.layout import AppLayoutMixin
-from websync.gui.app_core.helpers import AppHelpersMixin
 from websync.gui.app_core.config_sync import AppConfigSyncMixin
+from websync.gui.app_core.helpers import AppHelpersMixin
+from websync.gui.app_core.layout import AppLayoutMixin
 from websync.gui.app_core.sync_control import AppSyncControlMixin
+from websync.gui.widgets import FONT_FAMILY, apply_global_fonts
 from websync.i18n import t
+from websync.integrations.calibre import CalibreManager
+from websync.pipeline.service import SyncService
+from websync.scheduler.manager import SchedulerManager
 
 
 class SyncAppGui(
@@ -92,8 +90,8 @@ class SyncAppGui(
         """시작 시 스테이징 잔재 정리와 이전 업데이트 결과 1회 소비."""
         def task():
             try:
-                from websync.core.update_service import UpdateService
                 from websync import __version__
+                from websync.core.update_service import UpdateService
 
                 service = UpdateService(current_version=__version__)
                 try:
@@ -148,8 +146,8 @@ class SyncAppGui(
             return
 
         def update_task():
-            from websync.core.update_service import UpdateService
             from websync import __version__
+            from websync.core.update_service import UpdateService
 
             try:
                 service = UpdateService(current_version=__version__)
@@ -170,7 +168,10 @@ class SyncAppGui(
 
     def _maybe_show_portable_wizard(self):
         """첫 실행 시 공유 데이터 폴더 연결 마법사."""
-        from websync.gui.portable_wizard import PortableDataWizard, should_show_portable_wizard
+        from websync.gui.portable_wizard import (
+            PortableDataWizard,
+            should_show_portable_wizard,
+        )
 
         cfg = self.service.config if isinstance(self.service.config, dict) else {}
         if not should_show_portable_wizard(cfg):

@@ -3,11 +3,9 @@ from __future__ import annotations
 import os
 import sys
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import filedialog, messagebox
 
-from websync.gui.widgets import (
-    COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING
-)
+from websync.gui.widgets import COLOR_DANGER, COLOR_SUCCESS, COLOR_WARNING
 from websync.i18n import t
 
 

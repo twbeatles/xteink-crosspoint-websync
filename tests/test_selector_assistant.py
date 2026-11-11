@@ -3,16 +3,16 @@ from pathlib import Path
 
 import pytest
 
+from websync.scrapers.css import CssSelectorScraper
 from websync.scrapers.selector_assistant import (
     analyze_html,
     css_path,
     discover_feeds,
+    evaluate_selector,
     fingerprint_platform,
     parse_html,
     suggest_selectors,
-    evaluate_selector,
 )
-from websync.scrapers.css import CssSelectorScraper
 
 FIXTURE = Path(__file__).parent / "fixtures" / "scrapers" / "css" / "list_page.html"
 

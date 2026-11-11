@@ -2,16 +2,23 @@
 from __future__ import annotations
 
 import tkinter as tk
+
 import customtkinter as ctk
 
-from websync.gui.widgets import (
-    CardFrame, COLOR_FG, COLOR_SECONDARY_FG, COLOR_DANGER, COLOR_WARNING, get_font, create_scrollable_frame, create_scrolled_tree
-)
-
-from websync.gui.device_files.settings import DeviceFilesSettingsMixin
-from websync.gui.device_files.browser import DeviceFilesBrowserMixin
 from websync.gui.device_files.actions import DeviceFilesActionsMixin
+from websync.gui.device_files.browser import DeviceFilesBrowserMixin
 from websync.gui.device_files.cleanup import DeviceFilesCleanupMixin
+from websync.gui.device_files.settings import DeviceFilesSettingsMixin
+from websync.gui.widgets import (
+    COLOR_DANGER,
+    COLOR_FG,
+    COLOR_SECONDARY_FG,
+    COLOR_WARNING,
+    CardFrame,
+    create_scrollable_frame,
+    create_scrolled_tree,
+    get_font,
+)
 from websync.i18n import t
 
 

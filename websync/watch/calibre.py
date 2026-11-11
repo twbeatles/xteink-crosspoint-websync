@@ -1,7 +1,7 @@
 """Calibre 서재 폴더 변경 감시 모듈 (watchdog 사용)"""
 import os
-import time
 import threading
+import time
 from typing import Callable, Optional
 
 from websync.i18n import t
@@ -129,8 +129,8 @@ class CalibreWatcher:
             return False
         self._stopped.clear()
         try:
-            from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
+            from watchdog.observers import Observer
 
             watcher_self = self
 

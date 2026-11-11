@@ -11,9 +11,9 @@ import os
 import sqlite3
 import sys
 import zipfile
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import patch
 
 _OS = os
 _SYS = sys
@@ -238,8 +238,9 @@ def test_PIPE_11_epub_only_no_upload_no_history(tmp_path):
     srv = FakeCrosspointServer().start()
     try:
         svc, db, _cm = _make_service(str(tmp_path), srv.host)
-        from websync.pipeline.epub_only import build_selected_epubs
         from unittest.mock import MagicMock
+
+        from websync.pipeline.epub_only import build_selected_epubs
 
         spy_uploader = MagicMock(wraps=svc.uploader)
         svc.uploader = spy_uploader
@@ -351,8 +352,8 @@ def test_same_name_digest_asymmetric_history_partial_failure_and_retry(tmp_path)
 
 @pytest.mark.parametrize("merge_mode", ["daily_digest", "per_site"])
 def test_preview_identity_build_only_and_selected_translation(tmp_path, merge_mode):
-    from websync.pipeline.preview import preview_articles
     from websync.pipeline.epub_only import build_selected_epubs
+    from websync.pipeline.preview import preview_articles
     from websync.pipeline.selected_sync import sync_selected_articles
     from websync.pipeline.sources import source_id
     srv = FakeCrosspointServer().start()

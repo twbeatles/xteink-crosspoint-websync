@@ -11,8 +11,8 @@ from websync.backup.format import (
     SITES_FILENAME,
     build_history_payload,
     build_sites_payload,
-    extract_deleted_sites,
     extract_deleted_posts,
+    extract_deleted_sites,
     is_remote_newer,
     merge_sites,
 )

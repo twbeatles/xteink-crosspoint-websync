@@ -4,7 +4,8 @@ from __future__ import annotations
 import os
 import sys
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import filedialog, messagebox
+
 import customtkinter as ctk
 
 from websync.backup.portable_cfg import (
@@ -15,8 +16,13 @@ from websync.backup.portable_cfg import (
     normalize_history_mode,
 )
 from websync.gui.widgets import (
-    CardFrame, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
-    COLOR_SUCCESS, COLOR_DANGER, get_font
+    COLOR_ACCENT,
+    COLOR_DANGER,
+    COLOR_FG,
+    COLOR_SECONDARY_FG,
+    COLOR_SUCCESS,
+    CardFrame,
+    get_font,
 )
 from websync.i18n import t
 

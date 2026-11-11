@@ -4,12 +4,24 @@ from __future__ import annotations
 import os
 import sys
 import tkinter as tk
+
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    CardFrame, COLOR_ACCENT, COLOR_CARD_BG, COLOR_DANGER, COLOR_DANGER_HOVER,
-    COLOR_NEUTRAL, COLOR_NEUTRAL_HOVER, COLOR_FG, COLOR_SECONDARY_FG, COLOR_SUCCESS,
-    COLOR_WARNING, Tooltip, get_font, make_button,
+    COLOR_ACCENT,
+    COLOR_CARD_BG,
+    COLOR_DANGER,
+    COLOR_DANGER_HOVER,
+    COLOR_FG,
+    COLOR_NEUTRAL,
+    COLOR_NEUTRAL_HOVER,
+    COLOR_SECONDARY_FG,
+    COLOR_SUCCESS,
+    COLOR_WARNING,
+    CardFrame,
+    Tooltip,
+    get_font,
+    make_button,
 )
 from websync.i18n import t
 

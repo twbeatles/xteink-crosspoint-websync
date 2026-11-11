@@ -1,7 +1,8 @@
 """스크래퍼 공통 기반 및 유틸리티"""
-import requests
 from abc import ABC, abstractmethod
 from urllib.parse import urljoin, urlparse
+
+import requests
 from requests.adapters import HTTPAdapter
 
 try:

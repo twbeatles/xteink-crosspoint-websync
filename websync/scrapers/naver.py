@@ -1,11 +1,18 @@
 """NaverBlogScraper"""
-from concurrent.futures import ThreadPoolExecutor
-from websync.scrapers.base import BaseScraper, maybe_strip_images, fetch_url, normalize_limit
 import re
+from concurrent.futures import ThreadPoolExecutor
+
 from bs4 import BeautifulSoup
+
 from websync.core.logger import get_logger
-from websync.scrapers.naver_common import clean_naver_content
 from websync.i18n import t
+from websync.scrapers.base import (
+    BaseScraper,
+    fetch_url,
+    maybe_strip_images,
+    normalize_limit,
+)
+from websync.scrapers.naver_common import clean_naver_content
 
 # 상세 페이지 병렬 수집 워커 수 (N2)
 _DETAIL_MAX_WORKERS = 3

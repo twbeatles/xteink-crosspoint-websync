@@ -158,6 +158,7 @@ def test_write_and_consume_update_result(tmp_path):
 
 def test_prepare_staged_update_cancel_event(tmp_path):
     import threading
+
     from websync.core.update_installer import UpdateCancelledError
 
     data = b"test cancellation content"

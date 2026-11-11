@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
+from websync.backup.service import BackupSyncError
+from websync.i18n import t
+from websync.pipeline.article_keys import article_sync_key
+from websync.pipeline.sources import source_metadata
 from websync.scrapers import ScraperFactory
 from websync.scrapers.base import is_allowed_fetch_url
-from websync.backup.service import BackupSyncError
 from websync.upload.uploader import X3Uploader
-from websync.pipeline.article_keys import article_sync_key
-from websync.i18n import t
-from websync.pipeline.sources import source_metadata
+
 
 def preview_articles(
     service,
@@ -63,7 +64,10 @@ def preview_articles(
         )
         upload_targets = uploader._build_target_list()
         from websync.backup.portable_cfg import get_portable_cfg
-        from websync.upload.device_ids import alias_key_groups, history_keys_from_targets
+        from websync.upload.device_ids import (
+            alias_key_groups,
+            history_keys_from_targets,
+        )
 
         target_history_keys = history_keys_from_targets(upload_targets)
         key_aliases = alias_key_groups(upload_targets)

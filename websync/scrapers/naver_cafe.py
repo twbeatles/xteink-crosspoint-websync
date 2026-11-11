@@ -13,9 +13,14 @@ import re
 from bs4 import BeautifulSoup
 
 from websync.core.logger import get_logger
-from websync.scrapers.base import BaseScraper, fetch_url, normalize_limit, maybe_strip_images
-from websync.scrapers.naver_common import clean_naver_content
 from websync.i18n import t
+from websync.scrapers.base import (
+    BaseScraper,
+    fetch_url,
+    maybe_strip_images,
+    normalize_limit,
+)
+from websync.scrapers.naver_common import clean_naver_content
 
 
 class NaverCafeScraper(BaseScraper):

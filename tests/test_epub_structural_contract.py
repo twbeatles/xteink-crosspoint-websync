@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 import os
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 
 from websync.epub.builder import EpubBuilder
 

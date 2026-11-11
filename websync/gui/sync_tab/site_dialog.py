@@ -11,11 +11,25 @@ from urllib.parse import urlparse
 
 import customtkinter as ctk
 
-from websync.gui.widgets import (
-    CardFrame, COLOR_BG, COLOR_SECONDARY_FG, Tooltip,
-    get_font, make_button, setup_dialog,
+from websync.gui.sync_tab.selector_wizard import (
+    ROLE_CONTENT,
+    ROLE_ITEM,
+    ROLE_LINK,
+    ROLE_REMOVE,
+    ROLE_TITLE,
+    SelectorWizardPanel,
 )
-from websync.scrapers.types import SCRAPER_TYPES, SPECIALIZED_TYPES
+from websync.gui.sync_tab.sites import site_type_label
+from websync.gui.widgets import (
+    COLOR_BG,
+    COLOR_SECONDARY_FG,
+    CardFrame,
+    Tooltip,
+    get_font,
+    make_button,
+    setup_dialog,
+)
+from websync.i18n import t
 from websync.scrapers.presets import (
     KOREAN_SITE_PRESETS,
     PRESET_CATEGORIES,
@@ -23,16 +37,7 @@ from websync.scrapers.presets import (
     preset_display_label,
     presets_for_category,
 )
-from websync.gui.sync_tab.sites import site_type_label
-from websync.gui.sync_tab.selector_wizard import (
-    SelectorWizardPanel,
-    ROLE_ITEM,
-    ROLE_TITLE,
-    ROLE_LINK,
-    ROLE_CONTENT,
-    ROLE_REMOVE,
-)
-from websync.i18n import t
+from websync.scrapers.types import SCRAPER_TYPES, SPECIALIZED_TYPES
 
 TRANSLATE_CHOICES: tuple[str, ...] = ("", "ko", "en", "ja", "zh-cn", "zh-tw")
 

@@ -45,8 +45,9 @@ def test_allowed_fetch_url_blocks_private_and_schemes():
 
 
 def test_epub_builder_sanitizes_malicious_chapter(tmp_path):
-    from websync.epub.builder import EpubBuilder
     import zipfile
+
+    from websync.epub.builder import EpubBuilder
 
     builder = EpubBuilder(output_dir=str(tmp_path))
     arts = [{"title": "evil", "url": "https://a.example/e",

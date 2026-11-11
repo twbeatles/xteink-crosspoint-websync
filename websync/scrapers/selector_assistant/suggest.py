@@ -16,14 +16,15 @@ from websync.scrapers.selector_assistant.html_dom import (
     _text_preview,
 )
 from websync.scrapers.selector_assistant.scoring import (
+    _best_link_in,
     _discover_link_path_selectors,
     _score_content_candidate,
     _score_item_candidate,
     _suggest_relative_title_link,
-    _best_link_in,
     _title_quality,
 )
 from websync.scrapers.selector_assistant.types import PageAnalysis
+
 
 def suggest_selectors(soup: BeautifulSoup, max_per_role: int = 5) -> dict[str, Any]:
     """목록/제목/링크/본문 후보 선택자 제안.

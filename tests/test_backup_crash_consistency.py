@@ -30,8 +30,8 @@ def test_atomic_replace_failure_keeps_prior_bytes(tmp_path):
 
 
 def test_sqlite_commit_failure_reports_db_error_not_success(tmp_path):
-    import sys as _sys
     import os as _os
+    import sys as _sys
     _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), "support"))
     from fake_crosspoint_server import FakeCrosspointServer
 

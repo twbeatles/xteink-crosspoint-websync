@@ -1,12 +1,12 @@
 """Pipeline lock contract: class-level lock serializes instances; GUI+CLI share path."""
 import threading
 import time
+from unittest.mock import patch
 
 from websync.config.manager import ConfigManager
 from websync.core.process_lock import ProcessFileLock
 from websync.db.history import SyncHistoryDb
 from websync.pipeline.service import SyncService
-from unittest.mock import patch
 
 
 def _svc(tmp_path, name):

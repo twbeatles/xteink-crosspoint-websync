@@ -9,10 +9,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from websync.upload.device_client import X3DeviceClient, DeviceClientError
-from websync.upload.local_path import plan_local_downloads, publish_local_download
-from websync.scheduler.manager import SchedulerManager
 from websync.gui.sync_tab.schedule import SyncScheduleMixin
+from websync.scheduler.manager import SchedulerManager
+from websync.upload.device_client import DeviceClientError, X3DeviceClient
+from websync.upload.local_path import plan_local_downloads, publish_local_download
 
 
 @pytest.mark.parametrize("timing", ["before_request", "during_stream", "before_publish"])

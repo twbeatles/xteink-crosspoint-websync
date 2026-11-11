@@ -4,8 +4,8 @@ from __future__ import annotations
 import secrets
 from typing import Any, Callable
 
-from websync.upload.host import normalize_device_host
 from websync.i18n import t
+from websync.upload.host import normalize_device_host
 
 
 def new_device_id() -> str:
@@ -171,7 +171,10 @@ def resolve_pending_upload_ips(
     - per_device: alias_keys(id·IP·레거시 host) 기준
     - global_url: URL 전역 이력이 없으면 전 대상 IP, 있으면 빈 목록
     """
-    from websync.backup.portable_cfg import HISTORY_MODE_GLOBAL_URL, normalize_history_mode
+    from websync.backup.portable_cfg import (
+        HISTORY_MODE_GLOBAL_URL,
+        normalize_history_mode,
+    )
 
     mode = normalize_history_mode(history_mode)
     pending: list[str] = []
@@ -223,7 +226,10 @@ def group_articles_by_pending_targets(
     history_mode: str = "per_device",
 ) -> list[tuple[list[str], list[dict]]]:
     """Group targets that need exactly the same subset of articles."""
-    from websync.backup.portable_cfg import HISTORY_MODE_GLOBAL_URL, normalize_history_mode
+    from websync.backup.portable_cfg import (
+        HISTORY_MODE_GLOBAL_URL,
+        normalize_history_mode,
+    )
 
     mode = normalize_history_mode(history_mode)
     grouped: dict[tuple[str, ...], dict] = {}

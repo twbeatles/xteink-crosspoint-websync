@@ -1,16 +1,21 @@
 """뉴스 미리보기 → 기사 선택 → 전송 / EPUB 만 만들기."""
 from __future__ import annotations
 
+import html as html_lib
 import os
 import re
-import html as html_lib
 import tkinter as tk
 from tkinter import messagebox
 
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    COLOR_BG, COLOR_SECONDARY_FG, create_scrolled_tree, get_font, make_button, setup_dialog,
+    COLOR_BG,
+    COLOR_SECONDARY_FG,
+    create_scrolled_tree,
+    get_font,
+    make_button,
+    setup_dialog,
 )
 from websync.i18n import t
 

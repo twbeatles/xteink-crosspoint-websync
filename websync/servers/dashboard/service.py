@@ -5,8 +5,8 @@ import threading
 from typing import Callable, Optional
 
 from websync.core.logger import get_logger
-from websync.servers.dashboard.http_server import DashboardHTTPServer
 from websync.i18n import t
+from websync.servers.dashboard.http_server import DashboardHTTPServer
 
 logger = get_logger()
 

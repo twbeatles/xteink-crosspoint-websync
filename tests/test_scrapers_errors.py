@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 import pytest
 
-from websync.scrapers.youtube import YoutubeScraper
-from websync.scrapers.tistory import TistoryScraper
 from websync.scrapers.brunch import BrunchScraper
 from websync.scrapers.substack import SubstackScraper
+from websync.scrapers.tistory import TistoryScraper
+from websync.scrapers.youtube import YoutubeScraper
 
 
 @pytest.mark.parametrize(

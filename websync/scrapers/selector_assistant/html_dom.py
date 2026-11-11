@@ -15,6 +15,7 @@ from websync.scrapers.selector_assistant.types import (
     SelectorTestResult,
 )
 
+
 def parse_html(html: str, base_url: str = "") -> BeautifulSoup:
     """HTML 문자열을 BeautifulSoup으로 파싱 (lxml 우선, 폴백 html.parser)."""
     try:

@@ -60,10 +60,10 @@ def test_extract_links_uses_main_title_not_story():
 
 def test_newsletter_extracts_title_from_same_detail_fetch():
     """상세 페이지를 제목용으로 다시 GET하지 않는다."""
+    import re
     from unittest.mock import MagicMock, patch
 
     from websync.scrapers.newsletter_base import BaseNewsletterScraper
-    import re
 
     class _Dummy(BaseNewsletterScraper):
         LINK_PATTERN = re.compile(r"/n/\d+")

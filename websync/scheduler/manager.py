@@ -1,7 +1,7 @@
 import os
-import sys
 import shlex
 import subprocess
+import sys
 from pathlib import PureWindowsPath
 
 from websync.i18n import t

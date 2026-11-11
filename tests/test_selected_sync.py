@@ -6,8 +6,8 @@ sync_selected_articles 가 시작 시 maybe_backup_pull 을 호출하는지,
 from unittest.mock import MagicMock, patch
 
 from websync.config.manager import ConfigManager
-from websync.pipeline.service import SyncService
 from websync.pipeline.selected_sync import sync_selected_articles
+from websync.pipeline.service import SyncService
 
 
 def _make_svc(devices=None):
@@ -170,6 +170,7 @@ def test_selected_sync_cancel_after_first_device_batch_skips_remaining_batch():
 
 def test_selected_legacy_source_name_uses_only_unambiguous_translation():
     import pytest
+
     from websync.pipeline.sources import selected_source_groups
     arts = [{"site_name": "same", "url": "https://article.example/a", "content": "original"}]
     first = {"name": "same", "url": "https://feed.example/a", "translate_to": "ko"}
@@ -201,7 +202,7 @@ def test_ambiguous_legacy_selection_fails_before_build_or_upload():
 
 
 def test_source_identity_preserves_url_path_case_and_survives_rename():
-    from websync.pipeline.sources import source_id, selected_source_groups
+    from websync.pipeline.sources import selected_source_groups, source_id
     site = {"name": "original", "url": "https://feed.example/News", "translate_to": "ko"}
     identity = source_id(site)
     assert identity != source_id({**site, "url": "https://feed.example/news"})

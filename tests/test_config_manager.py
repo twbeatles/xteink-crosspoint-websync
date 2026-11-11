@@ -1,12 +1,11 @@
 import json
+import multiprocessing
 import os
 import tempfile
-import multiprocessing
 import time
+from unittest.mock import patch
 
 import pytest
-
-from unittest.mock import patch
 
 from websync.config.exceptions import ConfigLoadError, ConfigSaveError
 from websync.config.manager import ConfigManager

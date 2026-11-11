@@ -3,20 +3,23 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import messagebox
+
 import customtkinter as ctk
 
-from websync.gui.widgets import (
-    CardFrame, COLOR_SECONDARY_FG, COLOR_ACCENT,
-    COLOR_DANGER, get_font,
-    create_scrollable_frame
-)
-
-from websync.gui.settings_tab.epub_settings import SettingsEpubMixin
-from websync.gui.settings_tab.servers import SettingsServersMixin
-from websync.gui.settings_tab.watch import SettingsWatchMixin
 from websync.gui.settings_tab.ai_translation import SettingsAiTranslationMixin
 from websync.gui.settings_tab.backup_sync import SettingsBackupSyncMixin
+from websync.gui.settings_tab.epub_settings import SettingsEpubMixin
+from websync.gui.settings_tab.servers import SettingsServersMixin
 from websync.gui.settings_tab.updater import SettingsUpdaterMixin
+from websync.gui.settings_tab.watch import SettingsWatchMixin
+from websync.gui.widgets import (
+    COLOR_ACCENT,
+    COLOR_DANGER,
+    COLOR_SECONDARY_FG,
+    CardFrame,
+    create_scrollable_frame,
+    get_font,
+)
 from websync.i18n import t
 
 

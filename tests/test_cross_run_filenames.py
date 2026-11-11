@@ -13,7 +13,6 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "support"))
 from fake_crosspoint_server import FakeCrosspointServer
-
 from test_pipeline_http_integration import (
     _article,
     _epub_contains,
@@ -21,6 +20,7 @@ from test_pipeline_http_integration import (
     _run_with_articles,
     _uploaded_epub_texts,
 )
+
 from websync.epub.builder import EpubBuilder
 from websync.upload.sync_epub import parse_sync_epub_date
 from websync.upload.uploader import X3Uploader

@@ -1,6 +1,6 @@
 import shlex
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from websync.scheduler.manager import SchedulerManager
 

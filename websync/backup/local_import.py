@@ -14,13 +14,13 @@ from websync.backup.atomic_io import read_json_safe
 from websync.backup.format import (
     HISTORY_FILENAME,
     SITES_FILENAME,
-    extract_posts,
+    apply_site_tombstones,
     extract_deleted_posts,
     extract_deleted_sites,
+    extract_posts,
     extract_sites,
-    apply_site_tombstones,
-    merge_sites,
     merge_site_tombstones,
+    merge_sites,
 )
 from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
 from websync.config.manager import ConfigManager

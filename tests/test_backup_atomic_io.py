@@ -1,9 +1,15 @@
 import json
 import os
 import tempfile
+
 import pytest
 
-from websync.backup.atomic_io import JsonReadError, read_json_checked, read_json_safe, write_json_atomic
+from websync.backup.atomic_io import (
+    JsonReadError,
+    read_json_checked,
+    read_json_safe,
+    write_json_atomic,
+)
 
 
 def test_write_and_read_json_atomic():

@@ -4,12 +4,11 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 
-from websync.upload.uploader import X3Uploader
-from websync.core.logger import get_log_dir
-from websync.config.exceptions import ConfigSaveError, ConfigConflictError
 from websync.backup.format import merge_sites
+from websync.config.exceptions import ConfigConflictError, ConfigSaveError
+from websync.core.logger import get_log_dir
 from websync.i18n import t
-
+from websync.upload.uploader import X3Uploader
 
 # GUI 저장은 watch_dir만 편집한다. 나머지는 Watch 토글·워커가 RMW로 저장한다.
 _WATCH_BACKGROUND_KEYS = ("enabled", "pending_files", "pending_jobs")
@@ -261,8 +260,14 @@ class AppHelpersMixin:
         쓰는 필드는 디스크 값을 유지한다. 메모리 사본이 오래되어도 그 변경을 되돌리지 않는다.
         """
         import copy
+
         from websync.backup.format import apply_site_tombstones, merge_site_tombstones
-        from websync.backup.portable_cfg import LEGACY_KEY, PORTABLE_KEY, apply_portable_cfg, get_portable_cfg
+        from websync.backup.portable_cfg import (
+            LEGACY_KEY,
+            PORTABLE_KEY,
+            apply_portable_cfg,
+            get_portable_cfg,
+        )
 
         out = copy.deepcopy(disk)
         for key, val in memory.items():

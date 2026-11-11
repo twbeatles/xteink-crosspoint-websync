@@ -12,34 +12,43 @@ import threading
 import time
 from typing import Any, Optional
 
-from websync.backup.atomic_io import JsonReadError, ensure_dir, read_json_checked, write_json_atomic
+from websync.backup.atomic_io import (
+    JsonReadError,
+    ensure_dir,
+    read_json_checked,
+    write_json_atomic,
+)
+from websync.backup.device_registry import reconcile_config_devices
 from websync.backup.format import (
     HISTORY_FILENAME,
     LOCK_FILENAME,
     MANIFEST_FILENAME,
     SITES_FILENAME,
+    apply_site_tombstones,
     build_history_payload,
     build_manifest,
     build_sites_payload,
-    apply_site_tombstones,
-    extract_deleted_sites,
-    extract_posts,
     extract_deleted_posts,
+    extract_deleted_sites,
     extract_devices,
+    extract_posts,
     extract_sites,
     is_remote_newer,
-    merge_sites,
     merge_site_tombstones,
+    merge_sites,
     now_iso,
 )
-from websync.backup.device_registry import reconcile_config_devices
 from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
+from websync.backup.replicas import (
+    ensure_replica_id,
+    merge_replica_inputs,
+    publish_replica,
+)
 from websync.config.manager import ConfigManager
 from websync.core.paths import resolve_path
 from websync.core.process_lock import ProcessFileLock
 from websync.db.history import SyncHistoryDb, SyncHistoryDbError
 from websync.i18n import t
-from websync.backup.replicas import merge_replica_inputs, publish_replica, ensure_replica_id
 
 
 class BackupSyncError(Exception):

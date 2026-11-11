@@ -3,19 +3,28 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from websync.gui.widgets import (
-    CardFrame, COLOR_FG, COLOR_SECONDARY_FG, COLOR_ACCENT,
-    COLOR_ACCENT_SOFT, COLOR_SUCCESS, COLOR_DANGER, COLOR_WARNING, Tooltip, get_font,
-    create_scrollable_frame, create_scrolled_tree, make_button
-)
-
 from websync.gui.sync_tab.connection import SyncConnectionMixin
-from websync.gui.sync_tab.schedule import SyncScheduleMixin
 from websync.gui.sync_tab.devices import SyncDevicesMixin
-from websync.gui.sync_tab.sites import SyncSitesMixin
-from websync.gui.sync_tab.site_dialog import SiteDialogMixin
-from websync.gui.sync_tab.preview import SyncPreviewMixin
 from websync.gui.sync_tab.epub_options import SyncEpubOptionsMixin
+from websync.gui.sync_tab.preview import SyncPreviewMixin
+from websync.gui.sync_tab.schedule import SyncScheduleMixin
+from websync.gui.sync_tab.site_dialog import SiteDialogMixin
+from websync.gui.sync_tab.sites import SyncSitesMixin
+from websync.gui.widgets import (
+    COLOR_ACCENT,
+    COLOR_ACCENT_SOFT,
+    COLOR_DANGER,
+    COLOR_FG,
+    COLOR_SECONDARY_FG,
+    COLOR_SUCCESS,
+    COLOR_WARNING,
+    CardFrame,
+    Tooltip,
+    create_scrollable_frame,
+    create_scrolled_tree,
+    get_font,
+    make_button,
+)
 from websync.i18n import t
 
 

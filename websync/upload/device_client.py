@@ -12,20 +12,22 @@ from typing import Any, Optional
 
 import requests
 
+from websync.i18n import t
 from websync.upload.errors import DeviceClientError
 from websync.upload.host import normalize_device_host
-from websync.upload.remote_path import format_file_size, normalize_remote_path
 
 # 하위 호환 re-export
 from websync.upload.remote_path import (  # noqa: F401
+    format_file_size,
     join_remote_path,
+    normalize_remote_path,
     parent_remote_path,
 )
 from websync.upload.sync_epub import (  # noqa: F401
     filter_old_sync_epubs,
     parse_sync_epub_date,
 )
-from websync.i18n import t
+
 
 class X3DeviceClient:
     """CrossPoint 기기 파일·상태 API 클라이언트 (단일/다중 기기)."""

@@ -145,6 +145,7 @@ def test_verify_release_manifest_non_https_rejected(keypair):
 
 def test_download_release_manifest_cache_busting():
     from unittest.mock import patch
+
     from websync.core.update_manifest import download_release_manifest
 
     captured_requests = []

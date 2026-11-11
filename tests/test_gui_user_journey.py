@@ -64,8 +64,9 @@ def test_worker_exception_recovers_busy_and_progress():
 
 
 def test_epub_only_journey_never_touches_uploader_or_db():
-    from websync.pipeline.epub_only import build_selected_epubs
     import logging
+
+    from websync.pipeline.epub_only import build_selected_epubs
 
     builder = MagicMock()
     builder.build.side_effect = lambda name, arts, generate_cover=True: f"/out/{name}.epub"

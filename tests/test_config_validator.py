@@ -1,5 +1,9 @@
 """config.json 설정 검증 로직 테스트"""
-from websync.config.validator import validate_config, validate_site, log_validation_warnings
+from websync.config.validator import (
+    log_validation_warnings,
+    validate_config,
+    validate_site,
+)
 
 
 def _base_config():

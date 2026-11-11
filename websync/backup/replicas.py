@@ -2,14 +2,17 @@
 
 This is eventual data reconciliation, not a distributed delivery lock.
 """
-from pathlib import Path
 import socket
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from websync.backup.atomic_io import read_json_checked, write_json_atomic
 from websync.backup.format import (
-    build_sites_payload, build_history_payload, merge_sites, merge_site_tombstones,
     apply_site_tombstones,
+    build_history_payload,
+    build_sites_payload,
+    merge_site_tombstones,
+    merge_sites,
 )
 from websync.db.history import SyncHistoryDb
 

@@ -3,15 +3,20 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import filedialog, messagebox
+
 import customtkinter as ctk
 
 from websync.gui.widgets import (
-    CardFrame, COLOR_SECONDARY_FG, COLOR_ACCENT,
-    get_font, create_scrollable_frame, create_scrolled_tree
+    COLOR_ACCENT,
+    COLOR_SECONDARY_FG,
+    CardFrame,
+    create_scrollable_frame,
+    create_scrolled_tree,
+    get_font,
 )
-from websync.integrations.notifier import ToastNotifier
 from websync.i18n import t
+from websync.integrations.notifier import ToastNotifier
 
 
 class CalibreTab(ctk.CTkFrame):

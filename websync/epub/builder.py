@@ -13,13 +13,15 @@ from websync.epub.cover import make_cover_image
 from websync.epub.css import build_default_css, load_theme_css, resolve_css
 from websync.epub.filenames import (
     DIGEST_PREFIX,
-    batch_digest as _batch_digest,
     epub_basename,
     safe_site_component,
 )
+from websync.epub.filenames import (
+    batch_digest as _batch_digest,
+)
+from websync.epub.images import ImageAssets
 from websync.epub.sanitize import sanitize_body_html
 from websync.i18n import t
-from websync.epub.images import ImageAssets
 
 
 class EpubBuilder:

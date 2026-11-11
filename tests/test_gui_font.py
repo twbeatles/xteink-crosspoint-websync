@@ -35,8 +35,9 @@ def test_font_family_is_malgun_gothic():
 
 
 def test_ctk_theme_default_is_malgun_gothic():
-    import websync.gui.widgets as widgets
     from customtkinter.windows.widgets.theme.theme_manager import ThemeManager
+
+    import websync.gui.widgets as widgets
 
     assert ThemeManager.theme["CTkFont"]["family"] == "Malgun Gothic"
     assert widgets.FONT_FAMILY == "Malgun Gothic"

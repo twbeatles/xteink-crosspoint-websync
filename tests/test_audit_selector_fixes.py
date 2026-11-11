@@ -2,13 +2,13 @@
 from pathlib import Path
 
 import pytest
-
-from websync.scrapers.selector_assistant import (
-    is_private_or_local_url,
-    analyze_html,
-)
-from websync.scrapers.css import CssSelectorScraper, _reparse_fragment
 from bs4 import BeautifulSoup
+
+from websync.scrapers.css import CssSelectorScraper, _reparse_fragment
+from websync.scrapers.selector_assistant import (
+    analyze_html,
+    is_private_or_local_url,
+)
 
 
 def test_is_private_or_local_url():

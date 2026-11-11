@@ -1,9 +1,9 @@
 """기사 번역 모듈 (googletrans 또는 LibreTranslate 지원)"""
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from websync.i18n import t
 
@@ -148,8 +148,8 @@ class Translator:
             if not (host.startswith("http://") or host.startswith("https://")):
                 self._warn(t("pipeline.translator.bad_host", host=host[:80]))
                 return text
-            import urllib.request
             import json
+            import urllib.request
             payload = {
                 "q": text,
                 "source": source if source != "auto" else "en",
