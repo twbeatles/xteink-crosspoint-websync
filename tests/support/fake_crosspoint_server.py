@@ -4,6 +4,7 @@ Stdlib only. Binds 127.0.0.1 on an OS-assigned port, serves in a daemon
 thread, shuts down cleanly. Emulates a reader's File Transfer webserver;
 touches no real network/SD card.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -115,7 +116,7 @@ class _Handler(BaseHTTPRequestHandler):
             if st.files_status != 200:
                 self._send_text(st.files_status, "files error")
                 return
-            want = (qs.get("path", ["/"])[0] or "/")
+            want = qs.get("path", ["/"])[0] or "/"
             if not want.startswith("/"):
                 want = "/" + want
             items = []
@@ -128,19 +129,31 @@ class _Handler(BaseHTTPRequestHandler):
                     rest = full.lstrip("/")
                     if "/" in rest:
                         continue
-                    items.append({"name": rest, "size": len(data),
-                                  "isDirectory": False, "isEpub": rest.endswith(".epub")})
+                    items.append(
+                        {
+                            "name": rest,
+                            "size": len(data),
+                            "isDirectory": False,
+                            "isEpub": rest.endswith(".epub"),
+                        }
+                    )
                 else:
                     if full == want or full.startswith(prefix):
-                        rest = full[len(prefix):]
+                        rest = full[len(prefix) :]
                         if not rest or "/" in rest:
                             continue
-                        items.append({"name": rest, "size": len(data),
-                                      "isDirectory": False, "isEpub": rest.endswith(".epub")})
+                        items.append(
+                            {
+                                "name": rest,
+                                "size": len(data),
+                                "isDirectory": False,
+                                "isEpub": rest.endswith(".epub"),
+                            }
+                        )
             self._send_json(200, items)
             return
         if parsed.path == "/download":
-            want = (qs.get("path", [""])[0] or "")
+            want = qs.get("path", [""])[0] or ""
             self._log(method="GET", path="/download", query=parsed.query)
             with self._state.lock:
                 data = self._state.files.get(want)
@@ -222,13 +235,18 @@ class _Handler(BaseHTTPRequestHandler):
             if st.slow_upload_sec:
                 _time.sleep(st.slow_upload_sec)
             fields, file_field, filename, filebytes, _raw = self._parse_form()
-            dest = (qs.get("path", [""])[0] or "/")
+            dest = qs.get("path", [""])[0] or "/"
             if not dest.startswith("/"):
                 dest = "/" + dest
             if dest != "/" and dest.endswith("/"):
                 dest = dest.rstrip("/") or "/"
-            self._log(method="POST", path="/upload", query=parsed.query,
-                      filename=filename, size=len(filebytes or b""))
+            self._log(
+                method="POST",
+                path="/upload",
+                query=parsed.query,
+                filename=filename,
+                size=len(filebytes or b""),
+            )
             if st.drop_upload_connection:
                 try:
                     self.connection.shutdown(1)
@@ -249,13 +267,15 @@ class _Handler(BaseHTTPRequestHandler):
                 with st.lock:
                     st.files[full] = filebytes
             with st.lock:
-                st.uploads.append({
-                    "path": full,
-                    "filename": clean,
-                    "sha256": hashlib.sha256(filebytes).hexdigest(),
-                    "size": len(filebytes),
-                    "dest": dest,
-                })
+                st.uploads.append(
+                    {
+                        "path": full,
+                        "filename": clean,
+                        "sha256": hashlib.sha256(filebytes).hexdigest(),
+                        "size": len(filebytes),
+                        "dest": dest,
+                    }
+                )
             # HTTP/1.1 needs Content-Length so requests doesn't hang
             self._send_text(200, st.upload_body)
             return
@@ -289,7 +309,9 @@ class _Handler(BaseHTTPRequestHandler):
                     for p in targets:
                         st.files.pop(p, None)
                         # prefix delete for dirs
-                        for k in [k for k in st.files if k.startswith(p.rstrip("/") + "/")]:
+                        for k in [
+                            k for k in st.files if k.startswith(p.rstrip("/") + "/")
+                        ]:
                             st.files.pop(k, None)
                 elif parsed.path == "/mkdir":
                     pass  # accept; no dir tracking needed
@@ -331,7 +353,9 @@ class FakeCrosspointServer:
         httpd.state = self.state  # type: ignore[attr-defined]
         self._httpd = httpd
         self.port = httpd.server_address[1]
-        self._thread = threading.Thread(target=httpd.serve_forever, kwargs={"poll_interval": 0.05})
+        self._thread = threading.Thread(
+            target=httpd.serve_forever, kwargs={"poll_interval": 0.05}
+        )
         self._thread.daemon = True
         self._thread.start()
         self.ready.set()

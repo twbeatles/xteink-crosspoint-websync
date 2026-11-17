@@ -3,6 +3,7 @@
 목록: sitemap (article-sitemap / news-sitemap)
 본문: 상세 페이지 __NEXT_DATA__ 의 layoutData.articleContent
 """
+
 from __future__ import annotations
 
 import json
@@ -51,11 +52,13 @@ class NewneekScraper(BaseScraper):
             post_url = f"https://newneek.co/@{handle}/article/{aid}"
             title, content = self._fetch_article(post_url, site_config)
             if content:
-                articles.append({
-                    "title": title or t("newneek.fallback_title", id=aid),
-                    "content": content,
-                    "url": ensure_article_url(post_url, url, title or aid),
-                })
+                articles.append(
+                    {
+                        "title": title or t("newneek.fallback_title", id=aid),
+                        "content": content,
+                        "url": ensure_article_url(post_url, url, title or aid),
+                    }
+                )
             else:
                 skipped += 1
             self.last_fetch_stats = {"skipped": skipped}
@@ -77,11 +80,13 @@ class NewneekScraper(BaseScraper):
                 break
             title, content = self._fetch_article(post_url, site_config)
             if content:
-                articles.append({
-                    "title": title or post_url,
-                    "content": content,
-                    "url": ensure_article_url(post_url, url, title or post_url),
-                })
+                articles.append(
+                    {
+                        "title": title or post_url,
+                        "content": content,
+                        "url": ensure_article_url(post_url, url, title or post_url),
+                    }
+                )
             else:
                 skipped += 1
 
@@ -107,15 +112,13 @@ class NewneekScraper(BaseScraper):
                 resp.raise_for_status()
                 text = resp.content.decode("utf-8", errors="replace")
             except Exception as e:
-                self.logger.warning(t("newneek.sitemap_lookup_failed", url=sm_url, error=e))
+                self.logger.warning(
+                    t("newneek.sitemap_lookup_failed", url=sm_url, error=e)
+                )
                 continue
 
             urls = re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", text)
-            matched = [
-                u.strip()
-                for u in urls
-                if f"/@{handle}/article/" in u
-            ]
+            matched = [u.strip() for u in urls if f"/@{handle}/article/" in u]
             if matched:
                 return matched[:limit]
         return []
@@ -165,7 +168,9 @@ class NewneekScraper(BaseScraper):
                     _el.decompose()
             for tag in container.find_all(True):
                 tag.attrs = {
-                    k: v for k, v in tag.attrs.items() if k in ("href", "src", "alt", "title")
+                    k: v
+                    for k, v in tag.attrs.items()
+                    if k in ("href", "src", "alt", "title")
                 }
             maybe_strip_images(container, site_config)
             text = container.get_text(" ", strip=True)

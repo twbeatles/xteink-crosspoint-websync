@@ -1,4 +1,5 @@
 """릴리즈 매니페스트 파싱, 서명 검증 및 버전 비교 단위 테스트."""
+
 from __future__ import annotations
 
 import base64
@@ -46,8 +47,10 @@ def test_canonical_manifest_payload():
 
 def test_verify_release_manifest_success(keypair):
     private_key, pub_b64 = keypair
-    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(microsecond=0)
-    
+    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(
+        microsecond=0
+    )
+
     payload = {
         "version": "1.1.0",
         "artifact_url": "https://github.com/twbeatles/xteink-x3-websync/releases/download/v1.1.0/xteink-x3-websync-v1.1.0.exe",
@@ -55,7 +58,9 @@ def test_verify_release_manifest_success(keypair):
         "size": 1024 * 1024 * 10,
         "expires_at": future_time.isoformat().replace("+00:00", "Z"),
     }
-    sig = base64.b64encode(private_key.sign(canonical_manifest_payload(payload))).decode("ascii")
+    sig = base64.b64encode(
+        private_key.sign(canonical_manifest_payload(payload))
+    ).decode("ascii")
     doc = {"payload": payload, "signature": sig}
 
     manifest = verify_release_manifest(
@@ -72,7 +77,9 @@ def test_verify_release_manifest_success(keypair):
 def test_verify_release_manifest_invalid_signature(keypair):
     private_key, pub_b64 = keypair
     other_key = Ed25519PrivateKey.generate()
-    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(microsecond=0)
+    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(
+        microsecond=0
+    )
 
     payload = {
         "version": "1.1.0",
@@ -82,7 +89,9 @@ def test_verify_release_manifest_invalid_signature(keypair):
         "expires_at": future_time.isoformat().replace("+00:00", "Z"),
     }
     # 다른 키로 서명
-    sig = base64.b64encode(other_key.sign(canonical_manifest_payload(payload))).decode("ascii")
+    sig = base64.b64encode(other_key.sign(canonical_manifest_payload(payload))).decode(
+        "ascii"
+    )
     doc = {"payload": payload, "signature": sig}
 
     with pytest.raises(ValueError, match="signature verification failed"):
@@ -91,7 +100,9 @@ def test_verify_release_manifest_invalid_signature(keypair):
 
 def test_verify_release_manifest_not_newer_version(keypair):
     private_key, pub_b64 = keypair
-    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(microsecond=0)
+    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(
+        microsecond=0
+    )
 
     payload = {
         "version": "1.0.0",
@@ -100,7 +111,9 @@ def test_verify_release_manifest_not_newer_version(keypair):
         "size": 1000,
         "expires_at": future_time.isoformat().replace("+00:00", "Z"),
     }
-    sig = base64.b64encode(private_key.sign(canonical_manifest_payload(payload))).decode("ascii")
+    sig = base64.b64encode(
+        private_key.sign(canonical_manifest_payload(payload))
+    ).decode("ascii")
     doc = {"payload": payload, "signature": sig}
 
     with pytest.raises(NoUpdateAvailableError):
@@ -118,7 +131,9 @@ def test_verify_release_manifest_expired(keypair):
         "size": 1000,
         "expires_at": past_time.isoformat().replace("+00:00", "Z"),
     }
-    sig = base64.b64encode(private_key.sign(canonical_manifest_payload(payload))).decode("ascii")
+    sig = base64.b64encode(
+        private_key.sign(canonical_manifest_payload(payload))
+    ).decode("ascii")
     doc = {"payload": payload, "signature": sig}
 
     with pytest.raises(ValueError, match="expired"):
@@ -127,7 +142,9 @@ def test_verify_release_manifest_expired(keypair):
 
 def test_verify_release_manifest_non_https_rejected(keypair):
     private_key, pub_b64 = keypair
-    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(microsecond=0)
+    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(
+        microsecond=0
+    )
 
     payload = {
         "version": "1.1.0",
@@ -136,7 +153,9 @@ def test_verify_release_manifest_non_https_rejected(keypair):
         "size": 1000,
         "expires_at": future_time.isoformat().replace("+00:00", "Z"),
     }
-    sig = base64.b64encode(private_key.sign(canonical_manifest_payload(payload))).decode("ascii")
+    sig = base64.b64encode(
+        private_key.sign(canonical_manifest_payload(payload))
+    ).decode("ascii")
     doc = {"payload": payload, "signature": sig}
 
     with pytest.raises(ValueError, match="must be HTTPS"):
@@ -153,10 +172,13 @@ def test_download_release_manifest_cache_busting():
     class FakeResponse:
         def __enter__(self):
             return self
+
         def __exit__(self, *args):
             pass
+
         def geturl(self):
             return "https://example.com/latest.json"
+
         def read(self, limit):
             return b'{"payload": {}}'
 
@@ -170,5 +192,8 @@ def test_download_release_manifest_cache_busting():
         assert len(captured_requests) == 1
         req = captured_requests[0]
         assert "_t=" in req.full_url
-        assert req.headers.get("Cache-control") == "no-cache" or req.headers.get("Cache-Control") == "no-cache"
+        assert (
+            req.headers.get("Cache-control") == "no-cache"
+            or req.headers.get("Cache-Control") == "no-cache"
+        )
         assert req.headers.get("Pragma") == "no-cache"

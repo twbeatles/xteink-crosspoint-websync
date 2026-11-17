@@ -1,4 +1,5 @@
 """HTML 파싱·CSS 경로·선택자 평가·DOM 아웃라인."""
+
 from __future__ import annotations
 
 import re
@@ -60,7 +61,9 @@ def _stable_classes(tag: Tag) -> list[str]:
         # styled-components 스타일 랜덤 토큰 (iQzKaI) — 의미 단어·구분자 없으면 제외
         if (
             re.fullmatch(r"[A-Za-z]+", c)
-            and not re.search(r"(post|entry|article|content|title|card|list|item|blog)", c, re.I)
+            and not re.search(
+                r"(post|entry|article|content|title|card|list|item|blog)", c, re.I
+            )
             and ("_" not in c and "-" not in c)
             and re.search(r"[A-Z]", c)
             and re.search(r"[a-z]", c)
@@ -72,7 +75,9 @@ def _stable_classes(tag: Tag) -> list[str]:
     out.sort(
         key=lambda x: (
             0
-            if re.search(r"(post|entry|article|content|title|card|list|item|blog)", x, re.I)
+            if re.search(
+                r"(post|entry|article|content|title|card|list|item|blog)", x, re.I
+            )
             else 1,
             len(x),
         )
@@ -98,7 +103,12 @@ def css_path(tag: Tag, max_depth: int = 6) -> str:
     parts: list[str] = []
     current: Optional[Tag] = tag
     depth = 0
-    while current is not None and isinstance(current, Tag) and current.name and depth < max_depth:
+    while (
+        current is not None
+        and isinstance(current, Tag)
+        and current.name
+        and depth < max_depth
+    ):
         if current.name in ("html", "[document]"):
             break
         simple = _tag_simple_selector(current)
@@ -108,7 +118,9 @@ def css_path(tag: Tag, max_depth: int = 6) -> str:
         parent = current.parent if isinstance(current.parent, Tag) else None
         if parent and parent.name not in ("html", "[document]", None):
             siblings = [
-                s for s in parent.find_all(current.name, recursive=False) if isinstance(s, Tag)
+                s
+                for s in parent.find_all(current.name, recursive=False)
+                if isinstance(s, Tag)
             ]
             if len(siblings) > 1:
                 try:
@@ -162,7 +174,6 @@ def evaluate_selector(
             html = html[:199] + "…"
         samples.append(SelectorSample(text=_text_preview(m), html_preview=html))
     return SelectorTestResult(count=len(matches), samples=samples)
-
 
 
 def build_dom_outline(

@@ -4,6 +4,7 @@
 "이미 전부 전송됨" 얼리 리턴만 검증. 본 파일은 실제 build_digest + upload 경로와
 합본 전용 카운팅(digest_success / digest_partial)을 검증한다.
 """
+
 from unittest.mock import MagicMock, patch
 
 from websync.config.manager import ConfigManager
@@ -42,17 +43,33 @@ def _make_svc(cfg):
 def test_daily_digest_happy_path_marks_all_and_success():
     """합본 업로드 전 기기 성공 → digest_success=True, overall_ok=True."""
     cfg = _digest_config(
-        sites=[{"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1}],
+        sites=[
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            }
+        ],
         devices=[{"name": "추가", "ip": "10.0.0.2"}],
     )
     svc = _make_svc(cfg)
-    with patch.object(svc, "_reload_config"), \
-         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
-         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
-         patch.object(ScraperFactory, "get_scraper") as mock_get, \
-         patch.object(svc.epub_builder, "build_digest", return_value="/tmp/digest.epub") as mock_digest, \
-         patch.object(svc.uploader, "upload_to_targets", return_value={"127.0.0.1": True, "10.0.0.2": True}), \
-         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+    with (
+        patch.object(svc, "_reload_config"),
+        patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}),
+        patch.object(svc, "maybe_backup_push", return_value={"skipped": True}),
+        patch.object(ScraperFactory, "get_scraper") as mock_get,
+        patch.object(
+            svc.epub_builder, "build_digest", return_value="/tmp/digest.epub"
+        ) as mock_digest,
+        patch.object(
+            svc.uploader,
+            "upload_to_targets",
+            return_value={"127.0.0.1": True, "10.0.0.2": True},
+        ),
+        patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"),
+    ):
         mock_get.return_value.fetch_articles.return_value = [
             {"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"},
         ]
@@ -70,17 +87,31 @@ def test_daily_digest_happy_path_marks_all_and_success():
 def test_daily_digest_all_upload_fail_not_success():
     """합본 업로드 전 기기 실패 → digest_success=False, overall_ok=False (N1 핵심)."""
     cfg = _digest_config(
-        sites=[{"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1}],
+        sites=[
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            }
+        ],
         devices=[{"name": "추가", "ip": "10.0.0.2"}],
     )
     svc = _make_svc(cfg)
-    with patch.object(svc, "_reload_config"), \
-         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
-         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
-         patch.object(ScraperFactory, "get_scraper") as mock_get, \
-         patch.object(svc.epub_builder, "build_digest", return_value="/tmp/digest.epub"), \
-         patch.object(svc.uploader, "upload_to_targets", return_value={"127.0.0.1": False, "10.0.0.2": False}), \
-         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+    with (
+        patch.object(svc, "_reload_config"),
+        patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}),
+        patch.object(svc, "maybe_backup_push", return_value={"skipped": True}),
+        patch.object(ScraperFactory, "get_scraper") as mock_get,
+        patch.object(svc.epub_builder, "build_digest", return_value="/tmp/digest.epub"),
+        patch.object(
+            svc.uploader,
+            "upload_to_targets",
+            return_value={"127.0.0.1": False, "10.0.0.2": False},
+        ),
+        patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"),
+    ):
         mock_get.return_value.fetch_articles.return_value = [
             {"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"},
         ]
@@ -98,17 +129,31 @@ def test_daily_digest_all_upload_fail_not_success():
 def test_daily_digest_partial_upload_marks_only_ok():
     """합본 일부 기기 성공 → 성공 IP만 mark, digest_partial=True."""
     cfg = _digest_config(
-        sites=[{"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1}],
+        sites=[
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            }
+        ],
         devices=[{"name": "추가", "ip": "10.0.0.2"}],
     )
     svc = _make_svc(cfg)
-    with patch.object(svc, "_reload_config"), \
-         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
-         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
-         patch.object(ScraperFactory, "get_scraper") as mock_get, \
-         patch.object(svc.epub_builder, "build_digest", return_value="/tmp/digest.epub"), \
-         patch.object(svc.uploader, "upload_to_targets", return_value={"127.0.0.1": True, "10.0.0.2": False}), \
-         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+    with (
+        patch.object(svc, "_reload_config"),
+        patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}),
+        patch.object(svc, "maybe_backup_push", return_value={"skipped": True}),
+        patch.object(ScraperFactory, "get_scraper") as mock_get,
+        patch.object(svc.epub_builder, "build_digest", return_value="/tmp/digest.epub"),
+        patch.object(
+            svc.uploader,
+            "upload_to_targets",
+            return_value={"127.0.0.1": True, "10.0.0.2": False},
+        ),
+        patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"),
+    ):
         mock_get.return_value.fetch_articles.return_value = [
             {"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"},
         ]
@@ -130,18 +175,34 @@ def test_daily_digest_result_includes_site_count():
     """합본 결과에 사이트 수(site_count)가 포함되는지 검증."""
     cfg = _digest_config(
         sites=[
-            {"name": "A", "type": "rss", "url": "https://ex.com/a", "enabled": True, "limit": 1},
-            {"name": "B", "type": "rss", "url": "https://ex.com/b", "enabled": True, "limit": 1},
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/a",
+                "enabled": True,
+                "limit": 1,
+            },
+            {
+                "name": "B",
+                "type": "rss",
+                "url": "https://ex.com/b",
+                "enabled": True,
+                "limit": 1,
+            },
         ],
     )
     svc = _make_svc(cfg)
-    with patch.object(svc, "_reload_config"), \
-         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
-         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
-         patch.object(ScraperFactory, "get_scraper") as mock_get, \
-         patch.object(svc.epub_builder, "build_digest", return_value="/tmp/digest.epub"), \
-         patch.object(svc.uploader, "upload_to_targets", return_value={"127.0.0.1": True}), \
-         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+    with (
+        patch.object(svc, "_reload_config"),
+        patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}),
+        patch.object(svc, "maybe_backup_push", return_value={"skipped": True}),
+        patch.object(ScraperFactory, "get_scraper") as mock_get,
+        patch.object(svc.epub_builder, "build_digest", return_value="/tmp/digest.epub"),
+        patch.object(
+            svc.uploader, "upload_to_targets", return_value={"127.0.0.1": True}
+        ),
+        patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"),
+    ):
         # 두 사이트 모두 같은 더미 스크래퍼 반환
         mock_get.return_value.fetch_articles.return_value = [
             {"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"},

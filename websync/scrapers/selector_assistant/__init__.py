@@ -8,6 +8,7 @@
 - .post-item, 글 링크 경로 패턴 가점
 - RSS 경로 프로브 및 fetch_detail_page 권장
 """
+
 from websync.scrapers.selector_assistant.analyze import (
     analyze_html,
     analyze_page,

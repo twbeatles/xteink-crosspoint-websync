@@ -1,4 +1,5 @@
 """EPUB 본문 HTML 정제."""
+
 from __future__ import annotations
 
 from bs4 import BeautifulSoup
@@ -6,9 +7,22 @@ from bs4 import BeautifulSoup
 # 위험하거나, e-ink 책에서 쓸모없고, XHTML 로 직렬화하면 접두사 오류를 내는 태그.
 # (svg <use xlink:href>, 갤러리 <button> 등 — 남기면 챕터가 XML 파싱 실패한다)
 _DROP_TAGS = [
-    "script", "style", "iframe", "object", "embed", "form",
-    "svg", "canvas", "video", "audio", "button", "noscript",
-    "input", "select", "textarea", "template",
+    "script",
+    "style",
+    "iframe",
+    "object",
+    "embed",
+    "form",
+    "svg",
+    "canvas",
+    "video",
+    "audio",
+    "button",
+    "noscript",
+    "input",
+    "select",
+    "textarea",
+    "template",
 ]
 
 

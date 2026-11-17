@@ -1,4 +1,5 @@
 """공유 데이터 폴더(portable_data) 설정 읽기/쓰기 — backup_sync 하위 호환."""
+
 from __future__ import annotations
 
 import copy
@@ -72,12 +73,25 @@ def get_portable_cfg(config: dict | None) -> dict[str, Any]:
         if k in bs:
             out[k] = copy.deepcopy(bs[k])
 
-    pd_folder = (pd.get("folder") or "").strip() if isinstance(pd.get("folder"), str) else ""
-    bs_folder = (out.get("folder") or "").strip() if isinstance(out.get("folder"), str) else ""
+    pd_folder = (
+        (pd.get("folder") or "").strip() if isinstance(pd.get("folder"), str) else ""
+    )
+    bs_folder = (
+        (out.get("folder") or "").strip() if isinstance(out.get("folder"), str) else ""
+    )
     # deep_merge 로 채워진 기본 portable_data 는 '미사용'으로 보고 레거시만 신뢰
-    portable_touched = bool(pd.get("wizard_completed")) or bool(pd_folder) or (
-        "history_mode" in pd and normalize_history_mode(pd.get("history_mode")) != HISTORY_MODE_PER_DEVICE
-    ) or bool(pd.get("last_sync_at")) or bool(pd.get("last_sites_push_at")) or bool(pd.get("enabled"))
+    portable_touched = (
+        bool(pd.get("wizard_completed"))
+        or bool(pd_folder)
+        or (
+            "history_mode" in pd
+            and normalize_history_mode(pd.get("history_mode"))
+            != HISTORY_MODE_PER_DEVICE
+        )
+        or bool(pd.get("last_sync_at"))
+        or bool(pd.get("last_sites_push_at"))
+        or bool(pd.get("enabled"))
+    )
 
     if portable_touched:
         for k, v in pd.items():
@@ -101,11 +115,15 @@ def get_portable_cfg(config: dict | None) -> dict[str, Any]:
     out["auto_export"] = bool(out.get("auto_export", True))
     out["auto_import_on_start"] = bool(out.get("auto_import_on_start", True))
     out["wizard_completed"] = bool(out.get("wizard_completed"))
-    out["folder"] = (out.get("folder") or "").strip() if isinstance(out.get("folder"), str) else ""
+    out["folder"] = (
+        (out.get("folder") or "").strip() if isinstance(out.get("folder"), str) else ""
+    )
     return out
 
 
-def apply_portable_cfg(config: dict, updates: dict[str, Any] | None = None, **kwargs: Any) -> dict:
+def apply_portable_cfg(
+    config: dict, updates: dict[str, Any] | None = None, **kwargs: Any
+) -> dict:
     """config 에 portable_data 를 갱신하고 backup_sync 에 공통 필드를 미러합니다.
 
     Returns:
@@ -119,8 +137,18 @@ def apply_portable_cfg(config: dict, updates: dict[str, Any] | None = None, **kw
     if kwargs:
         merged.update(kwargs)
     merged["history_mode"] = normalize_history_mode(merged.get("history_mode"))
-    merged["folder"] = (merged.get("folder") or "").strip() if isinstance(merged.get("folder"), str) else ""
-    for flag in ("enabled", "include_history", "auto_export", "auto_import_on_start", "wizard_completed"):
+    merged["folder"] = (
+        (merged.get("folder") or "").strip()
+        if isinstance(merged.get("folder"), str)
+        else ""
+    )
+    for flag in (
+        "enabled",
+        "include_history",
+        "auto_export",
+        "auto_import_on_start",
+        "wizard_completed",
+    ):
         merged[flag] = bool(merged.get(flag))
 
     config[PORTABLE_KEY] = merged

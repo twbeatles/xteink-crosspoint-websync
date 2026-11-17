@@ -1,4 +1,5 @@
 """페이지 분석 진입점."""
+
 from __future__ import annotations
 
 from typing import Optional
@@ -66,7 +67,9 @@ def analyze_page(
     try:
         html, final_url, soup = fetch_html(url, timeout=timeout)
     except Exception as e:
-        return PageAnalysis(url=url, base_url=url, error=t("selector.load_failed", error=e))
+        return PageAnalysis(
+            url=url, base_url=url, error=t("selector.load_failed", error=e)
+        )
 
     page_title = ""
     if soup.title and soup.title.string:

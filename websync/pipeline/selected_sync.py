@@ -1,4 +1,5 @@
 """선택 기사 동기화 파이프라인."""
+
 from __future__ import annotations
 
 import copy
@@ -21,14 +22,15 @@ def sync_selected_articles(
     service,
     selected_articles: list[dict],
     log_callback: Optional[Callable[[str], None]] = None,
-    progress_callback: Optional[Callable[[int, int], None]] = None
+    progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> bool:
     """
     사용자가 선택한 기사만 EPUB으로 빌드하여 기기로 전송합니다.
-    
+
     Args:
         selected_articles: [{"site_name": str, "title": str, "url": str, "content": str}]
     """
+
     def log(msg: str):
         service.logger.info(msg)
         if log_callback:
@@ -57,7 +59,9 @@ def sync_selected_articles(
                 "message": pull_result.get("message", ""),
             }
             return False
-        ok = _sync_selected_locked(service, selected_articles, log, progress_callback, state)
+        ok = _sync_selected_locked(
+            service, selected_articles, log, progress_callback, state
+        )
         if not (state["finished"] or state["marked"]):
             return ok
         return _push_after_selected_sync(service, ok, log_callback)
@@ -67,7 +71,9 @@ def sync_selected_articles(
             try:
                 service.maybe_backup_push(log_callback=log_callback)
             except Exception as push_error:
-                service.logger.warning(t("pipeline.selected.backup_push_fail", error=push_error))
+                service.logger.warning(
+                    t("pipeline.selected.backup_push_fail", error=push_error)
+                )
         raise
     finally:
         service._release_pipeline_locks()
@@ -76,25 +82,38 @@ def sync_selected_articles(
 def _push_after_selected_sync(service, ok: bool, log_callback) -> bool:
     previous = service._last_pipeline_result
     # 취소 상태는 사용자가 본 결과이므로 push 실패로 덮어쓰지 않는다.
-    status = previous.get("status") if previous.get("status") == "cancelled" else "backup_push_failed"
+    status = (
+        previous.get("status")
+        if previous.get("status") == "cancelled"
+        else "backup_push_failed"
+    )
     try:
         push_result = service.maybe_backup_push(log_callback=log_callback)
     except Exception as e:
         service.logger.warning(t("pipeline.selected.backup_push_fail", error=e))
         service._last_pipeline_result = {
-            **previous, "status": status, "success": False, "message": str(e),
+            **previous,
+            "status": status,
+            "success": False,
+            "message": str(e),
         }
         return False
     if push_result.get("ok") is False:
         service._last_pipeline_result = {
-            **previous, "status": status, "success": False, "backup_push": push_result,
+            **previous,
+            "status": status,
+            "success": False,
+            "backup_push": push_result,
         }
         return False
     return ok
 
 
-def _sync_selected_locked(service, selected_articles, log, progress_callback, state) -> bool:
+def _sync_selected_locked(
+    service, selected_articles, log, progress_callback, state
+) -> bool:
     """락·pull 이후 선택 기사 빌드·전송·이력 기록. push는 호출자가 수행한다."""
+
     def cancel_requested() -> bool:
         return getattr(service, "is_cancel_requested", lambda: False)()
 
@@ -129,7 +148,9 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
 
     summarizer = Summarizer(config, logger=service.logger)
     translator = Translator(config, logger=service.logger)
-    translator.cancel_requested = lambda: getattr(service, "is_cancel_requested", lambda: False)()
+    translator.cancel_requested = lambda: getattr(
+        service, "is_cancel_requested", lambda: False
+    )()
 
     articles_by_site, source_options = selected_source_groups(
         selected_articles, config.get("sites", []), t("pipeline.selected.other_site")
@@ -142,7 +163,9 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
             for art in arts:
                 if cancel_requested():
                     return stop_cancelled()
-                art["content"] = translator.translate_html(art["content"], target_lang=translate_to)
+                art["content"] = translator.translate_html(
+                    art["content"], target_lang=translate_to
+                )
 
     # AI 요약 후처리 적용
     if summarizer.is_available():
@@ -152,7 +175,9 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
                 if cancel_requested():
                     return stop_cancelled()
                 if "summary_html" not in art:
-                    art["summary_html"] = summarizer.summarize(art.get("title", ""), art.get("content", ""))
+                    art["summary_html"] = summarizer.summarize(
+                        art.get("title", ""), art.get("content", "")
+                    )
 
     success_count = 0
     partial_count = 0
@@ -184,19 +209,27 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
             upload_results: dict[str, bool] = {}
             if getattr(service, "is_cancel_requested", lambda: False)():
                 log(t("pipeline.cancelled"))
-                service._last_pipeline_result = {"status": "cancelled", "success": False}
+                service._last_pipeline_result = {
+                    "status": "cancelled",
+                    "success": False,
+                }
                 return False
             for batch_ips, batch_articles in upload_batches:
                 if getattr(service, "is_cancel_requested", lambda: False)():
                     log(t("pipeline.cancelled"))
-                    service._last_pipeline_result = {"status": "cancelled", "success": False}
+                    service._last_pipeline_result = {
+                        "status": "cancelled",
+                        "success": False,
+                    }
                     return False
                 batch_by_site: dict[str, list[dict]] = {}
                 batch_urls: list[tuple[str, str, str]] = []
                 for art in batch_articles:
                     source_key = art.get("_digest_site_name") or ""
                     site_name = art.get("_source_name") or source_key
-                    clean_art = {k: v for k, v in art.items() if k != "_digest_site_name"}
+                    clean_art = {
+                        k: v for k, v in art.items() if k != "_digest_site_name"
+                    }
                     batch_by_site.setdefault(source_key, []).append(clean_art)
                     batch_urls.append(
                         (art.get("url") or "", site_name, art.get("title") or "")
@@ -205,7 +238,9 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
                     batch_by_site, generate_cover=generate_cover
                 )
                 log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
-                batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
+                batch_results = uploader.upload_to_targets(
+                    epub_path, only_ips=batch_ips
+                )
                 upload_results.update(batch_results)
                 mark_batch = collect_mark_entries_from_triples(
                     batch_results,
@@ -224,7 +259,11 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
                     log(t("pipeline.selected.upload_ok"))
                     success_count = actual_work
                 else:
-                    failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
+                    failed = [
+                        ip_to_name.get(ip, ip)
+                        for ip, ok in upload_results.items()
+                        if not ok
+                    ]
                     log(t("pipeline.selected.partial", names=", ".join(failed)))
                     partial_count = 1
             else:
@@ -238,7 +277,10 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
             site_name = arts[0]["_source_name"]
             if getattr(service, "is_cancel_requested", lambda: False)():
                 log(t("pipeline.cancelled"))
-                service._last_pipeline_result = {"status": "cancelled", "success": False}
+                service._last_pipeline_result = {
+                    "status": "cancelled",
+                    "success": False,
+                }
                 return False
             if progress_callback:
                 progress_callback(idx, actual_work)
@@ -261,17 +303,25 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
             upload_results = {}
             if getattr(service, "is_cancel_requested", lambda: False)():
                 log(t("pipeline.cancelled"))
-                service._last_pipeline_result = {"status": "cancelled", "success": False}
+                service._last_pipeline_result = {
+                    "status": "cancelled",
+                    "success": False,
+                }
                 return False
             for batch_ips, batch_articles in upload_batches:
                 if getattr(service, "is_cancel_requested", lambda: False)():
                     log(t("pipeline.cancelled"))
-                    service._last_pipeline_result = {"status": "cancelled", "success": False}
+                    service._last_pipeline_result = {
+                        "status": "cancelled",
+                        "success": False,
+                    }
                     return False
                 epub_path = epub_builder.build(
                     site_name, batch_articles, generate_cover=generate_cover
                 )
-                batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
+                batch_results = uploader.upload_to_targets(
+                    epub_path, only_ips=batch_ips
+                )
                 upload_results.update(batch_results)
                 mark_batch = collect_mark_entries(
                     batch_results,
@@ -292,8 +342,18 @@ def _sync_selected_locked(service, selected_articles, log, progress_callback, st
                     log(t("pipeline.selected.site_ok", site=site_name))
                     success_count += 1
                 else:
-                    failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
-                    log(t("pipeline.selected.site_partial", site=site_name, names=", ".join(failed)))
+                    failed = [
+                        ip_to_name.get(ip, ip)
+                        for ip, ok in upload_results.items()
+                        if not ok
+                    ]
+                    log(
+                        t(
+                            "pipeline.selected.site_partial",
+                            site=site_name,
+                            names=", ".join(failed),
+                        )
+                    )
                     partial_count += 1
             else:
                 log(t("pipeline.selected.site_fail", site=site_name))

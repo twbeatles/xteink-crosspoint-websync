@@ -1,4 +1,5 @@
 """업로드 결과 처리 공통 헬퍼 (파이프라인 / 선택 동기화 공유)."""
+
 from __future__ import annotations
 
 from typing import Any, Callable, Iterable
@@ -8,9 +9,8 @@ def upload_all_ok(upload_results: dict[str, bool], pending_ips: list[str]) -> bo
     """pending 전 기기가 결과에 포함되고 모두 성공인지."""
     if not upload_results or not pending_ips:
         return False
-    return (
-        all(upload_results.values())
-        and set(upload_results.keys()) == set(pending_ips)
+    return all(upload_results.values()) and set(upload_results.keys()) == set(
+        pending_ips
     )
 
 

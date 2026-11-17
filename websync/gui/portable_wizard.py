@@ -1,4 +1,5 @@
 """첫 실행 공유 데이터 폴더 연결 마법사 (CustomTkinter 기반 모달)."""
+
 from __future__ import annotations
 
 import os
@@ -175,7 +176,11 @@ class PortableDataWizard:
             result = self.service.maybe_backup_pull(force=True)
             msg = result.get("message") or t("gui.wizard.import_done")
             if result.get("ok") or result.get("skipped"):
-                messagebox.showinfo(t("gui.wizard.connect_ok_title"), t("gui.wizard.connect_ok", msg=msg), parent=self.parent)
+                messagebox.showinfo(
+                    t("gui.wizard.connect_ok_title"),
+                    t("gui.wizard.connect_ok", msg=msg),
+                    parent=self.parent,
+                )
             else:
                 messagebox.showwarning(
                     t("gui.wizard.connect_warn_title"),
@@ -183,7 +188,11 @@ class PortableDataWizard:
                     parent=self.parent,
                 )
         except Exception as e:
-            messagebox.showwarning(t("gui.wizard.connect_saved_title"), t("gui.wizard.connect_saved", error=e), parent=self.parent)
+            messagebox.showwarning(
+                t("gui.wizard.connect_saved_title"),
+                t("gui.wizard.connect_saved", error=e),
+                parent=self.parent,
+            )
         self._finish("connect")
 
     def _create_new(self) -> None:
@@ -196,7 +205,11 @@ class PortableDataWizard:
         try:
             os.makedirs(path, exist_ok=True)
         except OSError as e:
-            messagebox.showerror(t("dialog.error"), t("gui.wizard.mkdir_fail", error=e), parent=self.dialog)
+            messagebox.showerror(
+                t("dialog.error"),
+                t("gui.wizard.mkdir_fail", error=e),
+                parent=self.dialog,
+            )
             return
 
         if not self._mark_wizard_done(
@@ -224,5 +237,9 @@ class PortableDataWizard:
                     parent=self.parent,
                 )
         except Exception as e:
-            messagebox.showwarning(t("gui.wizard.folder_set_title"), t("gui.wizard.folder_set_saved", error=e), parent=self.parent)
+            messagebox.showwarning(
+                t("gui.wizard.folder_set_title"),
+                t("gui.wizard.folder_set_saved", error=e),
+                parent=self.parent,
+            )
         self._finish("create")

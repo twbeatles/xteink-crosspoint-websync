@@ -59,8 +59,11 @@ class SettingsWatchMixin:
         # Workers read only the saved configuration; never query Tk entries.
         config = self.service.config_manager.load_config()
         return X3Uploader(
-            config.get("x3_ip", ""), config.get("x3_devices", []),
-            remote_dir=(config.get("device_files") or {}).get("default_upload_path", "/"),
+            config.get("x3_ip", ""),
+            config.get("x3_devices", []),
+            remote_dir=(config.get("device_files") or {}).get(
+                "default_upload_path", "/"
+            ),
             primary_device_id=config.get("x3_primary_device_id", ""),
             primary_alias_ids=config.get("x3_primary_device_alias_ids", []),
         )
@@ -70,11 +73,15 @@ class SettingsWatchMixin:
             self.app._calibre_watcher.stop()
             self.app._calibre_watcher = None
             self._stop_watch_worker()
+
             def disable(cfg: dict) -> None:
                 cfg.setdefault("calibre_watch", {})["enabled"] = False
+
             self.service.config = self.service.config_manager.update_config(disable)
             self.watch_start_btn.configure(text=t("gui.settings.watch.start_btn"))
-            self.watch_status_label.configure(text=t("gui.settings.watch.stopped"), text_color=RED_COLOR)
+            self.watch_status_label.configure(
+                text=t("gui.settings.watch.stopped"), text_color=RED_COLOR
+            )
             return
         # A stopped worker can still be finishing its bounded network operation.
         # Never run a second worker against the same durable queue.
@@ -87,22 +94,34 @@ class SettingsWatchMixin:
             return
         watch = self.service.config.get("calibre_watch", {})
         retry = WatchRetryQueue(
-            self._make_watch_uploader, self._attempt_watch_upload, self._save_watch_job,
+            self._make_watch_uploader,
+            self._attempt_watch_upload,
+            self._save_watch_job,
             pending_files=watch.get("pending_files", []),
             pending_jobs=watch.get("pending_jobs", {}),
             on_error=lambda path, error: self.service.logger.warning(
-                t("gui.settings.watch.log_upload_error", name=os.path.basename(path), error=error)
+                t(
+                    "gui.settings.watch.log_upload_error",
+                    name=os.path.basename(path),
+                    error=error,
+                )
             ),
         )
         self._watch_retry = retry
-        self.app._calibre_watcher = CalibreWatcher(watch_dir, retry.enqueue, on_pending_file=retry.retain)
+        self.app._calibre_watcher = CalibreWatcher(
+            watch_dir, retry.enqueue, on_pending_file=retry.retain
+        )
         if not self.app._calibre_watcher.start():
             retry.stop()
             self.app._calibre_watcher = None
             messagebox.showerror(t("dialog.error"), t("gui.settings.watch.start_fail"))
             return
+
         def enable(cfg: dict) -> None:
-            cfg.setdefault("calibre_watch", {}).update({"enabled": True, "watch_dir": watch_dir})
+            cfg.setdefault("calibre_watch", {}).update(
+                {"enabled": True, "watch_dir": watch_dir}
+            )
+
         try:
             self.service.config = self.service.config_manager.update_config(enable)
         except Exception:
@@ -110,10 +129,14 @@ class SettingsWatchMixin:
             self.app._calibre_watcher = None
             retry.stop()
             raise
-        self._watch_worker_thread = self.app._make_background_thread(retry.run, name="watch-upload")
+        self._watch_worker_thread = self.app._make_background_thread(
+            retry.run, name="watch-upload"
+        )
         self._watch_worker_thread.start()
         self.watch_start_btn.configure(text=t("gui.settings.watch.stop_btn"))
-        self.watch_status_label.configure(text=t("gui.settings.watch.watching", dir=watch_dir), text_color=GREEN_COLOR)
+        self.watch_status_label.configure(
+            text=t("gui.settings.watch.watching", dir=watch_dir), text_color=GREEN_COLOR
+        )
         self.app._log_message(t("gui.settings.watch.log_start", dir=watch_dir))
 
     def _attempt_watch_upload(self, fpath, uploader, only_ips, stop_event):
@@ -132,14 +155,30 @@ class SettingsWatchMixin:
             # stability sample is no longer sufficient after that wait.
             sample = os.stat(fpath)
             for _ in range(STABLE_SIZE_CHECKS):
-                if stop_event.wait(STABLE_CHECK_INTERVAL) or self.service._shutting_down:
+                if (
+                    stop_event.wait(STABLE_CHECK_INTERVAL)
+                    or self.service._shutting_down
+                ):
                     return {}
                 current = os.stat(fpath)
-                if (current.st_size, current.st_mtime_ns) != (sample.st_size, sample.st_mtime_ns):
+                if (current.st_size, current.st_mtime_ns) != (
+                    sample.st_size,
+                    sample.st_mtime_ns,
+                ):
                     return {}
             results = uploader.upload_to_targets(fpath, only_ips=only_ips)
-            key = "log_upload_ok" if results and all(results.values()) else "log_upload_fail"
-            self.service.logger.info(t("gui.settings.watch." + key, name=os.path.basename(fpath), summary=str(results)))
+            key = (
+                "log_upload_ok"
+                if results and all(results.values())
+                else "log_upload_fail"
+            )
+            self.service.logger.info(
+                t(
+                    "gui.settings.watch." + key,
+                    name=os.path.basename(fpath),
+                    summary=str(results),
+                )
+            )
             return results
         finally:
             for lock in reversed(acquired):
@@ -157,4 +196,3 @@ class SettingsWatchMixin:
             self.watch_dir_entry.delete(0, tk.END)
             self.watch_dir_entry.insert(0, d)
             self.app._save_ui_settings()
-

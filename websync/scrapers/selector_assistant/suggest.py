@@ -1,4 +1,5 @@
 """선택자 추천 및 sites[] 설정 생성."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -121,7 +122,9 @@ def suggest_selectors(soup: BeautifulSoup, max_per_role: int = 5) -> dict[str, A
     links_out: list[dict[str, Any]] = []
     if scored_items:
         best_sel, best_ms = scored_items[0][1], scored_items[0][2]
-        titles_out, links_out = _suggest_relative_title_link(best_ms, best_sel, max_per_role)
+        titles_out, links_out = _suggest_relative_title_link(
+            best_ms, best_sel, max_per_role
+        )
 
     # 본문 후보
     content_out: list[dict[str, Any]] = []
@@ -215,7 +218,9 @@ def build_recommended_site_config(
             "include_images": False,
             "translate_to": "",
             "fetch_detail_page": False,
-            "_recommend_note": t("selector.recommend_platform", platform=analysis.platform),
+            "_recommend_note": t(
+                "selector.recommend_platform", platform=analysis.platform
+            ),
         }
 
     # RSS 우선
@@ -245,7 +250,9 @@ def build_recommended_site_config(
     link = (sug.get("link") or [{}])[0]
     content = (sug.get("content") or [{}])[0]
     meta = sug.get("meta") or {}
-    fetch_detail = bool(meta.get("fetch_detail_recommended") or analysis.fetch_detail_recommended)
+    fetch_detail = bool(
+        meta.get("fetch_detail_recommended") or analysis.fetch_detail_recommended
+    )
 
     title_sel = title.get("selector") or "h2"
     if title_sel == ".":
@@ -273,7 +280,9 @@ def build_recommended_site_config(
         "translate_to": "",
         "fetch_detail_page": fetch_detail,
         "_recommend_note": (
-            t("selector.recommend_detail") if fetch_detail else t("selector.recommend_css")
+            t("selector.recommend_detail")
+            if fetch_detail
+            else t("selector.recommend_css")
         ),
     }
     if notes:

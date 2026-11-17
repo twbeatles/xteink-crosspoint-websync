@@ -25,7 +25,13 @@ def test_deep_merge_adds_nested_keys():
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "config.json")
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"x3_ip": "192.168.1.1", "sites": [{"name": "A", "type": "rss", "url": "http://x"}]}, f)
+            json.dump(
+                {
+                    "x3_ip": "192.168.1.1",
+                    "sites": [{"name": "A", "type": "rss", "url": "http://x"}],
+                },
+                f,
+            )
 
         cm = ConfigManager(path)
         cfg = cm.load_config()
@@ -175,7 +181,9 @@ def test_import_sites_rmw_preserves_other_fields():
         assert len(added) == 1
         loaded = cm.load_config()
         assert loaded["x3_ip"] == "10.9.9.9"
-        assert any(s.get("url") == "https://import.example/feed" for s in loaded["sites"])
+        assert any(
+            s.get("url") == "https://import.example/feed" for s in loaded["sites"]
+        )
 
         # 중복 임포트 시 추가 없음
         added2 = cm.import_sites(export_path)

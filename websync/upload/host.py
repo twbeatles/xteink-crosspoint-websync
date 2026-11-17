@@ -1,4 +1,5 @@
 """기기 호스트 주소 정규화."""
+
 from __future__ import annotations
 
 import re

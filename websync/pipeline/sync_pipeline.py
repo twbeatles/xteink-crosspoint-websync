@@ -1,4 +1,5 @@
 """전체 사이트 동기화 파이프라인 실행."""
+
 from __future__ import annotations
 
 import copy
@@ -32,7 +33,7 @@ from websync.upload.device_ids import (
 def run_sync_pipeline_locked(
     service,
     log_callback: Optional[Callable[[str], None]] = None,
-    progress_callback: Optional[Callable[[int, int], None]] = None
+    progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> bool:
     def log(msg: str):
         service.logger.info(msg)
@@ -47,7 +48,9 @@ def run_sync_pipeline_locked(
     def stop_cancelled() -> bool:
         log(t("pipeline.cancelled"))
         service._last_pipeline_result = {"status": "cancelled", "success": False}
-        ToastNotifier.show_toast(t("toast.cancel_title"), t("toast.cancelled"), is_error=True)
+        ToastNotifier.show_toast(
+            t("toast.cancel_title"), t("toast.cancelled"), is_error=True
+        )
         return False
 
     log(t("pipeline.start"))
@@ -61,12 +64,16 @@ def run_sync_pipeline_locked(
 
     summarizer = Summarizer(config, logger=service.logger)
     translator = Translator(config, logger=service.logger)
-    translator.cancel_requested = lambda: getattr(service, "is_cancel_requested", lambda: False)()
+    translator.cancel_requested = lambda: getattr(
+        service, "is_cancel_requested", lambda: False
+    )()
 
     enabled_sites = [s for s in config.get("sites", []) if s.get("enabled", True)]
     if not enabled_sites:
         log(t("pipeline.no_enabled_sites"))
-        ToastNotifier.show_toast(t("toast.fail_title"), t("toast.no_sites"), is_error=True)
+        ToastNotifier.show_toast(
+            t("toast.fail_title"), t("toast.no_sites"), is_error=True
+        )
         service._last_pipeline_result = {"status": "no_sites", "success": False}
         return False
 
@@ -101,11 +108,13 @@ def run_sync_pipeline_locked(
         legacy_key = target_history_keys[0] if target_history_keys else target_ips[0]
         remapped = db.remap_legacy_star_to_device(legacy_key)
         if remapped:
-            log(t(
-                "pipeline.legacy_remap",
-                n=remapped,
-                device=ip_to_name.get(target_ips[0], target_ips[0]),
-            ))
+            log(
+                t(
+                    "pipeline.legacy_remap",
+                    n=remapped,
+                    device=ip_to_name.get(target_ips[0], target_ips[0]),
+                )
+            )
     except SyncHistoryDbError as e:
         log(t("pipeline.legacy_remap_fail", error=e))
 
@@ -125,7 +134,9 @@ def run_sync_pipeline_locked(
         if getattr(service, "is_cancel_requested", lambda: False)():
             log(t("pipeline.cancelled"))
             service._last_pipeline_result = {"status": "cancelled", "success": False}
-            ToastNotifier.show_toast(t("toast.cancel_title"), t("toast.cancelled"), is_error=True)
+            ToastNotifier.show_toast(
+                t("toast.cancel_title"), t("toast.cancelled"), is_error=True
+            )
             return False
 
         if not is_allowed_fetch_url(base_url):
@@ -187,14 +198,18 @@ def run_sync_pipeline_locked(
                     # 기사당 네트워크 호출이라 사이트 경계까지 기다리지 않고 취소에 반응한다
                     if cancel_requested():
                         return stop_cancelled()
-                    art["content"] = translator.translate_html(art["content"], target_lang=translate_to)
+                    art["content"] = translator.translate_html(
+                        art["content"], target_lang=translate_to
+                    )
 
             if summarizer.is_available():
                 log(t("pipeline.summarize_site", site=name))
                 for art in new_articles:
                     if cancel_requested():
                         return stop_cancelled()
-                    art["summary_html"] = summarizer.summarize(art.get("title", ""), art.get("content", ""))
+                    art["summary_html"] = summarizer.summarize(
+                        art.get("title", ""), art.get("content", "")
+                    )
 
             if epub_merge_mode == "daily_digest":
                 # 일간 합본을 위해 기사를 축적
@@ -224,15 +239,24 @@ def run_sync_pipeline_locked(
                 for batch_ips, batch_articles in upload_batches:
                     if getattr(service, "is_cancel_requested", lambda: False)():
                         log(t("pipeline.cancelled"))
-                        service._last_pipeline_result = {"status": "cancelled", "success": False}
-                        ToastNotifier.show_toast(t("toast.cancel_title"), t("toast.cancelled"), is_error=True)
+                        service._last_pipeline_result = {
+                            "status": "cancelled",
+                            "success": False,
+                        }
+                        ToastNotifier.show_toast(
+                            t("toast.cancel_title"), t("toast.cancelled"), is_error=True
+                        )
                         return False
                     log(t("pipeline.building_epub", site=name))
                     epub_path = epub_builder.build(
                         name, batch_articles, generate_cover=generate_cover
                     )
-                    log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
-                    batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
+                    log(
+                        t("pipeline.file_created", filename=os.path.basename(epub_path))
+                    )
+                    batch_results = uploader.upload_to_targets(
+                        epub_path, only_ips=batch_ips
+                    )
                     upload_results.update(batch_results)
                     mark_batch = collect_mark_entries(
                         batch_results,
@@ -250,13 +274,15 @@ def run_sync_pipeline_locked(
                         err = getattr(uploader, "last_errors", {}).get(ip)
                         if err:
                             detail = t("pipeline.upload_detail", error=err)
-                    log(t(
-                        "pipeline.upload_result",
-                        status=status,
-                        device=ip_to_name.get(ip, ip),
-                        ip=ip,
-                        detail=detail,
-                    ))
+                    log(
+                        t(
+                            "pipeline.upload_result",
+                            status=status,
+                            device=ip_to_name.get(ip, ip),
+                            ip=ip,
+                            detail=detail,
+                        )
+                    )
 
                 any_ok = upload_any_ok(upload_results)
                 all_ok = upload_all_ok(upload_results, pending_ips)
@@ -266,8 +292,18 @@ def run_sync_pipeline_locked(
                         log(t("pipeline.site_sync_ok", site=name))
                         success_count += 1
                     else:
-                        failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
-                        log(t("pipeline.site_partial", site=name, names=", ".join(failed)))
+                        failed = [
+                            ip_to_name.get(ip, ip)
+                            for ip, ok in upload_results.items()
+                            if not ok
+                        ]
+                        log(
+                            t(
+                                "pipeline.site_partial",
+                                site=name,
+                                names=", ".join(failed),
+                            )
+                        )
                         partial_count += 1
                 else:
                     log(t("pipeline.site_upload_fail", site=name))
@@ -275,7 +311,11 @@ def run_sync_pipeline_locked(
         except SyncHistoryDbError as e:
             service.logger.error(str(e))
             log(t("pipeline.db_error", site=name, error=e))
-            service._last_pipeline_result = {"status": "db_error", "success": False, "message": str(e)}
+            service._last_pipeline_result = {
+                "status": "db_error",
+                "success": False,
+                "message": str(e),
+            }
             ToastNotifier.show_toast(t("toast.db_error_title"), str(e), is_error=True)
             return False
         except Exception as e:
@@ -312,24 +352,33 @@ def run_sync_pipeline_locked(
             pending_ips = [ip for ips, _articles in upload_batches for ip in ips]
 
             if pending_ips:
-                log(t(
-                    "pipeline.digest.building",
-                    sites=len(digest_articles),
-                    articles=len(all_new_urls),
-                ))
+                log(
+                    t(
+                        "pipeline.digest.building",
+                        sites=len(digest_articles),
+                        articles=len(all_new_urls),
+                    )
+                )
                 upload_results = {}
                 for batch_ips, batch_articles in upload_batches:
                     if getattr(service, "is_cancel_requested", lambda: False)():
                         log(t("pipeline.cancelled"))
-                        service._last_pipeline_result = {"status": "cancelled", "success": False}
-                        ToastNotifier.show_toast(t("toast.cancel_title"), t("toast.cancelled"), is_error=True)
+                        service._last_pipeline_result = {
+                            "status": "cancelled",
+                            "success": False,
+                        }
+                        ToastNotifier.show_toast(
+                            t("toast.cancel_title"), t("toast.cancelled"), is_error=True
+                        )
                         return False
                     batch_by_site: dict[str, list[dict]] = {}
                     batch_triples: list[tuple[str, str, str]] = []
                     for art in batch_articles:
                         source_key = art.get("_digest_site_name") or ""
                         site_name = art.get("_source_name") or source_key
-                        clean_art = {k: v for k, v in art.items() if k != "_digest_site_name"}
+                        clean_art = {
+                            k: v for k, v in art.items() if k != "_digest_site_name"
+                        }
                         batch_by_site.setdefault(source_key, []).append(clean_art)
                         batch_triples.append(
                             (art.get("url") or "", site_name, art.get("title") or "")
@@ -337,8 +386,12 @@ def run_sync_pipeline_locked(
                     epub_path = epub_builder.build_digest(
                         batch_by_site, generate_cover=generate_cover
                     )
-                    log(t("pipeline.file_created", filename=os.path.basename(epub_path)))
-                    batch_results = uploader.upload_to_targets(epub_path, only_ips=batch_ips)
+                    log(
+                        t("pipeline.file_created", filename=os.path.basename(epub_path))
+                    )
+                    batch_results = uploader.upload_to_targets(
+                        epub_path, only_ips=batch_ips
+                    )
                     upload_results.update(batch_results)
                     mark_batch = collect_mark_entries_from_triples(
                         batch_results,
@@ -355,13 +408,15 @@ def run_sync_pipeline_locked(
                         err = getattr(uploader, "last_errors", {}).get(ip)
                         if err:
                             detail = t("pipeline.upload_detail", error=err)
-                    log(t(
-                        "pipeline.upload_result",
-                        status=status,
-                        device=ip_to_name.get(ip, ip),
-                        ip=ip,
-                        detail=detail,
-                    ))
+                    log(
+                        t(
+                            "pipeline.upload_result",
+                            status=status,
+                            device=ip_to_name.get(ip, ip),
+                            ip=ip,
+                            detail=detail,
+                        )
+                    )
 
                 any_ok = upload_any_ok(upload_results)
                 all_ok = upload_all_ok(upload_results, pending_ips)
@@ -371,7 +426,11 @@ def run_sync_pipeline_locked(
                         log(t("pipeline.digest.ok"))
                         digest_success = True
                     else:
-                        failed = [ip_to_name.get(ip, ip) for ip, ok in upload_results.items() if not ok]
+                        failed = [
+                            ip_to_name.get(ip, ip)
+                            for ip, ok in upload_results.items()
+                            if not ok
+                        ]
                         log(t("pipeline.digest.partial", names=", ".join(failed)))
                         digest_partial = True
                 else:
@@ -428,7 +487,11 @@ def run_sync_pipeline_locked(
                 t("toast.sites_error", n=site_errors),
                 is_error=True,
             )
-            service._last_pipeline_result = {"status": "errors", "success": False, "site_errors": site_errors}
+            service._last_pipeline_result = {
+                "status": "errors",
+                "success": False,
+                "site_errors": site_errors,
+            }
             return False
         if empty_fetch_sites == total_sites:
             log(t("pipeline.summary.empty_fetch", n=total_sites))
@@ -451,8 +514,14 @@ def run_sync_pipeline_locked(
         service._last_pipeline_result = {"status": "no_new", "success": True}
         return True
 
-    log(t("pipeline.summary.done", ok=success_count, total=actual_work_sites) +
-        (t("pipeline.summary.partial_suffix", n=partial_count) if partial_count else ""))
+    log(
+        t("pipeline.summary.done", ok=success_count, total=actual_work_sites)
+        + (
+            t("pipeline.summary.partial_suffix", n=partial_count)
+            if partial_count
+            else ""
+        )
+    )
 
     overall_ok = success_count == actual_work_sites and site_errors == 0
     service._last_pipeline_result = {

@@ -1,4 +1,5 @@
 """SubstackScraper"""
+
 from bs4 import BeautifulSoup
 
 from websync.i18n import t
@@ -13,6 +14,7 @@ from websync.scrapers.base import (
 
 class SubstackScraper(BaseScraper):
     """Substack 뉴스레터 전용 스크래퍼 - RSS 전문을 수신 후 Substack 고유 요소 클렌징"""
+
     def fetch_articles(self, site_config: dict) -> list:
         url = site_config.get("url", "")  # 예: https://example.substack.com/feed
         limit = normalize_limit(site_config.get("limit", 5))
@@ -34,7 +36,12 @@ class SubstackScraper(BaseScraper):
                 content_html = desc_tag.get_text() if desc_tag else ""
                 # Substack 특유의 paywall/버튼 클렌징
                 content_soup = BeautifulSoup(content_html, "lxml")
-                for sel in ["div.subscribe-widget", "div.paywall", "div.button-wrapper", ".post-footer"]:
+                for sel in [
+                    "div.subscribe-widget",
+                    "div.paywall",
+                    "div.button-wrapper",
+                    ".post-footer",
+                ]:
                     for el in content_soup.select(sel):
                         el.decompose()
                 for tag in content_soup.find_all(True):

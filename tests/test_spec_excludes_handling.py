@@ -14,7 +14,9 @@ def test_cover_image_pillow_missing_fallback():
 
 def test_builder_handles_missing_pillow(tmp_path):
     builder = EpubBuilder(output_dir=str(tmp_path))
-    articles = [{"title": "기사1", "content": "<p>내용</p>", "url": "https://example.com/1"}]
+    articles = [
+        {"title": "기사1", "content": "<p>내용</p>", "url": "https://example.com/1"}
+    ]
 
     # Pillow 미설치 상태에서도 EpubBuilder.build가 크래시 없이 EPUB을 생성하는지 검증
     with patch.object(builder, "_make_cover_image", return_value=None):

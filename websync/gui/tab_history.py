@@ -1,4 +1,5 @@
 """동기화 이력 탭 컴포넌트 (CustomTkinter 기반)"""
+
 from __future__ import annotations
 
 import hashlib
@@ -33,7 +34,7 @@ class HistoryTab(ctk.CTkFrame):
         self.app = app
         self.service = app.service
         self.db = app.service.db
-        
+
         self._history_url_by_iid: dict[str, str] = {}
         self._build_ui()
 
@@ -46,17 +47,64 @@ class HistoryTab(ctk.CTkFrame):
         btn_row = ctk.CTkFrame(ctrl_card, fg_color="transparent")
         btn_row.pack(fill="x", padx=12, pady=10)
 
-        ctk.CTkButton(btn_row, text=t("gui.history.refresh"), font=get_font(12, "bold"), width=105, height=34, command=self._refresh_history).pack(side="left", padx=3)
-        ctk.CTkButton(btn_row, text=t("gui.history.delete_selected"), font=get_font(12), width=165, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._delete_history_entry).pack(side="left", padx=3)
-        ctk.CTkButton(btn_row, text=t("gui.history.clear_all"), font=get_font(12, "bold"), width=120, height=34, fg_color=COLOR_DANGER[0], hover_color=COLOR_DANGER[1], command=self._clear_all_history).pack(side="left", padx=3)
+        ctk.CTkButton(
+            btn_row,
+            text=t("gui.history.refresh"),
+            font=get_font(12, "bold"),
+            width=105,
+            height=34,
+            command=self._refresh_history,
+        ).pack(side="left", padx=3)
+        ctk.CTkButton(
+            btn_row,
+            text=t("gui.history.delete_selected"),
+            font=get_font(12),
+            width=165,
+            height=34,
+            fg_color=("#e9ecef", "#343a40"),
+            text_color=COLOR_FG,
+            command=self._delete_history_entry,
+        ).pack(side="left", padx=3)
+        ctk.CTkButton(
+            btn_row,
+            text=t("gui.history.clear_all"),
+            font=get_font(12, "bold"),
+            width=120,
+            height=34,
+            fg_color=COLOR_DANGER[0],
+            hover_color=COLOR_DANGER[1],
+            command=self._clear_all_history,
+        ).pack(side="left", padx=3)
 
-        ctk.CTkButton(btn_row, text=t("gui.history.export_json"), font=get_font(12), width=120, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._export_history_json).pack(side="right", padx=3)
-        ctk.CTkButton(btn_row, text=t("gui.history.import_json"), font=get_font(12), width=120, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._import_history_json).pack(side="right", padx=3)
+        ctk.CTkButton(
+            btn_row,
+            text=t("gui.history.export_json"),
+            font=get_font(12),
+            width=120,
+            height=34,
+            fg_color=("#e9ecef", "#343a40"),
+            text_color=COLOR_FG,
+            command=self._export_history_json,
+        ).pack(side="right", padx=3)
+        ctk.CTkButton(
+            btn_row,
+            text=t("gui.history.import_json"),
+            font=get_font(12),
+            width=120,
+            height=34,
+            fg_color=("#e9ecef", "#343a40"),
+            text_color=COLOR_FG,
+            command=self._import_history_json,
+        ).pack(side="right", padx=3)
 
-        self.history_count_label = ctk.CTkLabel(ctrl_card, text="", font=get_font(13, "bold"), text_color=COLOR_WARNING[0])
+        self.history_count_label = ctk.CTkLabel(
+            ctrl_card, text="", font=get_font(13, "bold"), text_color=COLOR_WARNING[0]
+        )
         self.history_count_label.pack(anchor="e", padx=12, pady=(0, 8))
 
-        hist_card = CardFrame(body, title=t("gui.history.card_title"), subtitle=t("gui.history.card_sub"))
+        hist_card = CardFrame(
+            body, title=t("gui.history.card_title"), subtitle=t("gui.history.card_sub")
+        )
         hist_card.pack(fill="x", padx=8, pady=6)
 
         h_columns = ("site", "title", "synced_at", "url")
@@ -82,7 +130,13 @@ class HistoryTab(ctk.CTkFrame):
             return
         self.app.root.clipboard_clear()
         self.app.root.clipboard_append(url)
-        self.app._log_message(t("gui.history.log_url_copied", url=url[:80], ellipsis="..." if len(url) > 80 else ""))
+        self.app._log_message(
+            t(
+                "gui.history.log_url_copied",
+                url=url[:80],
+                ellipsis="..." if len(url) > 80 else "",
+            )
+        )
 
     def _refresh_history(self):
         for item in self.hist_tree.get_children():
@@ -105,10 +159,15 @@ class HistoryTab(ctk.CTkFrame):
             self._history_url_by_iid[iid] = url
             display_title = title or ""
             if devices:
-                display_title = f"{display_title} [{devices}]" if display_title else f"[{devices}]"
-            self.hist_tree.insert("", "end", iid=iid, values=(
-                site_name or "", display_title, synced_at or "", url or ""
-            ))
+                display_title = (
+                    f"{display_title} [{devices}]" if display_title else f"[{devices}]"
+                )
+            self.hist_tree.insert(
+                "",
+                "end",
+                iid=iid,
+                values=(site_name or "", display_title, synced_at or "", url or ""),
+            )
         self.history_count_label.configure(text=t("gui.history.count", count=count))
 
     def _delete_history_entry(self):
@@ -116,7 +175,9 @@ class HistoryTab(ctk.CTkFrame):
         if not selected:
             messagebox.showwarning(t("dialog.warning"), t("gui.history.select_delete"))
             return
-        if not messagebox.askyesno(t("dialog.confirm"), t("gui.history.delete_confirm", count=len(selected))):
+        if not messagebox.askyesno(
+            t("dialog.confirm"), t("gui.history.delete_confirm", count=len(selected))
+        ):
             return
         try:
             for iid in selected:
@@ -131,7 +192,9 @@ class HistoryTab(ctk.CTkFrame):
         self.service.schedule_backup_push()
 
     def _clear_all_history(self):
-        if not messagebox.askyesno(t("gui.history.clear_confirm_title"), t("gui.history.clear_confirm")):
+        if not messagebox.askyesno(
+            t("gui.history.clear_confirm_title"), t("gui.history.clear_confirm")
+        ):
             return
         try:
             self.db.clear_all()
@@ -155,9 +218,15 @@ class HistoryTab(ctk.CTkFrame):
         try:
             posts = self.db.export_all_posts()
             deleted_posts = self.db.export_deleted_posts()
-            write_json_atomic(file_path, build_history_payload(posts, deleted_posts=deleted_posts))
-            messagebox.showinfo(t("dialog.info"), t("gui.history.export_ok", count=len(posts)))
-            self.app._log_message(t("gui.history.log_export", count=len(posts), path=file_path))
+            write_json_atomic(
+                file_path, build_history_payload(posts, deleted_posts=deleted_posts)
+            )
+            messagebox.showinfo(
+                t("dialog.info"), t("gui.history.export_ok", count=len(posts))
+            )
+            self.app._log_message(
+                t("gui.history.log_export", count=len(posts), path=file_path)
+            )
         except Exception as e:
             messagebox.showerror(t("gui.history.export_fail_title"), str(e))
 
@@ -186,6 +255,8 @@ class HistoryTab(ctk.CTkFrame):
                 t("dialog.info"),
                 t("gui.history.import_ok", count=len(posts), changed=changed),
             )
-            self.app._log_message(t("gui.history.log_import", changed=changed, path=file_path))
+            self.app._log_message(
+                t("gui.history.log_import", changed=changed, path=file_path)
+            )
         except Exception as e:
             messagebox.showerror(t("gui.history.import_fail_title"), str(e))

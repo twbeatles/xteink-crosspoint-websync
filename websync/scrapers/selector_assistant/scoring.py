@@ -1,4 +1,5 @@
 """아이템·제목·링크·본문 후보 점수."""
+
 from __future__ import annotations
 
 import re
@@ -27,7 +28,16 @@ def _in_noise_section(tag: Tag) -> bool:
         if isinstance(p, Tag):
             cls = " ".join(_stable_classes(p)).lower()
             pid = (p.get("id") or "").lower()
-            for bad in ("nav", "menu", "sidebar", "footer", "header", "gnb", "lnb", "breadcrumb"):
+            for bad in (
+                "nav",
+                "menu",
+                "sidebar",
+                "footer",
+                "header",
+                "gnb",
+                "lnb",
+                "breadcrumb",
+            ):
                 if bad in cls or bad in pid:
                     return True
     return False
@@ -77,7 +87,10 @@ def _href_article_score(href: str) -> float:
     if not href or href.startswith("#") or href.startswith("javascript:"):
         return 0.0
     low = href.lower()
-    if any(x in low for x in ("/tag", "/category", "/author", "/page/", "notice", "login", "signup")):
+    if any(
+        x in low
+        for x in ("/tag", "/category", "/author", "/page/", "notice", "login", "signup")
+    ):
         return 0.1
     score = 0.2
     for hint in _ARTICLE_PATH_HINTS:
@@ -137,9 +150,15 @@ def _score_item_candidate(selector: str, matches: list[Tag]) -> float:
         score -= 18  # 너무 광범위
     if selector.startswith("[class*="):
         score -= 8  # 속성 부분일치 — 노이즈 많음
-    if ".post-item" in selector or selector.endswith("post-item") or "post-item" in selector:
+    if (
+        ".post-item" in selector
+        or selector.endswith("post-item")
+        or "post-item" in selector
+    ):
         score += 18
-    if any(k in selector for k in (".post", ".entry", "article", "post-card", "blog-post")):
+    if any(
+        k in selector for k in (".post", ".entry", "article", "post-card", "blog-post")
+    ):
         score += 10
     if "href*=" in selector or "href*=" in selector:
         score += 12
@@ -190,10 +209,27 @@ def _score_content_candidate(tag: Tag) -> float:
     if tag.name in ("article", "main"):
         score += 15
     classes = " ".join(_stable_classes(tag)).lower()
-    for bad in ("comment", "sidebar", "related", "share", "footer", "nav", "ad", "menu"):
+    for bad in (
+        "comment",
+        "sidebar",
+        "related",
+        "share",
+        "footer",
+        "nav",
+        "ad",
+        "menu",
+    ):
         if bad in classes or bad in (tag.get("id") or "").lower():
             score -= 20
-    for good in ("content", "entry", "post", "article", "markdown", "body", "tt_article"):
+    for good in (
+        "content",
+        "entry",
+        "post",
+        "article",
+        "markdown",
+        "body",
+        "tt_article",
+    ):
         if good in classes:
             score += 8
     if _in_noise_section(tag):
@@ -201,7 +237,9 @@ def _score_content_candidate(tag: Tag) -> float:
     return score
 
 
-def _discover_link_path_selectors(soup: BeautifulSoup, max_groups: int = 5) -> list[tuple[str, list[Tag]]]:
+def _discover_link_path_selectors(
+    soup: BeautifulSoup, max_groups: int = 5
+) -> list[tuple[str, list[Tag]]]:
     """반복되는 기사 URL 패턴으로 a[href*='...'] 후보 생성 (토스 /article/ 등)."""
     body = soup.body or soup
     buckets: dict[str, list[Tag]] = defaultdict(list)
@@ -281,14 +319,29 @@ def _suggest_relative_title_link(
         return titles_out[:max_per_role], links_out[:max_per_role]
 
     title_seeds = [
-        "h2 a", "h3 a", "h2", "h3", "h1", "h4",
-        ".title", ".post-title", ".entry-title",
-        "a.title", ".card-title", "a[href]",
+        "h2 a",
+        "h3 a",
+        "h2",
+        "h3",
+        "h1",
+        "h4",
+        ".title",
+        ".post-title",
+        ".entry-title",
+        "a.title",
+        ".card-title",
+        "a[href]",
     ]
     # 시맨틱 제목 태그 가점 (날짜·작성자 뭉치 a 전체보다 h2 선호)
     _title_bonus = {
-        "h2 a": 25, "h3 a": 22, "h2": 20, "h3": 18, "h1": 15,
-        ".post-title": 20, ".entry-title": 20, ".title": 12,
+        "h2 a": 25,
+        "h3 a": 22,
+        "h2": 20,
+        "h3": 18,
+        "h1": 15,
+        ".post-title": 20,
+        ".entry-title": 20,
+        ".title": 12,
     }
     for tsel in title_seeds:
         hits = 0
@@ -320,7 +373,15 @@ def _suggest_relative_title_link(
             )
     titles_out.sort(key=lambda x: -x["score"])
 
-    link_seeds = ["h2 a", "h3 a", "a[href]", ".title a", "a.title", "h2 a[href]", "h3 a[href]"]
+    link_seeds = [
+        "h2 a",
+        "h3 a",
+        "a[href]",
+        ".title a",
+        "a.title",
+        "h2 a[href]",
+        "h3 a[href]",
+    ]
     for lsel in link_seeds:
         hits = 0
         sample = ""

@@ -1,4 +1,5 @@
 """스크래퍼 팩토리"""
+
 from websync.i18n import t
 from websync.scrapers.base import BaseScraper
 from websync.scrapers.brunch import BrunchScraper

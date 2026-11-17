@@ -1,4 +1,5 @@
 """WebSync 동기화 EPUB 파일명 날짜 파싱·오래된 파일 필터."""
+
 from __future__ import annotations
 
 import re

@@ -1,4 +1,5 @@
 """파이프라인 로그 헬퍼."""
+
 from __future__ import annotations
 
 from typing import Callable, Optional

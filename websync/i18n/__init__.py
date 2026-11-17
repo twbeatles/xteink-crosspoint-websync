@@ -1,4 +1,5 @@
 """앱 UI 언어 (한국어 / English)."""
+
 from __future__ import annotations
 
 import threading

@@ -1,4 +1,5 @@
 """설정 탭 내 소프트웨어 업데이트 관련 서브패널 (CustomTkinter 기반)."""
+
 from __future__ import annotations
 
 import sys
@@ -119,13 +120,17 @@ class SettingsUpdaterMixin:
             font=get_font(12),
             text_color=COLOR_SECONDARY_FG,
         )
-        self.update_status_lbl.grid(row=2, column=0, columnspan=3, padx=4, pady=(4, 6), sticky="w")
+        self.update_status_lbl.grid(
+            row=2, column=0, columnspan=3, padx=4, pady=(4, 6), sticky="w"
+        )
 
     def _save_updater_settings(self):
         """업데이터 관련 사용자 설정 저장"""
         value = bool(self.auto_check_update_var.get())
         try:
-            self.service.config = self.service.config_manager.patch_fields(auto_check_update=value)
+            self.service.config = self.service.config_manager.patch_fields(
+                auto_check_update=value
+            )
         except Exception as e:
             messagebox.showerror(t("gui.app.save_fail_title"), str(e))
 
@@ -168,7 +173,10 @@ class SettingsUpdaterMixin:
             text=t("gui.settings.update.latest_status", version=__version__),
             text_color=COLOR_SUCCESS,
         )
-        messagebox.showinfo(t("gui.settings.update.check_title"), t("gui.settings.update.latest_msg", version=__version__))
+        messagebox.showinfo(
+            t("gui.settings.update.check_title"),
+            t("gui.settings.update.latest_msg", version=__version__),
+        )
 
     def _on_update_check_failed(self, error_msg: str):
         self.check_update_btn.configure(state="normal")
@@ -176,7 +184,10 @@ class SettingsUpdaterMixin:
             text=t("gui.settings.update.check_fail_status", error=error_msg),
             text_color=COLOR_WARNING,
         )
-        messagebox.showwarning(t("gui.settings.update.check_fail_title"), t("gui.settings.update.check_fail_body", error=error_msg))
+        messagebox.showwarning(
+            t("gui.settings.update.check_fail_title"),
+            t("gui.settings.update.check_fail_body", error=error_msg),
+        )
 
     def _on_update_found(self, manifest: ReleaseManifest, service: UpdateService):
         self.check_update_btn.configure(state="normal")
@@ -253,7 +264,9 @@ class SettingsUpdaterMixin:
             text_color=COLOR_SECONDARY_FG,
         )
 
-    def _on_download_complete(self, staged_path, manifest: ReleaseManifest, service: UpdateService):
+    def _on_download_complete(
+        self, staged_path, manifest: ReleaseManifest, service: UpdateService
+    ):
         self.check_update_btn.configure(state="normal")
         self.cancel_download_btn.pack_forget()
         self.update_status_lbl.configure(
@@ -264,7 +277,11 @@ class SettingsUpdaterMixin:
         if not is_frozen:
             messagebox.showinfo(
                 t("gui.settings.update.dev_done_title"),
-                t("gui.settings.update.dev_done_body", version=manifest.version, path=staged_path),
+                t(
+                    "gui.settings.update.dev_done_body",
+                    version=manifest.version,
+                    path=staged_path,
+                ),
             )
             return
 
@@ -275,7 +292,9 @@ class SettingsUpdaterMixin:
         app_service = getattr(self, "service", None)
         if apply_now and app_service is not None and app_service.is_pipeline_running():
             # 교체 종료가 진행 중 전송의 이력 기록을 끊지 않도록 작업이 없을 때만 적용한다.
-            messagebox.showwarning(t("gui.settings.update.busy_title"), t("gui.settings.update.busy_body"))
+            messagebox.showwarning(
+                t("gui.settings.update.busy_title"), t("gui.settings.update.busy_body")
+            )
             apply_now = False
         close_app = getattr(getattr(self, "app", None), "_on_close", None)
         if apply_now and close_app is not None:
@@ -285,14 +304,19 @@ class SettingsUpdaterMixin:
             try:
                 service.launch_update_and_exit(staged_path, manifest)
             except Exception as exc:
-                messagebox.showerror(t("gui.settings.update.apply_fail_title"), t("gui.settings.update.apply_fail", error=exc))
+                messagebox.showerror(
+                    t("gui.settings.update.apply_fail_title"),
+                    t("gui.settings.update.apply_fail", error=exc),
+                )
         else:
             try:
                 Path(staged_path).unlink(missing_ok=True)
             except OSError:
                 pass
             self.update_status_lbl.configure(
-                text=t("gui.settings.update.deferred_cleaned", version=manifest.version),
+                text=t(
+                    "gui.settings.update.deferred_cleaned", version=manifest.version
+                ),
                 text_color=COLOR_SECONDARY_FG,
             )
 
@@ -303,4 +327,7 @@ class SettingsUpdaterMixin:
             text=t("gui.settings.update.dl_fail_status", error=error_msg),
             text_color=COLOR_WARNING,
         )
-        messagebox.showerror(t("gui.settings.update.fail_title"), t("gui.settings.update.fail_body", error=error_msg))
+        messagebox.showerror(
+            t("gui.settings.update.fail_title"),
+            t("gui.settings.update.fail_body", error=error_msg),
+        )

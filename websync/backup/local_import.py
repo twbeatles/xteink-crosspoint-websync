@@ -4,6 +4,7 @@ dist 배포물에서 흔히 같이 두는 파일:
 - synced_posts.json  (kind=synced_posts, posts[])
 - *설정백업*.json / sites.json  (export_version + sites[])
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,7 +44,12 @@ def _list_sidecar_site_files(root: str) -> list[str]:
             lower = entry.lower()
             if not lower.endswith(".json"):
                 continue
-            if entry in (HISTORY_FILENAME, "config.json", "config.json.bak", "manifest.json"):
+            if entry in (
+                HISTORY_FILENAME,
+                "config.json",
+                "config.json.bak",
+                "manifest.json",
+            ):
                 continue
             if "설정백업" in entry or "sites" in lower or "backup" in lower:
                 path = os.path.join(root, entry)
@@ -89,7 +95,12 @@ def import_local_sidecars(
                 n += db.import_posts_union(posts)
                 result["history_changed"] = n
                 result["files"].append(hist_path)
-                msg = t("local_import.history_applied", name=HISTORY_FILENAME, total=len(posts), n=n)
+                msg = t(
+                    "local_import.history_applied",
+                    name=HISTORY_FILENAME,
+                    total=len(posts),
+                    n=n,
+                )
                 result["messages"].append(msg)
                 log.info(msg)
             except SyncHistoryDbError as e:
@@ -124,7 +135,11 @@ def import_local_sidecars(
         sites_from_files += len(remote_sites) + len(remote_deleted)
         result["files"].append(path)
         result["messages"].append(
-            t("local_import.sites_merged", name=os.path.basename(path), n=len(remote_sites))
+            t(
+                "local_import.sites_merged",
+                name=os.path.basename(path),
+                n=len(remote_sites),
+            )
         )
 
     if sites_from_files and merged != local_sites:
@@ -159,13 +174,19 @@ def import_local_sidecars(
         result["sites_changed"] = True
         result["sites_added"] = len(after_urls - before_urls)
         log.info(
-            t("local_import.sidecar_merged", n=result["sites_added"], files=sites_from_files)
+            t(
+                "local_import.sidecar_merged",
+                n=result["sites_added"],
+                files=sites_from_files,
+            )
         )
 
     return result
 
 
-def ensure_wizard_skips_if_sidecars_present(config: dict, root: str | None = None) -> bool:
+def ensure_wizard_skips_if_sidecars_present(
+    config: dict, root: str | None = None
+) -> bool:
     """사이드카 JSON 이 있으면 첫 실행 마법사 부담을 줄이도록 힌트.
 
     wizard_completed 를 강제하지는 않고, 호출측에서 참고할 수 있게 여부만 반환.

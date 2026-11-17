@@ -1,4 +1,5 @@
 """기기 안정 ID — 이력 키용 (IP 변경 시에도 동일 기기로 인식)."""
+
 from __future__ import annotations
 
 import secrets
@@ -63,7 +64,9 @@ def build_targets_with_keys(
     ip = normalize_device_host(x3_ip)
     if ip:
         pid = (primary_id or "").strip()
-        aliases = _unique_keys([pid, *_clean_alias_ids(primary_alias_ids), ip, "crosspoint.local"])
+        aliases = _unique_keys(
+            [pid, *_clean_alias_ids(primary_alias_ids), ip, "crosspoint.local"]
+        )
         targets.append(
             {
                 "name": primary_name,

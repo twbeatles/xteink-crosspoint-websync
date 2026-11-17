@@ -1,4 +1,5 @@
 """YouTube 자막 API 0.6 / 1.x 호환 래퍼."""
+
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch

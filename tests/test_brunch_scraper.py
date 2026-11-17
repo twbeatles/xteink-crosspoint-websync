@@ -1,4 +1,5 @@
 """BrunchScraper — 프로필 추출·API 목록 파싱 단위 테스트."""
+
 from unittest.mock import MagicMock, patch
 
 from websync.scrapers.brunch import BrunchScraper

@@ -1,4 +1,5 @@
 """UpdateService 고수준 조율 서비스 단위 테스트."""
+
 from __future__ import annotations
 
 import base64
@@ -34,7 +35,9 @@ def test_update_service_check_for_update_found(tmp_path, test_keypair):
         storage_root=tmp_path,
     )
 
-    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(microsecond=0)
+    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(
+        microsecond=0
+    )
     payload = {
         "version": "1.2.0",
         "artifact_url": "https://example.invalid/app.exe",
@@ -42,10 +45,14 @@ def test_update_service_check_for_update_found(tmp_path, test_keypair):
         "size": 5000,
         "expires_at": future_time.isoformat().replace("+00:00", "Z"),
     }
-    sig = base64.b64encode(private_key.sign(canonical_manifest_payload(payload))).decode("ascii")
+    sig = base64.b64encode(
+        private_key.sign(canonical_manifest_payload(payload))
+    ).decode("ascii")
     doc_bytes = canonical_manifest_payload({"payload": payload, "signature": sig})
 
-    with patch("websync.core.update.service.download_release_manifest", return_value=doc_bytes):
+    with patch(
+        "websync.core.update.service.download_release_manifest", return_value=doc_bytes
+    ):
         manifest = service.check_for_update()
         assert manifest is not None
         assert manifest.version == "1.2.0"
@@ -59,7 +66,9 @@ def test_update_service_check_for_update_up_to_date(tmp_path, test_keypair):
         storage_root=tmp_path,
     )
 
-    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(microsecond=0)
+    future_time = (datetime.now(timezone.utc) + timedelta(days=30)).replace(
+        microsecond=0
+    )
     payload = {
         "version": "1.0.0",
         "artifact_url": "https://example.invalid/app.exe",
@@ -67,10 +76,14 @@ def test_update_service_check_for_update_up_to_date(tmp_path, test_keypair):
         "size": 5000,
         "expires_at": future_time.isoformat().replace("+00:00", "Z"),
     }
-    sig = base64.b64encode(private_key.sign(canonical_manifest_payload(payload))).decode("ascii")
+    sig = base64.b64encode(
+        private_key.sign(canonical_manifest_payload(payload))
+    ).decode("ascii")
     doc_bytes = canonical_manifest_payload({"payload": payload, "signature": sig})
 
-    with patch("websync.core.update.service.download_release_manifest", return_value=doc_bytes):
+    with patch(
+        "websync.core.update.service.download_release_manifest", return_value=doc_bytes
+    ):
         manifest = service.check_for_update()
         assert manifest is None
 
@@ -104,11 +117,13 @@ def test_download_and_stage_streams_chunks_without_buffering(tmp_path):
         path.write_bytes(b"".join(consumed))
         return path
 
-    with patch("websync.core.update.service.stream_update_artifact", source), patch(
-        "websync.core.update.service.prepare_staged_update", staging
+    with (
+        patch("websync.core.update.service.stream_update_artifact", source),
+        patch("websync.core.update.service.prepare_staged_update", staging),
     ):
         staged = service.download_and_stage(
-            manifest, progress_callback=lambda current, total: progress.append((current, total))
+            manifest,
+            progress_callback=lambda current, total: progress.append((current, total)),
         )
 
     assert staged.read_bytes() == b"firstsecond"

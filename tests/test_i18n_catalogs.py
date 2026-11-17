@@ -1,4 +1,5 @@
 """ko/en 카탈로그 키 집합이 같고 빈 값이 없는지 검증."""
+
 from __future__ import annotations
 
 from websync.i18n.catalog import flatten, load_catalog

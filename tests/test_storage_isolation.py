@@ -1,4 +1,5 @@
 """Real I/O regression for ISSUE-004; all sentinel state is synthetic."""
+
 import json
 import logging
 import os
@@ -33,11 +34,28 @@ def test_storage_dependencies_survive_reload(tmp_path):
     db = SyncHistoryDb(str(tmp_path / "injected.db"))
     log = logging.getLogger("isolated-injection")
     lock = ProcessFileLock(str(tmp_path / "injected.lock"))
-    with patch("websync.pipeline.service.SyncHistoryDb", side_effect=AssertionError("default DB")), \
-         patch("websync.pipeline.service.get_logger", side_effect=AssertionError("default logger")), \
-         patch("websync.epub.builder.get_logger", side_effect=AssertionError("builder default logger")):
-        svc = SyncService(cm, db=db, logger=log, process_lock=lock,
-                          sidecar_root=str(tmp_path), output_dir=str(tmp_path / "ebooks"))
+    with (
+        patch(
+            "websync.pipeline.service.SyncHistoryDb",
+            side_effect=AssertionError("default DB"),
+        ),
+        patch(
+            "websync.pipeline.service.get_logger",
+            side_effect=AssertionError("default logger"),
+        ),
+        patch(
+            "websync.epub.builder.get_logger",
+            side_effect=AssertionError("builder default logger"),
+        ),
+    ):
+        svc = SyncService(
+            cm,
+            db=db,
+            logger=log,
+            process_lock=lock,
+            sidecar_root=str(tmp_path),
+            output_dir=str(tmp_path / "ebooks"),
+        )
         svc._reload_config()
     assert svc.db is db and svc.logger is log and svc._process_lock is lock
     assert svc.epub_builder.logger is log
@@ -47,7 +65,7 @@ def test_storage_dependencies_survive_reload(tmp_path):
 def test_subprocess_sentinel_is_unchanged_and_bad_default_access_is_blocked(tmp_path):
     # The child owns both "user" sentinels and separate test storage. Never use
     # actual checkout config/history even as a fixture or a comparison sample.
-    script = r'''
+    script = r"""
 import hashlib, json, logging, pathlib, sqlite3, sys
 from storage_sandbox import install_storage_guard
 from websync.config.manager import ConfigManager
@@ -98,9 +116,13 @@ assert before == after, (before, after)
 with sqlite3.connect(db_path) as conn:
     assert conn.execute("SELECT device_ip FROM synced_posts").fetchall() == [("*",)]
 print(json.dumps({"sentinels_unchanged": True, "blocked": len(guard.violations)}))
-'''
-    completed = subprocess.run([sys.executable, "-c", script, str(tmp_path)],
-                               capture_output=True, text=True, timeout=30)
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     assert completed.returncode == 0, completed.stderr
     result = json.loads(completed.stdout.strip().splitlines()[-1])
     assert result["sentinels_unchanged"] and result["blocked"] >= 1
@@ -116,12 +138,14 @@ def test_guard_normalizes_extended_windows_paths(tmp_path):
     protected = "\\\\?\\" + str(guard.repository / "config.json")
     with pytest.raises(AssertionError, match="Unsafe test storage access"):
         guard("open", (protected, "w", os.O_WRONLY | os.O_CREAT))
-    assert canonical_path(r"\\?\UNC\server\share\folder") == canonical_path(r"\\server\share\folder")
+    assert canonical_path(r"\\?\UNC\server\share\folder") == canonical_path(
+        r"\\server\share\folder"
+    )
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX directory descriptors")
 def test_guard_resolves_directory_descriptor_mutations_in_subprocess(tmp_path):
-    script = r'''
+    script = r"""
 import os, pathlib, sys
 from storage_sandbox import install_storage_guard
 root = pathlib.Path(sys.argv[1]) / 'user'
@@ -161,9 +185,13 @@ assert len(guard.violations) == 3
 guard.repository = root / 'disabled'
 assert target.read_bytes() == b'sentinel'
 print('descriptor guard OK')
-'''
-    result = subprocess.run([sys.executable, "-c", script, str(tmp_path)],
-                            capture_output=True, text=True, timeout=30)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     assert result.returncode == 0, result.stderr
     assert "descriptor guard OK" in result.stdout
 
@@ -177,12 +205,31 @@ def test_guard_allows_pytest_toolchain_metadata_but_blocks_app_state(tmp_path):
     guard = StorageGuard(repo)
     # pytest _make_cachedir: anchor mkdir, staging dir, atomic rename.
     guard("os.mkdir", (str(repo), 0o777, None))
-    guard("open", (str(repo / ".pytest_cache" / "v" / "cache" / "nodeids"),
-                   "w", os.O_WRONLY | os.O_CREAT))
-    guard("open", (str(repo / "pytest-cache-files-abc123" / "CACHEDIR.TAG"),
-                   "w", os.O_WRONLY | os.O_CREAT))
-    guard("os.rename", (str(repo / "pytest-cache-files-abc123"),
-                        str(repo / ".pytest_cache"), None, None))
+    guard(
+        "open",
+        (
+            str(repo / ".pytest_cache" / "v" / "cache" / "nodeids"),
+            "w",
+            os.O_WRONLY | os.O_CREAT,
+        ),
+    )
+    guard(
+        "open",
+        (
+            str(repo / "pytest-cache-files-abc123" / "CACHEDIR.TAG"),
+            "w",
+            os.O_WRONLY | os.O_CREAT,
+        ),
+    )
+    guard(
+        "os.rename",
+        (
+            str(repo / "pytest-cache-files-abc123"),
+            str(repo / ".pytest_cache"),
+            None,
+            None,
+        ),
+    )
     # coverage.py parallel data files and XML report next to the invocation dir.
     coverage_data = repo / ".coverage.localhost.12345.abcdef"
     guard("open", (str(coverage_data), "w", os.O_WRONLY | os.O_CREAT))
@@ -194,8 +241,9 @@ def test_guard_allows_pytest_toolchain_metadata_but_blocks_app_state(tmp_path):
     with pytest.raises(AssertionError, match="Unsafe test storage access"):
         guard("open", (str(repo / "config.json"), "w", os.O_WRONLY | os.O_CREAT))
     with pytest.raises(AssertionError, match="Unsafe test storage access"):
-        guard("open", (str(repo / "output" / "book.epub"),
-                       "w", os.O_WRONLY | os.O_CREAT))
+        guard(
+            "open", (str(repo / "output" / "book.epub"), "w", os.O_WRONLY | os.O_CREAT)
+        )
 
 
 def test_guard_allows_runner_temp_outside_system_temp(tmp_path, monkeypatch):
@@ -209,23 +257,29 @@ def test_guard_allows_runner_temp_outside_system_temp(tmp_path, monkeypatch):
     agent_temp = tmp_path / "agent-temp"
     agent_temp.mkdir()
     # Hide the real system temp so only the env var can cover the probes.
-    monkeypatch.setattr(tempfile_module, "gettempdir",
-                        lambda: str(tmp_path / "sys-temp"))
+    monkeypatch.setattr(
+        tempfile_module, "gettempdir", lambda: str(tmp_path / "sys-temp")
+    )
     for name in ("RUNNER_TEMP", "AGENT_TEMPDIRECTORY", "TMPDIR", "TEMP", "TMP"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("RUNNER_TEMP", str(agent_temp))
     guard = StorageGuard(repo)
     # pytest's atomic cache creation anchored at the redirected cache dir.
     guard("os.mkdir", (str(agent_temp), 0o777, None))
-    guard("open", (str(agent_temp / "pytest-cache" / "v" / "cache" / "nodeids"),
-                   "w", os.O_WRONLY | os.O_CREAT))
+    guard(
+        "open",
+        (
+            str(agent_temp / "pytest-cache" / "v" / "cache" / "nodeids"),
+            "w",
+            os.O_WRONLY | os.O_CREAT,
+        ),
+    )
     coverage_data = agent_temp / ".coverage.runner.1.abcdef"
     guard("open", (str(coverage_data), "w", os.O_WRONLY | os.O_CREAT))
     guard("os.remove", (str(coverage_data), None))
     assert guard.violations == []
     with pytest.raises(AssertionError, match="Unsafe test storage access"):
-        guard("open", (str(repo / "sync_history.db"),
-                       "w", os.O_WRONLY | os.O_CREAT))
+        guard("open", (str(repo / "sync_history.db"), "w", os.O_WRONLY | os.O_CREAT))
 
 
 def test_descriptor_open_context_applies_to_one_matching_event(tmp_path, monkeypatch):
@@ -236,7 +290,9 @@ def test_descriptor_open_context_applies_to_one_matching_event(tmp_path, monkeyp
     guard = StorageGuard(user)
     monkeypatch.chdir(user)
     guard._descriptor_open.context = {
-        "path": "config.json", "resolved": str(safe / "config.json"), "consumed": False,
+        "path": "config.json",
+        "resolved": str(safe / "config.json"),
+        "consumed": False,
     }
     guard("open", ("config.json", None, os.O_RDONLY))
     assert guard.violations == []

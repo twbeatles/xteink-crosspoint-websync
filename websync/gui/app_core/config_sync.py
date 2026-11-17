@@ -19,7 +19,7 @@ def _set_entry_val(widget, val):
 class AppConfigSyncMixin:
     def _load_config_to_ui(self):
         config = self.service.config
-        
+
         # 1. SyncTab 설정 로드
         _set_entry_val(self.tab_sync.ip_entry, config.get("x3_ip", "crosspoint.local"))
         _set_entry_val(self.tab_sync.dir_entry, config.get("output_dir", "./output"))
@@ -30,21 +30,28 @@ class AppConfigSyncMixin:
         self.tab_sync.cover_var.set(config.get("epub_cover", True))
         self.tab_sync.merge_mode_var.set(config.get("epub_merge_mode", "per_site"))
         self.tab_sync.custom_css_entry.configure(state="normal")
-        _set_entry_val(self.tab_sync.custom_css_entry, config.get("epub_custom_css", ""))
+        _set_entry_val(
+            self.tab_sync.custom_css_entry, config.get("epub_custom_css", "")
+        )
         # 테마 적용은 저장 없이 입력 상태만 갱신 (시작 시 불필요한 저장 방지)
         self.tab_sync.set_epub_theme(config.get("epub_theme", "default"))
 
         sched_conf = config.get("schedule", {})
         self.tab_sync.hour_cb.set(sched_conf.get("hour", "07"))
         self.tab_sync.min_cb.set(sched_conf.get("minute", "00"))
-        
+
         self.tab_sync._refresh_devices_tree()
         self.tab_sync._refresh_site_tree()
         self.tab_sync._refresh_schedule_status()
 
         # 2. CalibreTab 설정 로드
-        _set_entry_val(self.tab_calibre.calibre_entry, config.get("calibre_path", "C:\\Program Files\\Calibre2\\calibredb.exe"))
-        _set_entry_val(self.tab_calibre.calibre_lib_entry, config.get("calibre_library_path", ""))
+        _set_entry_val(
+            self.tab_calibre.calibre_entry,
+            config.get("calibre_path", "C:\\Program Files\\Calibre2\\calibredb.exe"),
+        )
+        _set_entry_val(
+            self.tab_calibre.calibre_lib_entry, config.get("calibre_library_path", "")
+        )
         self._start_background_task(
             self.tab_calibre._test_and_load_calibre,
             kwargs={"silent": True},
@@ -73,7 +80,9 @@ class AppConfigSyncMixin:
         self.tab_settings._refresh_web_token_display()
 
         watch_conf = config.get("calibre_watch", {})
-        _set_entry_val(self.tab_settings.watch_dir_entry, watch_conf.get("watch_dir", ""))
+        _set_entry_val(
+            self.tab_settings.watch_dir_entry, watch_conf.get("watch_dir", "")
+        )
 
         ai_conf = config.get("ai_summary", {})
         self.tab_settings.ai_enabled_var.set(ai_conf.get("enabled", False))
@@ -82,10 +91,14 @@ class AppConfigSyncMixin:
 
         trans_conf = config.get("translation", {})
         self.tab_settings.trans_enabled_var.set(trans_conf.get("enabled", False))
-        self.tab_settings.trans_provider_cb.set(trans_conf.get("provider", "googletrans"))
+        self.tab_settings.trans_provider_cb.set(
+            trans_conf.get("provider", "googletrans")
+        )
         # N5: libretranslate API Key Entry 채우기
         self.tab_settings.trans_key_entry.delete(0, tk.END)
-        self.tab_settings.trans_key_entry.insert(0, trans_conf.get("libretranslate_api_key", ""))
+        self.tab_settings.trans_key_entry.insert(
+            0, trans_conf.get("libretranslate_api_key", "")
+        )
         self.tab_settings._update_trans_key_state()
 
         # 클라우드 백업 동기화
@@ -94,7 +107,7 @@ class AppConfigSyncMixin:
     def _save_ui_settings(self) -> bool:
         # 검증/디스크 저장이 실패해도 실행 중인 서비스 설정은 바꾸지 않는다.
         config = copy.deepcopy(self.service.config)
-        
+
         # 1. SyncTab에서 정보 가져옴
         config["x3_ip"] = normalize_device_host(self.tab_sync.ip_entry.get())
         config["output_dir"] = self.tab_sync.dir_entry.get().strip()
@@ -102,11 +115,15 @@ class AppConfigSyncMixin:
         config["epub_cover"] = self.tab_sync.cover_var.get()
         # 범위 밖·숫자가 아닌 값은 조용히 버리지 않고 보정한 값을 입력칸에도 되돌려 준다
         raw_size = str(self.tab_sync.font_size_sp.get()).strip()
-        config["font_size"] = parse_font_size(raw_size, default=int(config.get("font_size") or 16))
+        config["font_size"] = parse_font_size(
+            raw_size, default=int(config.get("font_size") or 16)
+        )
         if raw_size != str(config["font_size"]):
             _set_entry_val(self.tab_sync.font_size_sp, config["font_size"])
         raw_lh = str(self.tab_sync.line_height_sp.get()).strip()
-        config["line_height"] = parse_line_height(raw_lh, default=float(config.get("line_height") or 1.7))
+        config["line_height"] = parse_line_height(
+            raw_lh, default=float(config.get("line_height") or 1.7)
+        )
         try:
             lh_changed = float(raw_lh) != config["line_height"]
         except ValueError:
@@ -116,28 +133,40 @@ class AppConfigSyncMixin:
         config["epub_merge_mode"] = self.tab_sync.merge_mode_var.get()
         config["epub_theme"] = self.tab_sync.get_epub_theme()
         config["epub_custom_css"] = self.tab_sync.custom_css_entry.get().strip()
-        
+
         config.setdefault("schedule", {})
         config["schedule"]["hour"] = self.tab_sync.hour_cb.get()
         config["schedule"]["minute"] = self.tab_sync.min_cb.get()
 
         # 2. CalibreTab에서 정보 가져옴
         config["calibre_path"] = self.tab_calibre.calibre_entry.get().strip()
-        config["calibre_library_path"] = self.tab_calibre.calibre_lib_entry.get().strip()
+        config["calibre_library_path"] = (
+            self.tab_calibre.calibre_lib_entry.get().strip()
+        )
 
         # 3. SettingsTab에서 정보 가져옴
         try:
-            config.setdefault("opds_server", {})["port"] = int(self.tab_settings.opds_port_sp.get())
-            config["opds_server"]["allow_lan"] = self.tab_settings.opds_allow_lan_var.get()
+            config.setdefault("opds_server", {})["port"] = int(
+                self.tab_settings.opds_port_sp.get()
+            )
+            config["opds_server"]["allow_lan"] = (
+                self.tab_settings.opds_allow_lan_var.get()
+            )
         except ValueError:
             pass
         try:
-            config.setdefault("web_dashboard", {})["port"] = int(self.tab_settings.web_port_sp.get())
-            config["web_dashboard"]["allow_lan"] = self.tab_settings.web_allow_lan_var.get()
+            config.setdefault("web_dashboard", {})["port"] = int(
+                self.tab_settings.web_port_sp.get()
+            )
+            config["web_dashboard"]["allow_lan"] = (
+                self.tab_settings.web_allow_lan_var.get()
+            )
         except ValueError:
             pass
-        
-        config.setdefault("calibre_watch", {})["watch_dir"] = self.tab_settings.watch_dir_entry.get().strip()
+
+        config.setdefault("calibre_watch", {})["watch_dir"] = (
+            self.tab_settings.watch_dir_entry.get().strip()
+        )
 
         # 클라우드 백업 동기화
         if hasattr(self.tab_settings, "_collect_backup_sync_into_config"):
@@ -146,7 +175,7 @@ class AppConfigSyncMixin:
         # 저장 실행
         if not self._safe_save_config(config, reload=True):
             return False
-        
+
         self.calibre.calibre_path = config["calibre_path"]
         self.calibre.library_path = config["calibre_library_path"]
         if hasattr(self.tab_settings, "_refresh_backup_status_label"):
@@ -156,4 +185,3 @@ class AppConfigSyncMixin:
     # ------------------------------------------------------------------
     # 즉시 동기화 실행
     # ------------------------------------------------------------------
-

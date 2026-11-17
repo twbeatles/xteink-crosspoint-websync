@@ -11,10 +11,26 @@ from websync.scrapers.youtube import YoutubeScraper
 @pytest.mark.parametrize(
     "scraper_cls,site_config,module_path",
     [
-        (YoutubeScraper, {"url": "https://youtube.com/feeds/videos.xml?channel_id=x", "limit": 1}, "websync.scrapers.youtube"),
-        (TistoryScraper, {"url": "https://example.tistory.com", "limit": 1}, "websync.scrapers.tistory"),
-        (BrunchScraper, {"url": "https://brunch.co.kr/@author", "limit": 1}, "websync.scrapers.brunch"),
-        (SubstackScraper, {"url": "https://example.substack.com", "limit": 1}, "websync.scrapers.substack"),
+        (
+            YoutubeScraper,
+            {"url": "https://youtube.com/feeds/videos.xml?channel_id=x", "limit": 1},
+            "websync.scrapers.youtube",
+        ),
+        (
+            TistoryScraper,
+            {"url": "https://example.tistory.com", "limit": 1},
+            "websync.scrapers.tistory",
+        ),
+        (
+            BrunchScraper,
+            {"url": "https://brunch.co.kr/@author", "limit": 1},
+            "websync.scrapers.brunch",
+        ),
+        (
+            SubstackScraper,
+            {"url": "https://example.substack.com", "limit": 1},
+            "websync.scrapers.substack",
+        ),
     ],
 )
 def test_scraper_raises_on_network_failure(scraper_cls, site_config, module_path):

@@ -1,4 +1,5 @@
 """업데이트 다운로드 준비, 교체, 스모크 검증, 백업 및 롤백 단위 테스트."""
+
 from __future__ import annotations
 
 import hashlib

@@ -1,4 +1,5 @@
 """기기 → PC 다운로드: 같은 이름의 로컬 파일 보호와 안전한 파일명 (2026-11-02 감사 ISSUE-001)."""
+
 from __future__ import annotations
 
 import os
@@ -20,8 +21,8 @@ from websync.upload.local_path import (
     [
         ("book.epub", "book.epub"),
         ("한글 책.epub", "한글 책.epub"),
-        ("C:evil.epub", "C_evil.epub"),       # 드라이브 상대 경로 차단
-        ("a.epub:stream", "a.epub_stream"),   # NTFS ADS 차단
+        ("C:evil.epub", "C_evil.epub"),  # 드라이브 상대 경로 차단
+        ("a.epub:stream", "a.epub_stream"),  # NTFS ADS 차단
         ("..\\..\\x.epub", "x.epub"),
         ("../x.epub", "x.epub"),
         ("CON.epub", "_CON.epub"),
@@ -37,20 +38,30 @@ def test_safe_local_filename(raw, expected):
 def test_plan_renames_existing_and_batch_duplicates(tmp_path):
     (tmp_path / "book.epub").write_bytes(b"A")
     (tmp_path / "book (1).epub").write_bytes(b"A1")
-    plan = plan_local_downloads(str(tmp_path), ["book.epub", "new.epub", "new.epub"], overwrite=False)
-    assert [os.path.basename(p["path"]) for p in plan] == ["book (2).epub", "new.epub", "new (1).epub"]
+    plan = plan_local_downloads(
+        str(tmp_path), ["book.epub", "new.epub", "new.epub"], overwrite=False
+    )
+    assert [os.path.basename(p["path"]) for p in plan] == [
+        "book (2).epub",
+        "new.epub",
+        "new (1).epub",
+    ]
     assert [p["conflict"] for p in plan] == [True, False, False]
 
 
 def test_plan_overwrite_keeps_name_but_still_separates_batch(tmp_path):
     (tmp_path / "book.epub").write_bytes(b"A")
-    plan = plan_local_downloads(str(tmp_path), ["book.epub", "book.epub"], overwrite=True)
+    plan = plan_local_downloads(
+        str(tmp_path), ["book.epub", "book.epub"], overwrite=True
+    )
     assert [os.path.basename(p["path"]) for p in plan] == ["book.epub", "book (1).epub"]
 
 
 def test_find_local_conflicts_uses_sanitized_names(tmp_path):
     (tmp_path / "C_evil.epub").write_bytes(b"x")
-    assert find_local_conflicts(str(tmp_path), ["C:evil.epub", "other.epub"]) == ["C_evil.epub"]
+    assert find_local_conflicts(str(tmp_path), ["C:evil.epub", "other.epub"]) == [
+        "C_evil.epub"
+    ]
 
 
 def _panel(tmp_path, client, *, start=None):
@@ -83,7 +94,9 @@ def _fake_client():
 
 
 def _run(monkeypatch, tmp_path, answer):
-    monkeypatch.setattr(actions.filedialog, "askdirectory", lambda **kwargs: str(tmp_path))
+    monkeypatch.setattr(
+        actions.filedialog, "askdirectory", lambda **kwargs: str(tmp_path)
+    )
     ask = Mock(return_value=answer)
     monkeypatch.setattr(actions.messagebox, "askyesnocancel", ask)
     client = _fake_client()

@@ -1,4 +1,5 @@
 """웹 대시보드 서버 수명 주기 관리."""
+
 from __future__ import annotations
 
 import threading
@@ -57,7 +58,9 @@ class WebDashboard:
                 self.cancel_callback,
             )
             self.port = self._server.server_port
-            self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+            self._thread = threading.Thread(
+                target=self._server.serve_forever, daemon=True
+            )
             self._thread.start()
             self._running = True
             return True
@@ -81,5 +84,9 @@ class WebDashboard:
         return self._running
 
     def get_url(self) -> str:
-        host = "localhost" if self.bind_host in ("127.0.0.1", "localhost") else self.bind_host
+        host = (
+            "localhost"
+            if self.bind_host in ("127.0.0.1", "localhost")
+            else self.bind_host
+        )
         return f"http://{host}:{self.port}/"

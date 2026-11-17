@@ -2,6 +2,7 @@
 
 권장 Canonical Import 경로: `from websync.gui.app_core import SyncAppGui`
 """
+
 from websync.gui.app_core import SyncAppGui
 
-__all__ = ['SyncAppGui']
+__all__ = ["SyncAppGui"]

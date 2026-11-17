@@ -2,6 +2,7 @@
 
 작가 프로필 URL 또는 RSS URL을 받아 내부적으로 RssScraper를 사용합니다.
 """
+
 from __future__ import annotations
 
 import re
@@ -40,7 +41,9 @@ class VelogScraper(BaseScraper):
         cfg["url"] = rss_url
         cfg["type"] = "rss"
         articles = self._rss.fetch_articles(cfg)
-        self.last_fetch_stats = getattr(self._rss, "last_fetch_stats", {}) or {"skipped": 0}
+        self.last_fetch_stats = getattr(self._rss, "last_fetch_stats", {}) or {
+            "skipped": 0
+        }
         return articles
 
     @classmethod

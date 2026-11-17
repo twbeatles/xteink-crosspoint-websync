@@ -3,6 +3,7 @@
 dist/ 배포 폴더는 gitignore 이므로 CI·클론 환경에 없습니다.
 실제 dist 샘플과 동일한 스키마를 임시 파일로 만들어 검증합니다.
 """
+
 from __future__ import annotations
 
 import json

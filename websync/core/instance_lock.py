@@ -1,4 +1,5 @@
 """GUI 단일 인스턴스 락 (파이프라인 ProcessFileLock 과 별개)."""
+
 from __future__ import annotations
 
 import os
@@ -21,8 +22,11 @@ def _is_process_running(pid: int) -> bool:
         return False
     if sys.platform == "win32":
         import ctypes
+
         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        handle = ctypes.windll.kernel32.OpenProcess(
+            PROCESS_QUERY_LIMITED_INFORMATION, False, pid
+        )
         if handle:
             ctypes.windll.kernel32.CloseHandle(handle)
             return True
@@ -87,6 +91,7 @@ def _release_windows_mutex():
         return
     try:
         import ctypes
+
         ctypes.windll.kernel32.ReleaseMutex(_win_mutex)
         ctypes.windll.kernel32.CloseHandle(_win_mutex)
     except Exception:
@@ -115,6 +120,7 @@ def acquire_instance_lock() -> bool:
             lock_file.write(payload)
             lock_file.flush()
             import fcntl
+
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         return True
     except (OSError, FileExistsError):
@@ -129,6 +135,7 @@ def acquire_instance_lock() -> bool:
                     lock_file.write(payload)
                     lock_file.flush()
                     import fcntl
+
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 return True
             except (OSError, FileExistsError):

@@ -36,7 +36,11 @@ class DeviceFilesCleanupMixin:
             self.file_tree.selection_set(to_select)
             self.file_tree.see(to_select[0])
         self.app._log_message(
-            t("gui.device.log_select_old", count=len(candidates), days=self._cleanup_days())
+            t(
+                "gui.device.log_select_old",
+                count=len(candidates),
+                days=self._cleanup_days(),
+            )
         )
 
     def _cleanup_old_sync_epubs(self) -> None:
@@ -74,6 +78,7 @@ class DeviceFilesCleanupMixin:
         self.app._log_message(t("gui.device.log_cleanup", ip=ip, count=len(paths)))
 
         delete_count = len(paths)
+
         def task():
             err: str | None = None
             try:
@@ -81,7 +86,10 @@ class DeviceFilesCleanupMixin:
             except DeviceClientError as e:
                 err = str(e)
             self.app.root.after(
-                0, lambda ip=ip, count=delete_count, err=err: self._delete_finished(ip, count, err)
+                0,
+                lambda ip=ip, count=delete_count, err=err: self._delete_finished(
+                    ip, count, err
+                ),
             )
 
         self.app._start_background_task(task, name="device-cleanup")

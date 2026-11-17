@@ -1,4 +1,5 @@
 """Calibre CLI contracts without starting a native CLI or user library."""
+
 import json
 import subprocess
 from types import SimpleNamespace
@@ -17,8 +18,12 @@ def manager(tmp_path):
 def test_calibre_list_uses_argv_utf8_and_library(tmp_path, monkeypatch):
     cm = manager(tmp_path)
     books = [{"id": 7, "title": "한글 도서", "authors": ["Author"]}]
-    run = MagicMock(side_effect=[SimpleNamespace(returncode=0),
-                                SimpleNamespace(returncode=0, stdout=json.dumps(books))])
+    run = MagicMock(
+        side_effect=[
+            SimpleNamespace(returncode=0),
+            SimpleNamespace(returncode=0, stdout=json.dumps(books)),
+        ]
+    )
     monkeypatch.setattr(subprocess, "run", run)
     assert cm.list_books() == books
     args, kwargs = run.call_args
@@ -30,12 +35,27 @@ def test_calibre_list_uses_argv_utf8_and_library(tmp_path, monkeypatch):
 
 def test_calibre_format_prefers_epub_and_preserves_drive_colon(tmp_path, monkeypatch):
     cm = manager(tmp_path)
-    monkeypatch.setattr(subprocess, "run", MagicMock(side_effect=[SimpleNamespace(returncode=0),
-        SimpleNamespace(returncode=0, stdout="PDF: C:\\Library folder\\book.pdf\nEPUB: C:\\Library folder\\한글.epub")]))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        MagicMock(
+            side_effect=[
+                SimpleNamespace(returncode=0),
+                SimpleNamespace(
+                    returncode=0,
+                    stdout="PDF: C:\\Library folder\\book.pdf\nEPUB: C:\\Library folder\\한글.epub",
+                ),
+            ]
+        ),
+    )
     assert cm.get_book_file_path(7) == "C:\\Library folder\\한글.epub"
 
 
 def test_calibre_timeout_returns_empty_library(tmp_path, monkeypatch):
     cm = manager(tmp_path)
-    monkeypatch.setattr(subprocess, "run", MagicMock(side_effect=subprocess.TimeoutExpired("calibredb", 3)))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        MagicMock(side_effect=subprocess.TimeoutExpired("calibredb", 3)),
+    )
     assert cm.list_books() == []

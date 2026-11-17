@@ -1,4 +1,5 @@
 """X3DeviceClient 단위 테스트 (네트워크 mock)."""
+
 import json
 import os
 import tempfile
@@ -73,7 +74,9 @@ def test_get_status_success():
         "rssi": -50,
         "freeHeap": 100000,
     }
-    with patch("websync.upload.device_client.requests.get", return_value=mock_resp) as mget:
+    with patch(
+        "websync.upload.device_client.requests.get", return_value=mock_resp
+    ) as mget:
         data = c.get_status()
     assert data["device"] == "X3"
     assert mget.call_args.args[0] == "http://192.168.1.10/api/status"
@@ -101,7 +104,9 @@ def test_list_files_success_and_sort():
         {"name": "Notes", "size": 0, "isDirectory": True, "isEpub": False},
         {"name": "a.txt", "size": 50, "isDirectory": False, "isEpub": False},
     ]
-    with patch("websync.upload.device_client.requests.get", return_value=mock_resp) as mget:
+    with patch(
+        "websync.upload.device_client.requests.get", return_value=mock_resp
+    ) as mget:
         items = c.list_files("/Books")
     # 폴더 우선
     assert items[0]["name"] == "Notes"
@@ -119,7 +124,9 @@ def test_list_files_root_path_default():
     mock_resp.json.return_value = [
         {"name": "book.epub", "size": 1, "isDirectory": False, "isEpub": True},
     ]
-    with patch("websync.upload.device_client.requests.get", return_value=mock_resp) as mget:
+    with patch(
+        "websync.upload.device_client.requests.get", return_value=mock_resp
+    ) as mget:
         items = c.list_files()
     assert items[0]["path"] == "/book.epub"
     assert mget.call_args.kwargs["params"]["path"] == "/"
@@ -143,7 +150,9 @@ def test_delete_paths_single():
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.text = "ok"
-    with patch("websync.upload.device_client.requests.post", return_value=mock_resp) as mpost:
+    with patch(
+        "websync.upload.device_client.requests.post", return_value=mock_resp
+    ) as mpost:
         assert c.delete_paths(["/Books/old.epub"]) is True
     assert mpost.call_args.kwargs["data"] == {"path": "/Books/old.epub"}
     assert mpost.call_args.args[0] == "http://10.0.0.1/delete"
@@ -153,7 +162,9 @@ def test_delete_paths_multi_json():
     c = X3DeviceClient("10.0.0.1")
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    with patch("websync.upload.device_client.requests.post", return_value=mock_resp) as mpost:
+    with patch(
+        "websync.upload.device_client.requests.post", return_value=mock_resp
+    ) as mpost:
         c.delete_paths(["/a.epub", "/b.epub"])
     data = mpost.call_args.kwargs["data"]
     assert "paths" in data
@@ -170,7 +181,9 @@ def test_mkdir():
     c = X3DeviceClient("10.0.0.1")
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    with patch("websync.upload.device_client.requests.post", return_value=mock_resp) as mpost:
+    with patch(
+        "websync.upload.device_client.requests.post", return_value=mock_resp
+    ) as mpost:
         assert c.mkdir("NewFolder", path="/Books") is True
     assert mpost.call_args.kwargs["data"] == {"name": "NewFolder", "path": "/Books"}
     assert mpost.call_args.args[0] == "http://10.0.0.1/mkdir"
@@ -183,7 +196,9 @@ def test_download_writes_file():
     mock_resp.iter_content = lambda chunk_size: [b"epub-bytes"]
     with tempfile.TemporaryDirectory() as td:
         local = os.path.join(td, "out.epub")
-        with patch("websync.upload.device_client.requests.get", return_value=mock_resp) as mget:
+        with patch(
+            "websync.upload.device_client.requests.get", return_value=mock_resp
+        ) as mget:
             assert c.download("/Books/a.epub", local) is True
         assert open(local, "rb").read() == b"epub-bytes"
         assert mget.call_args.kwargs["params"]["path"] == "/Books/a.epub"
@@ -216,7 +231,13 @@ def test_download_failure_preserves_existing_file_and_removes_partial():
 
 def test_format_status_summary():
     s = X3DeviceClient.format_status_summary(
-        {"device": "X3", "version": "1.0.0", "mode": "STA", "rssi": -40, "freeHeap": 2048}
+        {
+            "device": "X3",
+            "version": "1.0.0",
+            "mode": "STA",
+            "rssi": -40,
+            "freeHeap": 2048,
+        }
     )
     assert "X3" in s
     assert "v1.0.0" in s
@@ -227,17 +248,24 @@ def test_rename():
     c = X3DeviceClient("10.0.0.1")
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    with patch("websync.upload.device_client.requests.post", return_value=mock_resp) as mpost:
+    with patch(
+        "websync.upload.device_client.requests.post", return_value=mock_resp
+    ) as mpost:
         assert c.rename("/Books/old.epub", "new.epub") is True
     assert mpost.call_args.args[0] == "http://10.0.0.1/rename"
-    assert mpost.call_args.kwargs["data"] == {"path": "/Books/old.epub", "name": "new.epub"}
+    assert mpost.call_args.kwargs["data"] == {
+        "path": "/Books/old.epub",
+        "name": "new.epub",
+    }
 
 
 def test_move():
     c = X3DeviceClient("10.0.0.1")
     mock_resp = MagicMock()
     mock_resp.status_code = 200
-    with patch("websync.upload.device_client.requests.post", return_value=mock_resp) as mpost:
+    with patch(
+        "websync.upload.device_client.requests.post", return_value=mock_resp
+    ) as mpost:
         assert c.move("/Books/a.epub", "/Read") is True
     assert mpost.call_args.kwargs["data"] == {"path": "/Books/a.epub", "dest": "/Read"}
 
@@ -250,7 +278,9 @@ def test_upload_to_path_with_dir():
         f.write(b"data")
         path = f.name
     try:
-        with patch("websync.upload.device_client.requests.post", return_value=mock_resp) as mpost:
+        with patch(
+            "websync.upload.device_client.requests.post", return_value=mock_resp
+        ) as mpost:
             assert c.upload_to_path(path, remote_dir="/Books") is True
         assert mpost.call_args.args[0] == "http://10.0.0.1/upload"
         assert mpost.call_args.kwargs["params"] == {"path": "/Books"}
@@ -266,7 +296,9 @@ def test_upload_to_path_root_omits_params():
         f.write(b"data")
         path = f.name
     try:
-        with patch("websync.upload.device_client.requests.post", return_value=mock_resp) as mpost:
+        with patch(
+            "websync.upload.device_client.requests.post", return_value=mock_resp
+        ) as mpost:
             c.upload_to_path(path, remote_dir="/")
         assert mpost.call_args.kwargs["params"] is None
     finally:
@@ -279,8 +311,20 @@ def test_remote_file_exists():
         c,
         "list_files",
         return_value=[
-            {"name": "a.epub", "isDirectory": False, "size": 1, "isEpub": True, "path": "/a.epub"},
-            {"name": "Notes", "isDirectory": True, "size": 0, "isEpub": False, "path": "/Notes"},
+            {
+                "name": "a.epub",
+                "isDirectory": False,
+                "size": 1,
+                "isEpub": True,
+                "path": "/a.epub",
+            },
+            {
+                "name": "Notes",
+                "isDirectory": True,
+                "size": 0,
+                "isEpub": False,
+                "path": "/Notes",
+            },
         ],
     ):
         assert c.remote_file_exists("/", "a.epub") is True
@@ -298,8 +342,16 @@ def test_parse_sync_epub_date():
 
 def test_filter_old_sync_epubs():
     items = [
-        {"name": "old_2020-01-01.epub", "isDirectory": False, "path": "/old_2020-01-01.epub"},
-        {"name": "new_2026-07-10.epub", "isDirectory": False, "path": "/new_2026-07-10.epub"},
+        {
+            "name": "old_2020-01-01.epub",
+            "isDirectory": False,
+            "path": "/old_2020-01-01.epub",
+        },
+        {
+            "name": "new_2026-07-10.epub",
+            "isDirectory": False,
+            "path": "/new_2026-07-10.epub",
+        },
         {"name": "folder", "isDirectory": True, "path": "/folder"},
         {"name": "other.epub", "isDirectory": False, "path": "/other.epub"},
     ]
@@ -319,12 +371,7 @@ def test_test_connection_fallback_requires_2xx():
     with patch.object(
         X3DeviceClient, "get_status", side_effect=DeviceClientError("no status")
     ):
-        with patch(
-            "websync.upload.device_client.requests.get", return_value=bad
-        ):
+        with patch("websync.upload.device_client.requests.get", return_value=bad):
             assert c.test_connection() is False
-        with patch(
-            "websync.upload.device_client.requests.get", return_value=good
-        ):
+        with patch("websync.upload.device_client.requests.get", return_value=good):
             assert c.test_connection() is True
-

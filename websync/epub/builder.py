@@ -1,4 +1,5 @@
 """수집된 기사 데이터를 EPUB 파일로 빌드."""
+
 from __future__ import annotations
 
 import html
@@ -66,7 +67,9 @@ class EpubBuilder:
         """본문 HTML에서 script/style 제거 후 반환합니다."""
         return sanitize_body_html(content)
 
-    def _make_cover_image(self, site_name: str, article_count: int, today_str: str) -> bytes | None:
+    def _make_cover_image(
+        self, site_name: str, article_count: int, today_str: str
+    ) -> bytes | None:
         """Pillow를 사용해 EPUB 표지 이미지를 동적으로 생성. Pillow 미설치 시 None 반환."""
         return make_cover_image(site_name, article_count, today_str)
 
@@ -91,7 +94,9 @@ class EpubBuilder:
         file_path = os.path.join(self.output_dir, file_name)
 
         if os.path.exists(file_path):
-            file_name = epub_basename(safe_site_name, today_str, batch_id, time_suffix=True)
+            file_name = epub_basename(
+                safe_site_name, today_str, batch_id, time_suffix=True
+            )
             file_path = os.path.join(self.output_dir, file_name)
 
         book = epub.EpubBook()
@@ -158,7 +163,9 @@ class EpubBuilder:
         epub.write_epub(file_path, book)
         return file_path
 
-    def build_digest(self, articles_by_site: dict[str, list], generate_cover: bool = True) -> str:
+    def build_digest(
+        self, articles_by_site: dict[str, list], generate_cover: bool = True
+    ) -> str:
         """
         여러 사이트의 기사를 하나의 일간 합본 EPUB으로 빌드합니다.
 
@@ -175,7 +182,9 @@ class EpubBuilder:
         if total_articles == 0:
             raise ValueError(t("epub.digest.empty"))
 
-        batch_id = _batch_digest([art for arts in articles_by_site.values() for art in arts])
+        batch_id = _batch_digest(
+            [art for arts in articles_by_site.values() for art in arts]
+        )
         filename = epub_basename(DIGEST_PREFIX, today, batch_id)
         epub_path = os.path.join(self.output_dir, filename)
         if os.path.exists(epub_path):
@@ -189,7 +198,11 @@ class EpubBuilder:
         book.add_metadata(
             "DC",
             "description",
-            t("epub.digest.description", sites=len(articles_by_site), articles=total_articles),
+            t(
+                "epub.digest.description",
+                sites=len(articles_by_site),
+                articles=total_articles,
+            ),
         )
 
         if generate_cover:

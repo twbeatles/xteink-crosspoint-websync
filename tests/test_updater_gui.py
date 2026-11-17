@@ -20,8 +20,9 @@ def test_update_check_error_survives_deferred_ui_callback():
         _safe_ui=queued.append,
         _on_update_check_failed=Mock(),
     )
-    with patch("websync.gui.settings_tab.updater.UpdateService") as service_cls, patch(
-        "websync.gui.settings_tab.updater.threading.Thread", _InlineThread
+    with (
+        patch("websync.gui.settings_tab.updater.UpdateService") as service_cls,
+        patch("websync.gui.settings_tab.updater.threading.Thread", _InlineThread),
     ):
         service_cls.return_value.check_for_update.side_effect = RuntimeError("offline")
         SettingsUpdaterMixin._on_check_update_clicked(view)
@@ -61,9 +62,12 @@ def test_download_decline_deletes_staged_file(tmp_path):
         cancel_download_btn=Mock(),
         update_status_lbl=Mock(),
     )
-    with patch(
-        "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=False
-    ), patch("sys.frozen", True, create=True):
+    with (
+        patch(
+            "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=False
+        ),
+        patch("sys.frozen", True, create=True),
+    ):
         SettingsUpdaterMixin._on_download_complete(view, staged, manifest, service)
 
     assert not staged.exists()
@@ -81,9 +85,12 @@ def test_download_apply_keeps_staged_and_launches(tmp_path):
         cancel_download_btn=Mock(),
         update_status_lbl=Mock(),
     )
-    with patch(
-        "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=True
-    ), patch("sys.frozen", True, create=True):
+    with (
+        patch(
+            "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=True
+        ),
+        patch("sys.frozen", True, create=True),
+    ):
         SettingsUpdaterMixin._on_download_complete(view, staged, manifest, service)
 
     assert staged.exists()
@@ -141,9 +148,12 @@ def test_download_apply_drains_app_before_launching_helper(tmp_path):
     manifest = SimpleNamespace(version="9.9.9")
     service = Mock()
     view = _apply_view(busy=False)
-    with patch(
-        "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=True
-    ), patch("sys.frozen", True, create=True):
+    with (
+        patch(
+            "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=True
+        ),
+        patch("sys.frozen", True, create=True),
+    ):
         SettingsUpdaterMixin._on_download_complete(view, staged, manifest, service)
 
     service.launch_update_and_exit.assert_not_called()
@@ -160,10 +170,12 @@ def test_download_apply_refused_while_job_running(tmp_path):
     manifest = SimpleNamespace(version="9.9.9")
     service = Mock()
     view = _apply_view(busy=True)
-    with patch(
-        "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=True
-    ), patch("websync.gui.settings_tab.updater.messagebox.showwarning") as warn, patch(
-        "sys.frozen", True, create=True
+    with (
+        patch(
+            "websync.gui.settings_tab.updater.messagebox.askyesno", return_value=True
+        ),
+        patch("websync.gui.settings_tab.updater.messagebox.showwarning") as warn,
+        patch("sys.frozen", True, create=True),
     ):
         SettingsUpdaterMixin._on_download_complete(view, staged, manifest, service)
 
@@ -179,8 +191,9 @@ def test_launch_update_starts_helper_without_exiting(tmp_path):
 
     svc = UpdateService(current_version="1.0.0", storage_root=tmp_path)
     manifest = SimpleNamespace(artifact_sha256="ab" * 32, artifact_size=3)
-    with patch("sys.frozen", True, create=True), patch(
-        "websync.core.update.service.launch_update_helper"
-    ) as helper:
+    with (
+        patch("sys.frozen", True, create=True),
+        patch("websync.core.update.service.launch_update_helper") as helper,
+    ):
         svc.launch_update(tmp_path / "update-2.0.0-x.exe", manifest)
     helper.assert_called_once()

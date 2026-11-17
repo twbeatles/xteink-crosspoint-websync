@@ -6,6 +6,7 @@ URL 형식: https://cafe.naver.com/{cafe_id}
 목록: cafe-web ArticleListV2.json (clubid 필요)
 본문: cafe-articleapi v2.1 contentHtml
 """
+
 from __future__ import annotations
 
 import re
@@ -76,9 +77,13 @@ class NaverCafeScraper(BaseScraper):
                     club_id, cafe_id, article_id, site_config, title=title
                 )
                 if content:
-                    articles.append({"title": title, "content": content, "url": article_url})
+                    articles.append(
+                        {"title": title, "content": content, "url": article_url}
+                    )
                 else:
-                    self.last_fetch_stats["skipped"] = self.last_fetch_stats.get("skipped", 0) + 1
+                    self.last_fetch_stats["skipped"] = (
+                        self.last_fetch_stats.get("skipped", 0) + 1
+                    )
 
         except Exception as e:
             self.logger.error(t("naver_cafe.list_failed", error=e))
@@ -158,20 +163,22 @@ class NaverCafeScraper(BaseScraper):
                 text = container.get_text(" ", strip=True)
                 # 이미지 제거 후 본문이 거의 없으면 스킵 (e-ink에 쓸 텍스트 없음)
                 if len(text) < 15:
-                    self.logger.warning(t("naver_cafe.too_short", article_id=article_id))
+                    self.logger.warning(
+                        t("naver_cafe.too_short", article_id=article_id)
+                    )
                     return None
                 # 제목을 앞에 두면 짧은 글도 가독성 향상
                 if title and title not in text[: len(title) + 5]:
                     return f"<h1>{title}</h1>{container}"
                 return str(container)
         except Exception as e:
-            self.logger.warning(t("naver_cafe.api_failed", article_id=article_id, error=e))
+            self.logger.warning(
+                t("naver_cafe.api_failed", article_id=article_id, error=e)
+            )
 
         # 2) 모바일 HTML 폴백
         try:
-            content_url = (
-                f"https://m.cafe.naver.com/ca-fe/web/cafes/{club_id}/articles/{article_id}"
-            )
+            content_url = f"https://m.cafe.naver.com/ca-fe/web/cafes/{club_id}/articles/{article_id}"
             resp = fetch_url(content_url, timeout=15)
             resp.raise_for_status()
             resp.encoding = resp.apparent_encoding or resp.encoding
@@ -193,5 +200,7 @@ class NaverCafeScraper(BaseScraper):
             return str(container)
 
         except Exception as e:
-            self.logger.warning(t("naver_cafe.body_failed", article_id=article_id, error=e))
+            self.logger.warning(
+                t("naver_cafe.body_failed", article_id=article_id, error=e)
+            )
             return None

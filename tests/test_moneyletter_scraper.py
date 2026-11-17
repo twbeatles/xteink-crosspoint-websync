@@ -1,4 +1,5 @@
 """MoneyLetterScraper — 이메일형 중첩 테이블 → e-ink 선형 HTML 변환 단위 테스트."""
+
 from bs4 import BeautifulSoup
 
 from websync.scrapers.moneyletter import MoneyLetterScraper
@@ -29,7 +30,9 @@ def _sample_email_html() -> str:
 def test_to_eink_html_flattens_nested_tables():
     sc = MoneyLetterScraper()
     soup = BeautifulSoup(_sample_email_html(), "lxml")
-    container = soup.select_one(".elementor-widget-theme-post-content .elementor-widget-container")
+    container = soup.select_one(
+        ".elementor-widget-theme-post-content .elementor-widget-container"
+    )
     assert container is not None
 
     sc._clean_content(container, {"include_images": False})

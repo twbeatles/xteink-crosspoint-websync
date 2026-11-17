@@ -15,7 +15,9 @@ def make_pc(root, name):
     shared.mkdir()
     cm = ConfigManager(str(root / "config.json"))
     config = cm.load_config()
-    config["sites"] = [{"name": name, "type": "rss", "url": f"https://{name}.example/feed"}]
+    config["sites"] = [
+        {"name": name, "type": "rss", "url": f"https://{name}.example/feed"}
+    ]
     apply_portable_cfg(config, {"enabled": True, "folder": str(shared)})
     cm.save_config(config)
     db = SyncHistoryDb(str(root / "history.db"))
@@ -32,15 +34,23 @@ def test_delayed_replica_sync_recovers_overwritten_canonical(tmp_path):
     # Simulate canonical B winning, but distinct installation snapshots syncing.
     for name in ("sites.json", "synced_posts.json", "manifest.json"):
         shutil.copy2(cloud_b / name, cloud_a / name)
-    shutil.copytree(cloud_b / ".websync-replicas", cloud_a / ".websync-replicas", dirs_exist_ok=True)
+    shutil.copytree(
+        cloud_b / ".websync-replicas", cloud_a / ".websync-replicas", dirs_exist_ok=True
+    )
     assert first.pull()["ok"]
-    assert {site["name"] for site in first.config_manager.load_config()["sites"]} == {"a", "b"}
+    assert {site["name"] for site in first.config_manager.load_config()["sites"]} == {
+        "a",
+        "b",
+    }
     assert first.db.get_count() == 2
     assert first.push()["ok"]
     shutil.copytree(cloud_a, cloud_b, dirs_exist_ok=True)
     assert second.pull()["ok"]
     assert second.db.get_count() == 2
-    assert {site["name"] for site in second.config_manager.load_config()["sites"]} == {"a", "b"}
+    assert {site["name"] for site in second.config_manager.load_config()["sites"]} == {
+        "a",
+        "b",
+    }
 
 
 def test_corrupt_snapshot_stops_before_local_changes(tmp_path):
@@ -56,6 +66,7 @@ def test_corrupt_snapshot_stops_before_local_changes(tmp_path):
 
 def test_copied_config_on_another_pc_gets_new_writer(monkeypatch):
     from websync.backup.replicas import ensure_replica_id
+
     monkeypatch.setattr("websync.backup.replicas.socket.gethostname", lambda: "PC-A")
     config = {}
     first = ensure_replica_id(config)

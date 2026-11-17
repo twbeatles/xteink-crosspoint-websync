@@ -1,7 +1,7 @@
 """SoonsalScraper — 순살브리핑(soonsal.com) 뉴스레터 전용 스크래퍼
 
-BaseNewsletterScraper를 상속받아 구현. 
-이렇게 하면 동일한 '목록 → 상세' 패턴의 다른 뉴스레터 사이트도 
+BaseNewsletterScraper를 상속받아 구현.
+이렇게 하면 동일한 '목록 → 상세' 패턴의 다른 뉴스레터 사이트도
 매우 적은 코드로 추가할 수 있습니다.
 """
 
@@ -24,9 +24,7 @@ class SoonsalScraper(BaseNewsletterScraper):
         }
     """
 
-    LINK_PATTERN = re.compile(
-        r"/newsletters/\d{4}/\d{4}(-[a-zA-Z0-9]+)?\.html"
-    )
+    LINK_PATTERN = re.compile(r"/newsletters/\d{4}/\d{4}(-[a-zA-Z0-9]+)?\.html")
 
     CONTENT_CANDIDATES = [
         "div.content",

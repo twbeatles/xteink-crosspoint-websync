@@ -1,4 +1,5 @@
 """GUI 맑은고딕 고정 회귀 테스트 (Tk 창 없이 AST/소스 수준 검증)."""
+
 from __future__ import annotations
 
 import ast
@@ -46,7 +47,12 @@ def test_ctk_theme_default_is_malgun_gothic():
 def test_dropdown_helpers_exist():
     import websync.gui.widgets as widgets
 
-    for name in ("get_dropdown_font", "make_option_menu", "make_combobox", "apply_global_fonts"):
+    for name in (
+        "get_dropdown_font",
+        "make_option_menu",
+        "make_combobox",
+        "apply_global_fonts",
+    ):
         assert callable(getattr(widgets, name, None)), name
 
 

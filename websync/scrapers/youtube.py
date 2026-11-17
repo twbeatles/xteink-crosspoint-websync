@@ -1,4 +1,5 @@
 """YoutubeScraper"""
+
 from typing import cast
 
 from bs4 import BeautifulSoup
@@ -36,7 +37,9 @@ class YoutubeScraper(BaseScraper):
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
                 content = self._fetch_transcript(video_id, title)
                 if content:
-                    articles.append({"title": title, "content": content, "url": video_url})
+                    articles.append(
+                        {"title": title, "content": content, "url": video_url}
+                    )
                 else:
                     skipped += 1
             self.last_fetch_stats = {"skipped": skipped}

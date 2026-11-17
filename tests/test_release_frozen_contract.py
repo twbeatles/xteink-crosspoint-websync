@@ -5,6 +5,7 @@ bad sha/size, expiry, downgrade, non-HTTPS URL are all rejected. Frozen
 equivalence: real `x3_websync.py --version/--smoke` subprocess passes and
 the PyInstaller spec keeps locales/templates/themes importable.
 """
+
 import base64
 import subprocess
 import sys
@@ -35,14 +36,18 @@ def _payload(**over):
         "artifact_url": "https://example.com/releases/app-9.9.1.exe",
         "sha256": "b" * 64,
         "size": 1024,
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat().replace("+00:00", "Z"),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7))
+        .isoformat()
+        .replace("+00:00", "Z"),
     }
     base.update(over)
     return base
 
 
 def _doc(priv, payload):
-    sig = base64.b64encode(priv.sign(canonical_manifest_payload(payload))).decode("ascii")
+    sig = base64.b64encode(priv.sign(canonical_manifest_payload(payload))).decode(
+        "ascii"
+    )
     return {"payload": payload, "signature": sig}
 
 
@@ -59,7 +64,11 @@ def test_bad_hash_size_expiry_downgrade_http_rejected():
     cases = [
         _payload(sha256="not-a-hash"),
         _payload(size=0),
-        _payload(expires_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat().replace("+00:00", "Z")),
+        _payload(
+            expires_at=(datetime.now(timezone.utc) - timedelta(days=1))
+            .isoformat()
+            .replace("+00:00", "Z")
+        ),
         _payload(version="9.9.0"),
         _payload(artifact_url="http://example.com/app.exe"),
     ]
@@ -70,11 +79,19 @@ def test_bad_hash_size_expiry_downgrade_http_rejected():
 
 
 def test_frozen_cli_version_and_smoke():
-    r = subprocess.run([sys.executable, "x3_websync.py", "--version"],
-                       capture_output=True, text=True, timeout=60)
+    r = subprocess.run(
+        [sys.executable, "x3_websync.py", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     assert r.returncode == 0 and "v" in (r.stdout + r.stderr)
-    r = subprocess.run([sys.executable, "x3_websync.py", "--smoke"],
-                       capture_output=True, text=True, timeout=120)
+    r = subprocess.run(
+        [sys.executable, "x3_websync.py", "--smoke"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
     assert r.returncode == 0
     assert "smoke" in (r.stdout + r.stderr).lower()
 
@@ -85,7 +102,11 @@ def test_spec_keeps_locales_and_epub_resources():
     spec = pathlib.Path("x3_websync.spec").read_text(encoding="utf-8")
     assert "locales" in spec
     assert "hiddenimports" in spec
-    for module in ("websync.gui.config_recovery", "websync.pipeline.sources", "websync.watch.retry"):
+    for module in (
+        "websync.gui.config_recovery",
+        "websync.pipeline.sources",
+        "websync.watch.retry",
+    ):
         assert repr(module) in spec
 
 

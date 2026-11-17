@@ -1,4 +1,5 @@
 """마이그레이션 후 원본 대비 누락 검증"""
+
 import os
 import re
 import subprocess
@@ -62,7 +63,7 @@ def normalize(content: str, old_name: str) -> str:
         content = content.replace(old, new)
     if old_name == "paths.py":
         content = content.replace(
-            'PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))',
+            "PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))",
             "_PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\n"
             "PROJECT_ROOT = os.path.dirname(_PKG_DIR)",
         )
@@ -79,7 +80,7 @@ def normalize(content: str, old_name: str) -> str:
         )
         content = content.replace(
             'return os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")',
-            "return os.path.join(PROJECT_ROOT, \"logs\")",
+            'return os.path.join(PROJECT_ROOT, "logs")',
         )
     return content.strip()
 
@@ -106,9 +107,13 @@ def verify_scrapers():
         with open(os.path.join(PKG, rel), encoding="utf-8") as f:
             text = f.read()
         text = re.sub(r'^"""[^"]*"""\n', "", text)
-        text = re.sub(r"^from websync\.scrapers\.[^\n]+\n", "", text, flags=re.MULTILINE)
+        text = re.sub(
+            r"^from websync\.scrapers\.[^\n]+\n", "", text, flags=re.MULTILINE
+        )
         text = re.sub(r"^import [^\n]+\n", "", text, flags=re.MULTILINE)
-        text = re.sub(r"^from urllib\.parse import [^\n]+\n", "", text, flags=re.MULTILINE)
+        text = re.sub(
+            r"^from urllib\.parse import [^\n]+\n", "", text, flags=re.MULTILINE
+        )
         parts.append(text.strip())
 
     combined = "\n\n".join(parts)

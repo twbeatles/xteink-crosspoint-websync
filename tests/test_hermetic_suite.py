@@ -3,6 +3,7 @@
 재발 방지: dist/, output/, logs/, config.json, *.db 등 CI 에 없는
 경로를 테스트가 필수로 가정하면 로컬만 통과하고 GitHub Actions 가 깨집니다.
 """
+
 from __future__ import annotations
 
 import re
@@ -71,6 +72,5 @@ def test_no_hardcoded_gitignore_local_paths():
 
     assert not offenders, (
         "테스트가 gitignore 로컬 경로(dist 등)에 하드 의존합니다. "
-        "임시 디렉터리·tests/fixtures 샘플을 사용하세요.\n"
-        + "\n".join(offenders)
+        "임시 디렉터리·tests/fixtures 샘플을 사용하세요.\n" + "\n".join(offenders)
     )

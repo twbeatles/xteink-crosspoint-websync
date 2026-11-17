@@ -1,4 +1,5 @@
 """GUI revision-conflict merge must not revert fields owned by background writers."""
+
 from __future__ import annotations
 
 import copy
@@ -15,11 +16,25 @@ def _base() -> dict:
         "x3_ip": "192.168.0.10",
         "x3_primary_device_id": "dev_local",
         "x3_primary_device_alias_ids": [],
-        "x3_devices": [{"name": "Bedroom", "ip": "192.168.0.20", "id": "dev_b_local", "alias_ids": []}],
-        "calibre_watch": {"enabled": True, "watch_dir": "C:/old", "pending_files": [], "pending_jobs": {}},
+        "x3_devices": [
+            {
+                "name": "Bedroom",
+                "ip": "192.168.0.20",
+                "id": "dev_b_local",
+                "alias_ids": [],
+            }
+        ],
+        "calibre_watch": {
+            "enabled": True,
+            "watch_dir": "C:/old",
+            "pending_files": [],
+            "pending_jobs": {},
+        },
         "sites": [],
     }
-    apply_portable_cfg(cfg, {"enabled": True, "folder": "C:/share", "deleted_sites": []})
+    apply_portable_cfg(
+        cfg, {"enabled": True, "folder": "C:/share", "deleted_sites": []}
+    )
     return cfg
 
 
@@ -57,14 +72,20 @@ def test_adopted_device_ids_from_pull_are_kept_and_old_ids_become_aliases():
     disk["x3_devices"][0]["id"] = "dev_b_shared"
     disk["x3_devices"][0]["alias_ids"] = ["dev_b_local"]
     memory["x3_devices"][0]["name"] = "Living room"
-    memory["x3_devices"].append({"name": "New", "ip": "192.168.0.30", "id": "dev_new", "alias_ids": []})
+    memory["x3_devices"].append(
+        {"name": "New", "ip": "192.168.0.30", "id": "dev_new", "alias_ids": []}
+    )
 
     out = merge(disk, memory)
 
     assert out["x3_primary_device_id"] == "dev_shared"
     assert out["x3_primary_device_alias_ids"] == ["dev_local"]
     first, second = out["x3_devices"]
-    assert (first["name"], first["id"], first["alias_ids"]) == ("Living room", "dev_b_shared", ["dev_b_local"])
+    assert (first["name"], first["id"], first["alias_ids"]) == (
+        "Living room",
+        "dev_b_shared",
+        ["dev_b_local"],
+    )
     assert second["id"] == "dev_new"
 
 
@@ -78,17 +99,36 @@ def test_device_removed_in_gui_stays_removed():
 def test_site_deleted_by_pull_is_not_resurrected_but_readded_site_survives():
     memory = _base()
     memory["sites"] = [
-        {"name": "Gone", "url": "https://gone.example/feed", "type": "rss", "_sync_updated_at": "2026-10-01T00:00:00Z"},
-        {"name": "Back", "url": "https://back.example/feed", "type": "rss", "_sync_updated_at": "2026-10-21T09:00:00Z"},
+        {
+            "name": "Gone",
+            "url": "https://gone.example/feed",
+            "type": "rss",
+            "_sync_updated_at": "2026-10-01T00:00:00Z",
+        },
+        {
+            "name": "Back",
+            "url": "https://back.example/feed",
+            "type": "rss",
+            "_sync_updated_at": "2026-10-21T09:00:00Z",
+        },
     ]
     disk = _base()
-    apply_portable_cfg(disk, {
-        "last_sites_push_at": "2026-10-21T08:00:00Z",
-        "deleted_sites": [
-            {"url": "https://gone.example/feed", "deleted_at": "2026-10-20T00:00:00Z"},
-            {"url": "https://back.example/feed", "deleted_at": "2026-10-20T00:00:00Z"},
-        ],
-    })
+    apply_portable_cfg(
+        disk,
+        {
+            "last_sites_push_at": "2026-10-21T08:00:00Z",
+            "deleted_sites": [
+                {
+                    "url": "https://gone.example/feed",
+                    "deleted_at": "2026-10-20T00:00:00Z",
+                },
+                {
+                    "url": "https://back.example/feed",
+                    "deleted_at": "2026-10-20T00:00:00Z",
+                },
+            ],
+        },
+    )
     apply_portable_cfg(memory, {"folder": "D:/new-share"})
 
     out = merge(disk, memory)
@@ -96,9 +136,13 @@ def test_site_deleted_by_pull_is_not_resurrected_but_readded_site_survives():
     urls = [s["url"] for s in out["sites"]]
     assert urls == ["https://back.example/feed"]
     portable = get_portable_cfg(out)
-    assert [d["url"] for d in portable["deleted_sites"]] == ["https://gone.example/feed"]
+    assert [d["url"] for d in portable["deleted_sites"]] == [
+        "https://gone.example/feed"
+    ]
     assert portable["folder"] == "D:/new-share"  # user-edited key from memory
-    assert portable["last_sites_push_at"] == "2026-10-21T08:00:00Z"  # background key from disk
+    assert (
+        portable["last_sites_push_at"] == "2026-10-21T08:00:00Z"
+    )  # background key from disk
 
 
 def test_gui_edited_top_level_values_still_win():

@@ -2,6 +2,7 @@
 
 외부 번역 API 호출은 mock 하고, logger 주입 동작만 검증한다.
 """
+
 import asyncio
 import json
 import threading
@@ -29,7 +30,9 @@ def test_translator_uses_logger_on_failure():
     t = Translator(_config(), logger=logger)
 
     with patch("urllib.request.urlopen", side_effect=RuntimeError("libre 죽음")):
-        result = t.translate_html("<p>hello world this is long enough</p>", target_lang="ko")
+        result = t.translate_html(
+            "<p>hello world this is long enough</p>", target_lang="ko"
+        )
 
     # 실패 시 원문 반환
     assert "hello world" in result
@@ -76,7 +79,11 @@ def test_translator_logger_warns_on_googletrans_load_failure():
     t = Translator(_config(provider="googletrans", enabled=True), logger=logger)
 
     # googletrans import 자체가 실패하는 환경을 흉내
-    builtins_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
+    builtins_import = (
+        __builtins__["__import__"]
+        if isinstance(__builtins__, dict)
+        else __builtins__.__import__
+    )
 
     def fake_import(name, *args, **kwargs):
         if name == "googletrans":
@@ -138,10 +145,15 @@ def _google_factory(translator):
 def test_googletrans_awaits_nodes_preserves_tags_and_closes_client():
     translator = Translator(_config(provider="googletrans"))
     clients = _google_factory(translator)
-    result = translator.translate_html('<p class="keep"> hello world </p><b>another sentence</b>')
+    result = translator.translate_html(
+        '<p class="keep"> hello world </p><b>another sentence</b>'
+    )
     assert result == '<p class="keep"> 번역된 문장 </p><b>번역된 문장</b>'
     assert len(clients) == 1
-    assert clients[0].calls == [("hello world", "ko", "auto"), ("another sentence", "ko", "auto")]
+    assert clients[0].calls == [
+        ("hello world", "ko", "auto"),
+        ("another sentence", "ko", "auto"),
+    ]
     assert clients[0].closed
 
 
@@ -149,7 +161,10 @@ def test_googletrans_creates_and_closes_client_for_each_call():
     translator = Translator(_config(provider="googletrans"))
     clients = _google_factory(translator)
     for _ in range(2):
-        assert translator.translate_html("<p>hello world</p>", "ja", "en") == "<p>번역된 문장</p>"
+        assert (
+            translator.translate_html("<p>hello world</p>", "ja", "en")
+            == "<p>번역된 문장</p>"
+        )
     assert len(clients) == 2
     assert clients[0].loop is not clients[1].loop
     assert all(client.closed and client.loop.is_closed() for client in clients)

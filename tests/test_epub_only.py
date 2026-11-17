@@ -1,4 +1,5 @@
 """프리뷰 창 'EPUB만 만들기' — 전송·이력 없이 파일만 생성."""
+
 from __future__ import annotations
 
 import logging
@@ -10,7 +11,9 @@ from websync.pipeline.epub_only import build_selected_epubs
 
 def _service(merge_mode: str):
     builder = MagicMock()
-    builder.build.side_effect = lambda name, arts, generate_cover=True: f"/out/{name}.epub"
+    builder.build.side_effect = lambda name, arts, generate_cover=True: (
+        f"/out/{name}.epub"
+    )
     builder.build_digest.return_value = "/out/Daily_Digest.epub"
     service = SimpleNamespace(
         logger=logging.getLogger("test-epub-only"),
@@ -27,9 +30,27 @@ def _service(merge_mode: str):
 
 
 ARTS = [
-    {"site_name": "A", "title": "a1", "url": "u1", "content": "<p>1</p>", "scraper_type": "rss"},
-    {"site_name": "B", "title": "b1", "url": "u2", "content": "<p>2</p>", "scraper_type": "rss"},
-    {"site_name": "A", "title": "a2", "url": "u3", "content": "<p>3</p>", "scraper_type": "rss"},
+    {
+        "site_name": "A",
+        "title": "a1",
+        "url": "u1",
+        "content": "<p>1</p>",
+        "scraper_type": "rss",
+    },
+    {
+        "site_name": "B",
+        "title": "b1",
+        "url": "u2",
+        "content": "<p>2</p>",
+        "scraper_type": "rss",
+    },
+    {
+        "site_name": "A",
+        "title": "a2",
+        "url": "u3",
+        "content": "<p>3</p>",
+        "scraper_type": "rss",
+    },
 ]
 
 

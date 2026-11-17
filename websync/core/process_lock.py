@@ -1,4 +1,5 @@
 """크로스 프로세스 파일 락 (동기화 파이프라인 직렬화용)"""
+
 from __future__ import annotations
 
 import io

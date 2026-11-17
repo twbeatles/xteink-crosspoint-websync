@@ -1,4 +1,5 @@
 """Exercise the installed optional package with a fake HTTP transport only."""
+
 import importlib.metadata
 
 import pytest
@@ -24,7 +25,11 @@ def test_installed_googletrans_async_http_contract(monkeypatch, failure):
             raise httpx.ReadTimeout("fake timeout", request=request)
         if failure == "status":
             return httpx.Response(503, request=request)
-        return httpx.Response(200, json=[[["안녕하세요", "hello world", None, None]], None, "en"], request=request)
+        return httpx.Response(
+            200,
+            json=[[["안녕하세요", "hello world", None, None]], None, "en"],
+            request=request,
+        )
 
     def client_factory(**kwargs):
         kwargs["http2"] = False
@@ -34,7 +39,9 @@ def test_installed_googletrans_async_http_contract(monkeypatch, failure):
         return client
 
     monkeypatch.setattr(googletrans.client.httpx, "AsyncClient", client_factory)
-    translator = Translator({"translation": {"enabled": True, "provider": "googletrans"}})
+    translator = Translator(
+        {"translation": {"enabled": True, "provider": "googletrans"}}
+    )
     assert translator.is_available_for_site("ko")
     assert not clients
     html = "<p>hello world</p>"

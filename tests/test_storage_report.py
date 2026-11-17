@@ -7,9 +7,13 @@ def test_storage_report_counts_metadata_without_changing_or_exposing_data(tmp_pa
     spec = importlib.util.spec_from_file_location("storage_report", script)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    data = {"output/book.epub": b"BOOK", "logs/sync.log": b"LOG",
-            ".websync-replicas/replica.json": b"REPLICA", "sync_history.db": b"DB",
-            "config.json": b'SECRET-API-KEY'}
+    data = {
+        "output/book.epub": b"BOOK",
+        "logs/sync.log": b"LOG",
+        ".websync-replicas/replica.json": b"REPLICA",
+        "sync_history.db": b"DB",
+        "config.json": b"SECRET-API-KEY",
+    }
     for name, value in data.items():
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)

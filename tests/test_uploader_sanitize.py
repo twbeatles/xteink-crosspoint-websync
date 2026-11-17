@@ -5,7 +5,7 @@ from websync.upload.uploader import X3Uploader
 
 def test_sanitize_filename_korean_and_uniqueness():
     uploader = X3Uploader("192.168.1.100")
-    
+
     path1 = "d:/output/네이버뉴스_2026-07-31.epub"
     path2 = "d:/output/티스토리_2026-07-31.epub"
     path3 = "d:/output/!!!_2026-07-31.epub"
@@ -45,9 +45,14 @@ def test_sanitize_filename_keeps_original_site_name():
     assert sanitized != other
 
 
-@pytest.mark.parametrize("first,second", [
-    ("가", "ga"), ("낫", "낮"), ("café", "cafe"),
-])
+@pytest.mark.parametrize(
+    "first,second",
+    [
+        ("가", "ga"),
+        ("낫", "낮"),
+        ("café", "cafe"),
+    ],
+)
 def test_original_name_survives_collision(first, second):
     uploader = X3Uploader("localhost")
     a = uploader._sanitize_filename(f"{first}_2026-10-15.EPUB")

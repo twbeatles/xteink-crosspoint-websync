@@ -15,14 +15,18 @@ class SettingsServersMixin:
             self.app._opds_server.stop()
             self.app._opds_server = None
             self.opds_start_btn.configure(text=t("gui.settings.server_start"))
-            self.opds_status_label.configure(text=t("gui.settings.stopped"), text_color=RED_COLOR)
+            self.opds_status_label.configure(
+                text=t("gui.settings.stopped"), text_color=RED_COLOR
+            )
             self.opds_url_label.configure(text="")
         else:
             try:
                 port = int(self.opds_port_sp.get())
             except ValueError:
                 port = 8765
-            output_dir = resolve_path(self.app.tab_sync.dir_entry.get().strip() or "./output")
+            output_dir = resolve_path(
+                self.app.tab_sync.dir_entry.get().strip() or "./output"
+            )
             allow_lan = self.opds_allow_lan_var.get()
             bind_host = "0.0.0.0" if allow_lan else "127.0.0.1"
             config = self.config_manager.load_config()
@@ -37,20 +41,26 @@ class SettingsServersMixin:
             )
             if self.app._opds_server.start():
                 self.opds_start_btn.configure(text=t("gui.settings.server_stop"))
-                self.opds_status_label.configure(text=t("gui.settings.running"), text_color=GREEN_COLOR)
+                self.opds_status_label.configure(
+                    text=t("gui.settings.running"), text_color=GREEN_COLOR
+                )
                 url = self.app._opds_server.get_url()
                 self.opds_url_label.configure(text=url)
                 self.app._log_message(t("gui.settings.opds.log_start", url=url))
                 self._refresh_opds_key_display()
             else:
-                messagebox.showerror(t("dialog.error"), t("gui.settings.opds.start_fail", port=port))
+                messagebox.showerror(
+                    t("dialog.error"), t("gui.settings.opds.start_fail", port=port)
+                )
 
     def _toggle_web(self):
         if self.app._web_dashboard and self.app._web_dashboard.is_running:
             self.app._web_dashboard.stop()
             self.app._web_dashboard = None
             self.web_start_btn.configure(text=t("gui.settings.server_start"))
-            self.web_status_label.configure(text=t("gui.settings.stopped"), text_color=RED_COLOR)
+            self.web_status_label.configure(
+                text=t("gui.settings.stopped"), text_color=RED_COLOR
+            )
             self.web_url_label.configure(text="")
         else:
             try:
@@ -93,11 +103,14 @@ class SettingsServersMixin:
                     return
             if self.app._web_dashboard.start():
                 self.web_start_btn.configure(text=t("gui.settings.server_stop"))
-                self.web_status_label.configure(text=t("gui.settings.running"), text_color=GREEN_COLOR)
+                self.web_status_label.configure(
+                    text=t("gui.settings.running"), text_color=GREEN_COLOR
+                )
                 url = self.app._web_dashboard.get_url()
                 self.web_url_label.configure(text=url)
                 self.app._log_message(t("gui.settings.web.log_start", url=url))
                 self._refresh_web_token_display()
             else:
-                messagebox.showerror(t("dialog.error"), t("gui.settings.web.start_fail", port=port))
-
+                messagebox.showerror(
+                    t("dialog.error"), t("gui.settings.web.start_fail", port=port)
+                )

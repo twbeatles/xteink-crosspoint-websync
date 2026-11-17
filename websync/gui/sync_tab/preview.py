@@ -1,4 +1,5 @@
 """뉴스 미리보기 → 기사 선택 → 전송 / EPUB 만 만들기."""
+
 from __future__ import annotations
 
 import html as html_lib
@@ -49,7 +50,9 @@ class SyncPreviewMixin:
         def run():
             log_cb = self.app._make_log_callback()
             prog_cb = self.app._make_progress_callback()
-            self._preview_data = self.service.preview_articles(log_callback=log_cb, progress_callback=prog_cb)
+            self._preview_data = self.service.preview_articles(
+                log_callback=log_cb, progress_callback=prog_cb
+            )
 
         self.app._start_pipeline_ui_task(
             run, name="sync-preview", on_success=self._show_preview_results
@@ -64,15 +67,23 @@ class SyncPreviewMixin:
         if not self._preview_data and result.get("status") == "cancelled":
             self.app._set_status(t("pipeline.cancelled"), "warn")
             return
-        if not self._preview_data and result.get("status") in ("errors", "failed", "db_error"):
+        if not self._preview_data and result.get("status") in (
+            "errors",
+            "failed",
+            "db_error",
+        ):
             self.app._set_status(t("gui.bottom.status_failed"), "error")
             return
 
         if not self._preview_data:
             self.app._set_status(t("gui.bottom.result_preview_empty"), "ok")
-            messagebox.showinfo(t("gui.preview.result_title"), t("gui.preview.no_articles"))
+            messagebox.showinfo(
+                t("gui.preview.result_title"), t("gui.preview.no_articles")
+            )
             return
-        self.app._set_status(t("gui.bottom.result_preview", count=len(self._preview_data)), "ok")
+        self.app._set_status(
+            t("gui.bottom.result_preview", count=len(self._preview_data)), "ok"
+        )
 
         articles = list(self._preview_data)
         dialog = ctk.CTkToplevel(self.app.root)
@@ -86,7 +97,13 @@ class SyncPreviewMixin:
 
         top = ctk.CTkFrame(dialog, fg_color="transparent")
         top.pack(side="top", fill="x", padx=14, pady=(12, 0))
-        ctk.CTkLabel(top, text=t("gui.preview.hint"), font=get_font(12), anchor="w", justify="left").pack(side="left")
+        ctk.CTkLabel(
+            top,
+            text=t("gui.preview.hint"),
+            font=get_font(12),
+            anchor="w",
+            justify="left",
+        ).pack(side="left")
         count_label = ctk.CTkLabel(top, text="", font=get_font(12, "bold"))
         count_label.pack(side="right")
 
@@ -108,9 +125,13 @@ class SyncPreviewMixin:
         tree.column("url", width=220, anchor="w")
         tree.tag_configure("unchecked", foreground="#9aa0a6")
 
-        detail_title = ctk.CTkLabel(detail_host, text="", font=get_font(13, "bold"), anchor="w", justify="left")
+        detail_title = ctk.CTkLabel(
+            detail_host, text="", font=get_font(13, "bold"), anchor="w", justify="left"
+        )
         detail_title.pack(fill="x", pady=(2, 2))
-        detail_txt = ctk.CTkTextbox(detail_host, font=get_font(12), wrap="word", height=110)
+        detail_txt = ctk.CTkTextbox(
+            detail_host, font=get_font(12), wrap="word", height=110
+        )
         detail_txt.pack(fill="both", expand=True)
         detail_txt.configure(state="disabled")
 
@@ -118,7 +139,9 @@ class SyncPreviewMixin:
 
         def update_count() -> None:
             n = sum(1 for v in checked_state.values() if v)
-            count_label.configure(text=t("gui.preview.selected_count", selected=n, total=len(articles)))
+            count_label.configure(
+                text=t("gui.preview.selected_count", selected=n, total=len(articles))
+            )
             state = "normal" if n else "disabled"
             send_btn.configure(state=state)
             build_btn.configure(state=state)
@@ -126,12 +149,19 @@ class SyncPreviewMixin:
         def render_row(idx: int) -> None:
             art = articles[idx]
             on = checked_state[idx]
-            values = (CHECKED if on else UNCHECKED, art.get("site_name", ""), art.get("title", ""), art.get("url", ""))
+            values = (
+                CHECKED if on else UNCHECKED,
+                art.get("site_name", ""),
+                art.get("title", ""),
+                art.get("url", ""),
+            )
             iid = str(idx)
             if tree.exists(iid):
                 tree.item(iid, values=values, tags=() if on else ("unchecked",))
             else:
-                tree.insert("", "end", iid=iid, values=values, tags=() if on else ("unchecked",))
+                tree.insert(
+                    "", "end", iid=iid, values=values, tags=() if on else ("unchecked",)
+                )
 
         for i in range(len(articles)):
             render_row(i)
@@ -156,7 +186,10 @@ class SyncPreviewMixin:
             detail_title.configure(text=art.get("title", ""))
             detail_txt.configure(state="normal")
             detail_txt.delete("1.0", tk.END)
-            detail_txt.insert(tk.END, html_excerpt(art.get("content", "")) or t("gui.preview.no_content"))
+            detail_txt.insert(
+                tk.END,
+                html_excerpt(art.get("content", "")) or t("gui.preview.no_content"),
+            )
             detail_txt.configure(state="disabled")
 
         def on_click(event):
@@ -175,7 +208,10 @@ class SyncPreviewMixin:
 
         tree.bind("<Button-1>", on_click, add="+")
         tree.bind("<Double-1>", on_double)
-        tree.bind("<space>", lambda _e: (toggle([int(i) for i in tree.selection()]), "break")[1])
+        tree.bind(
+            "<space>",
+            lambda _e: (toggle([int(i) for i in tree.selection()]), "break")[1],
+        )
         tree.bind("<<TreeviewSelect>>", show_detail)
 
         def selected_articles() -> list[dict]:
@@ -184,7 +220,11 @@ class SyncPreviewMixin:
         def run_selected_sync():
             chosen = selected_articles()
             if not chosen:
-                messagebox.showwarning(t("gui.preview.none_selected_title"), t("gui.preview.none_selected"), parent=dialog)
+                messagebox.showwarning(
+                    t("gui.preview.none_selected_title"),
+                    t("gui.preview.none_selected"),
+                    parent=dialog,
+                )
                 return
             dialog.destroy()
             self._run_selected_sync_task(chosen)
@@ -192,19 +232,54 @@ class SyncPreviewMixin:
         def run_build_only():
             chosen = selected_articles()
             if not chosen:
-                messagebox.showwarning(t("gui.preview.none_selected_title"), t("gui.preview.none_selected"), parent=dialog)
+                messagebox.showwarning(
+                    t("gui.preview.none_selected_title"),
+                    t("gui.preview.none_selected"),
+                    parent=dialog,
+                )
                 return
             self._run_build_only_task(chosen)
 
-        make_button(btn_bar, t("gui.preview.toggle_all"), toggle_all, kind="secondary", width=110, height=36).pack(side="left")
+        make_button(
+            btn_bar,
+            t("gui.preview.toggle_all"),
+            toggle_all,
+            kind="secondary",
+            width=110,
+            height=36,
+        ).pack(side="left")
         ctk.CTkLabel(
-            btn_bar, text=t("gui.preview.keys_hint"), font=get_font(11), text_color=COLOR_SECONDARY_FG,
+            btn_bar,
+            text=t("gui.preview.keys_hint"),
+            font=get_font(11),
+            text_color=COLOR_SECONDARY_FG,
         ).pack(side="left", padx=10)
-        send_btn = make_button(btn_bar, t("gui.preview.send_selected"), run_selected_sync, width=150, height=36, bold=True)
+        send_btn = make_button(
+            btn_bar,
+            t("gui.preview.send_selected"),
+            run_selected_sync,
+            width=150,
+            height=36,
+            bold=True,
+        )
         send_btn.pack(side="right", padx=(6, 0))
-        build_btn = make_button(btn_bar, t("gui.preview.build_only"), run_build_only, kind="secondary", width=150, height=36)
+        build_btn = make_button(
+            btn_bar,
+            t("gui.preview.build_only"),
+            run_build_only,
+            kind="secondary",
+            width=150,
+            height=36,
+        )
         build_btn.pack(side="right", padx=(6, 0))
-        make_button(btn_bar, t("gui.sync.cancel"), dialog.destroy, kind="secondary", width=80, height=36).pack(side="right")
+        make_button(
+            btn_bar,
+            t("gui.sync.cancel"),
+            dialog.destroy,
+            kind="secondary",
+            width=80,
+            height=36,
+        ).pack(side="right")
 
         update_count()
         first = tree.get_children()
@@ -216,19 +291,26 @@ class SyncPreviewMixin:
         dialog.after(150, tree.focus_set)
 
     def _run_selected_sync_task(self, selected_articles):
-        if getattr(self.app, "_sync_busy", False) is True or self.service.is_pipeline_running():
+        if (
+            getattr(self.app, "_sync_busy", False) is True
+            or self.service.is_pipeline_running()
+        ):
             messagebox.showwarning(t("gui.preview.busy_title"), t("gui.preview.busy"))
             return
 
         self.app._set_sync_ui_busy(True)
         self.app._reset_progress()
         self.app._set_status(t("gui.bottom.status_syncing"), "busy")
-        self.app._log_message(t("gui.preview.log_selected", count=len(selected_articles)))
+        self.app._log_message(
+            t("gui.preview.log_selected", count=len(selected_articles))
+        )
 
         def task():
             log_cb = self.app._make_log_callback()
             prog_cb = self.app._make_progress_callback()
-            self.service.sync_selected_articles(selected_articles, log_callback=log_cb, progress_callback=prog_cb)
+            self.service.sync_selected_articles(
+                selected_articles, log_callback=log_cb, progress_callback=prog_cb
+            )
 
         self.app._start_pipeline_ui_task(
             task, name="selected-sync", on_success=self.app._sync_finished_ui
@@ -236,7 +318,10 @@ class SyncPreviewMixin:
 
     def _run_build_only_task(self, selected_articles):
         """선택 기사로 EPUB 만 만들고 (전송·이력 기록 없음) 출력 폴더를 안내한다."""
-        if getattr(self.app, "_sync_busy", False) is True or self.service.is_pipeline_running():
+        if (
+            getattr(self.app, "_sync_busy", False) is True
+            or self.service.is_pipeline_running()
+        ):
             messagebox.showwarning(t("gui.preview.busy_title"), t("gui.preview.busy"))
             return
         if not self.app._save_ui_settings():
@@ -244,7 +329,9 @@ class SyncPreviewMixin:
         self.app._set_sync_ui_busy(True)
         self.app._reset_progress()
         self.app._set_status(t("gui.bottom.status_building"), "busy")
-        self.app._log_message(t("gui.preview.log_build_only", count=len(selected_articles)))
+        self.app._log_message(
+            t("gui.preview.log_build_only", count=len(selected_articles))
+        )
         result: dict = {"paths": []}
 
         def task():

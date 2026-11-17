@@ -17,9 +17,10 @@ def test_velog_resolve_variants():
     assert VelogScraper.resolve_rss_url("https://velog.io/@foo-bar") == (
         "https://v2.velog.io/rss/@foo-bar"
     )
-    assert VelogScraper.resolve_rss_url(
-        "https://v2.velog.io/rss/@foo"
-    ) == "https://v2.velog.io/rss/@foo"
+    assert (
+        VelogScraper.resolve_rss_url("https://v2.velog.io/rss/@foo")
+        == "https://v2.velog.io/rss/@foo"
+    )
     assert VelogScraper.resolve_rss_url("https://example.com") is None
 
 

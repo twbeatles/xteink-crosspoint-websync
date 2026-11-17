@@ -39,7 +39,7 @@ def set_github_secret(name: str, value: str) -> None:
 def main() -> int:
     priv_b64, pub_b64 = generate_keypair()
     print(f"PUBLIC_KEY_B64: {pub_b64}")
-    
+
     set_github_secret("X3_UPDATE_PUBLIC_KEY_B64", pub_b64)
     set_github_secret("X3_UPDATE_PRIVATE_KEY_B64", priv_b64)
     print("\nKeys generated and successfully set to GitHub repository secrets!")

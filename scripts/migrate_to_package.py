@@ -1,4 +1,5 @@
 """일회성 마이그레이션: 루트 모듈 → websync/ 패키지 구조"""
+
 import os
 import re
 import shutil
@@ -47,12 +48,24 @@ SIMPLE_MOVES = {
 }
 
 OLD_MODULES = [
-    "article_utils.py", "paths.py", "logger.py",
-    "config_manager.py", "db_manager.py", "scrapers.py",
-    "builder.py", "uploader.py", "service.py",
-    "summarizer.py", "translator.py", "notifier.py",
-    "calibre.py", "scheduler.py", "opds_server.py",
-    "web_api.py", "watcher.py", "gui.py",
+    "article_utils.py",
+    "paths.py",
+    "logger.py",
+    "config_manager.py",
+    "db_manager.py",
+    "scrapers.py",
+    "builder.py",
+    "uploader.py",
+    "service.py",
+    "summarizer.py",
+    "translator.py",
+    "notifier.py",
+    "calibre.py",
+    "scheduler.py",
+    "opds_server.py",
+    "web_api.py",
+    "watcher.py",
+    "gui.py",
 ]
 
 
@@ -81,7 +94,7 @@ def read_root(name: str) -> str:
 def migrate_core():
     paths_src = read_root("paths.py")
     paths_src = paths_src.replace(
-        'PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))',
+        "PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))",
         textwrap.dedent("""
         _PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         PROJECT_ROOT = os.path.dirname(_PKG_DIR)
@@ -152,12 +165,15 @@ def get_log_dir() -> str:
 """
     write_file("core/logger.py", logger_src)
 
-    write_file("core/__init__.py", """from websync.core.paths import PROJECT_ROOT, resolve_path
+    write_file(
+        "core/__init__.py",
+        """from websync.core.paths import PROJECT_ROOT, resolve_path
 from websync.core.article import ensure_article_url
 from websync.core.logger import get_logger, get_log_dir
 
 __all__ = ["PROJECT_ROOT", "resolve_path", "ensure_article_url", "get_logger", "get_log_dir"]
-""")
+""",
+    )
 
 
 def migrate_simple_moves():
@@ -245,7 +261,12 @@ class BaseScraper(ABC):
             imports += "from urllib.parse import urljoin\nimport requests\nfrom bs4 import BeautifulSoup\n"
         elif cls_name in ("RssScraper", "NaverBlogScraper"):
             imports += "import re\nimport requests\nfrom bs4 import BeautifulSoup\n"
-        elif cls_name in ("TistoryScraper", "BrunchScraper", "YoutubeScraper", "SubstackScraper"):
+        elif cls_name in (
+            "TistoryScraper",
+            "BrunchScraper",
+            "YoutubeScraper",
+            "SubstackScraper",
+        ):
             imports += "import requests\nfrom bs4 import BeautifulSoup\n"
         write_file(f"scrapers/{fname}", f'"""{cls_name}"""\n{imports}\n{body}')
 
@@ -284,11 +305,14 @@ class ScraperFactory:
 '''
     write_file("scrapers/factory.py", factory)
 
-    write_file("scrapers/__init__.py", """from websync.scrapers.base import BaseScraper
+    write_file(
+        "scrapers/__init__.py",
+        """from websync.scrapers.base import BaseScraper
 from websync.scrapers.factory import ScraperFactory
 
 __all__ = ["BaseScraper", "ScraperFactory"]
-""")
+""",
+    )
 
 
 def write_subpackage_inits():
@@ -307,7 +331,9 @@ def write_subpackage_inits():
     for path, content in inits.items():
         write_file(path, content)
 
-    write_file("__init__.py", '''"""Xteink X3 WebSync Manager 패키지"""
+    write_file(
+        "__init__.py",
+        '''"""Xteink X3 WebSync Manager 패키지"""
 __version__ = "1.0.0"
 
 from websync.pipeline.service import SyncService
@@ -315,7 +341,8 @@ from websync.config.manager import ConfigManager
 from websync.gui.app import SyncAppGui
 
 __all__ = ["__version__", "SyncService", "ConfigManager", "SyncAppGui"]
-''')
+''',
+    )
 
 
 def update_entrypoint():
@@ -324,7 +351,9 @@ def update_entrypoint():
         "from config_manager import ConfigManager\nfrom service import SyncService\nfrom gui import SyncAppGui\nfrom logger import get_logger",
         "from websync.config.manager import ConfigManager\nfrom websync.pipeline.service import SyncService\nfrom websync.gui.app import SyncAppGui\nfrom websync.core.logger import get_logger",
     )
-    with open(os.path.join(ROOT, "x3_websync.py"), "w", encoding="utf-8", newline="\n") as f:
+    with open(
+        os.path.join(ROOT, "x3_websync.py"), "w", encoding="utf-8", newline="\n"
+    ) as f:
         f.write(content.rstrip() + "\n")
 
 
@@ -347,11 +376,21 @@ if ROOT not in sys.path:
         with open(path, encoding="utf-8") as f:
             content = f.read()
         content = rewrite_imports(content)
-        content = content.replace("from article_utils import", "from websync.core.article import")
-        content = content.replace("from config_manager import", "from websync.config.manager import")
-        content = content.replace("from db_manager import", "from websync.db.history import")
-        content = content.replace("from uploader import", "from websync.upload.uploader import")
-        content = content.replace("from service import", "from websync.pipeline.service import")
+        content = content.replace(
+            "from article_utils import", "from websync.core.article import"
+        )
+        content = content.replace(
+            "from config_manager import", "from websync.config.manager import"
+        )
+        content = content.replace(
+            "from db_manager import", "from websync.db.history import"
+        )
+        content = content.replace(
+            "from uploader import", "from websync.upload.uploader import"
+        )
+        content = content.replace(
+            "from service import", "from websync.pipeline.service import"
+        )
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(content)
 

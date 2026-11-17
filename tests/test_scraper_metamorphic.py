@@ -4,6 +4,7 @@ Metamorphic relations: limit monotonicity, empty/duplicate-feed stability,
 relative-URL resolution, encoding detection, and HTTP-error surfacing.
 All fixtures are local strings; CI never touches the live web.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -17,7 +18,9 @@ def _resp(text: str, *, status: int = 200, headers: dict | None = None):
     m.headers = headers or {"Content-Type": "application/rss+xml; charset=utf-8"}
     m.content = text.encode("utf-8")
     m.text = text
-    m.raise_for_status.side_effect = None if status == 200 else Exception(f"HTTP {status}")
+    m.raise_for_status.side_effect = (
+        None if status == 200 else Exception(f"HTTP {status}")
+    )
     m.iter_content.return_value = [text.encode("utf-8")]
     return m
 
@@ -47,7 +50,9 @@ def test_limit_monotonicity_and_duplicates_stable():
         three = scraper.fetch_articles(_site(limit=3))
     assert len(three) == 3 and len(five) == 5
     assert [a["title"] for a in three] == [a["title"] for a in five[:3]]
-    with patch("websync.scrapers.rss.fetch_url", return_value=_resp(_feed(4, dup_guid=True))):
+    with patch(
+        "websync.scrapers.rss.fetch_url", return_value=_resp(_feed(4, dup_guid=True))
+    ):
         dup = scraper.fetch_articles(_site(limit=4))
     assert len(dup) == 4  # duplicate GUIDs do not crash; count pinned
 

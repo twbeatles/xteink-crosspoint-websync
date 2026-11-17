@@ -1,4 +1,5 @@
 """TistoryScraper"""
+
 from bs4 import BeautifulSoup
 
 from websync.core.logger import get_logger
@@ -18,7 +19,6 @@ class TistoryScraper(BaseScraper):
     def __init__(self):
         self.logger = get_logger()
         self.last_fetch_stats: dict = {}
-
 
     def fetch_articles(self, site_config: dict) -> list:
         self.last_fetch_stats = {"skipped": 0}
@@ -47,7 +47,9 @@ class TistoryScraper(BaseScraper):
                 content = self._fetch_post_content(post_url, site_config)
                 if content:
                     post_url = ensure_article_url(post_url, url, title)
-                    articles.append({"title": title, "content": content, "url": post_url})
+                    articles.append(
+                        {"title": title, "content": content, "url": post_url}
+                    )
                 else:
                     skipped += 1
             self.last_fetch_stats = {"skipped": skipped}
@@ -55,10 +57,7 @@ class TistoryScraper(BaseScraper):
                 raise Exception(t("tistory.zero_body", n=len(items)))
         except Exception as e:
             msg = str(e)
-            if (
-                t("scraper.zero_body") in msg
-                or t("tistory.failed", error="") in msg
-            ):
+            if t("scraper.zero_body") in msg or t("tistory.failed", error="") in msg:
                 raise
             raise Exception(t("tistory.failed", error=e)) from e
         return articles
@@ -71,10 +70,10 @@ class TistoryScraper(BaseScraper):
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "lxml")
             content_tag = (
-                soup.find("div", class_="tt_article_useless_p_margin") or
-                soup.find("div", class_="article-view") or
-                soup.find("div", id="content") or
-                soup.find("article")
+                soup.find("div", class_="tt_article_useless_p_margin")
+                or soup.find("div", class_="article-view")
+                or soup.find("div", id="content")
+                or soup.find("article")
             )
             if not content_tag:
                 return ""
@@ -85,4 +84,3 @@ class TistoryScraper(BaseScraper):
         except Exception as e:
             self.logger.warning(t("tistory.post_failed", url=url, error=e))
             return ""
-

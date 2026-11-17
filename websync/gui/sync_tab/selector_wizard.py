@@ -8,6 +8,7 @@
 - self._html / _analysis / 위젯 갱신은 메인 스레드(after 콜백)에서만
 - 다이얼로그 파괴 시 after 콜백은 no-op, _busy 는 항상 해제
 """
+
 from __future__ import annotations
 
 import threading
@@ -122,6 +123,7 @@ class SelectorWizardPanel:
 
     def _schedule(self, gen: int, fn: Callable[[], None]) -> None:
         """워커 → 메인 스레드 스케줄. 다이얼로그가 없으면 no-op."""
+
         def _run():
             self._ui_call(gen, fn)
 
@@ -197,11 +199,25 @@ class SelectorWizardPanel:
         top = ttk.Frame(self.frame)
         top.pack(fill="x", padx=8, pady=6)
 
-        ttk.Button(top, text=t("gui.selector.analyze"), command=self._on_analyze).pack(side="left", padx=2)
-        ttk.Button(top, text=t("gui.selector.test"), command=self._on_test).pack(side="left", padx=2)
-        ttk.Button(top, text=t("gui.selector.preview_scrape"), command=self._on_preview_scrape).pack(side="left", padx=2)
-        ttk.Button(top, text=t("gui.selector.apply_suggestions"), command=self._on_apply_suggestions).pack(side="left", padx=2)
-        ttk.Button(top, text=t("gui.selector.apply_recommended"), command=self._on_apply_recommended).pack(side="left", padx=2)
+        ttk.Button(top, text=t("gui.selector.analyze"), command=self._on_analyze).pack(
+            side="left", padx=2
+        )
+        ttk.Button(top, text=t("gui.selector.test"), command=self._on_test).pack(
+            side="left", padx=2
+        )
+        ttk.Button(
+            top, text=t("gui.selector.preview_scrape"), command=self._on_preview_scrape
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            top,
+            text=t("gui.selector.apply_suggestions"),
+            command=self._on_apply_suggestions,
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            top,
+            text=t("gui.selector.apply_recommended"),
+            command=self._on_apply_recommended,
+        ).pack(side="left", padx=2)
 
         self.status_label = ttk.Label(
             self.frame,
@@ -235,7 +251,9 @@ class SelectorWizardPanel:
         ttk.Label(left, text=t("gui.selector.dom_tree")).pack(anchor="w")
         tree_wrap = ttk.Frame(left)
         tree_wrap.pack(fill="both", expand=True)
-        self.dom_tree = ttk.Treeview(tree_wrap, show="tree", height=10, selectmode="browse", style="CTk.Treeview")
+        self.dom_tree = ttk.Treeview(
+            tree_wrap, show="tree", height=10, selectmode="browse", style="CTk.Treeview"
+        )
         apply_treeview_style(self.dom_tree)
         ys = ttk.Scrollbar(tree_wrap, orient="vertical", command=self.dom_tree.yview)
         self.dom_tree.configure(yscrollcommand=ys.set)
@@ -244,7 +262,9 @@ class SelectorWizardPanel:
         self.dom_tree.bind("<<TreeviewSelect>>", self._on_dom_select)
 
         ttk.Label(right, text=t("gui.selector.result_panel")).pack(anchor="w")
-        self.result_text = tk.Text(right, height=10, width=36, wrap="word", font=(FONT_FAMILY, 10))
+        self.result_text = tk.Text(
+            right, height=10, width=36, wrap="word", font=(FONT_FAMILY, 10)
+        )
         rsb = ttk.Scrollbar(right, orient="vertical", command=self.result_text.yview)
         self.result_text.configure(yscrollcommand=rsb.set)
         self.result_text.pack(side="left", fill="both", expand=True)
@@ -266,10 +286,16 @@ class SelectorWizardPanel:
     def _on_analyze(self) -> None:
         url = self.get_url().strip()
         if not url:
-            messagebox.showwarning(t("dialog.warning"), t("gui.selector.url_required"), parent=self.dialog)
+            messagebox.showwarning(
+                t("dialog.warning"), t("gui.selector.url_required"), parent=self.dialog
+            )
             return
         if not (url.startswith("http://") or url.startswith("https://")):
-            messagebox.showerror(t("dialog.error"), t("gui.selector.url_http_required"), parent=self.dialog)
+            messagebox.showerror(
+                t("dialog.error"),
+                t("gui.selector.url_http_required"),
+                parent=self.dialog,
+            )
             return
         if not self._warn_private_url(url):
             return
@@ -286,7 +312,11 @@ class SelectorWizardPanel:
             try:
                 analysis = analyze_page(url)
             except Exception as e:
-                analysis = PageAnalysis(url=url, base_url=url, error=t("gui.selector.analyze_exception", error=e))
+                analysis = PageAnalysis(
+                    url=url,
+                    base_url=url,
+                    error=t("gui.selector.analyze_exception", error=e),
+                )
             self._schedule(gen, lambda: self._apply_analysis(analysis, gen))
 
         if self.start_background_task:
@@ -348,7 +378,10 @@ class SelectorWizardPanel:
             ).pack(side="left", padx=2, pady=2)
 
         lines = [
-            t("gui.selector.result_title", title=analysis.title or t("gui.selector.none")),
+            t(
+                "gui.selector.result_title",
+                title=analysis.title or t("gui.selector.none"),
+            ),
             t("gui.selector.result_url", url=analysis.base_url),
             t("gui.selector.result_mode", mode=analysis.recommend_mode),
         ]
@@ -361,7 +394,12 @@ class SelectorWizardPanel:
             for f in analysis.feeds[:3]:
                 lines.append(f"  - {f.url}")
         sug = analysis.suggestions or {}
-        for role_key, key in ((ROLE_ITEM, "item"), (ROLE_TITLE, "title"), (ROLE_LINK, "link"), (ROLE_CONTENT, "content")):
+        for role_key, key in (
+            (ROLE_ITEM, "item"),
+            (ROLE_TITLE, "title"),
+            (ROLE_LINK, "link"),
+            (ROLE_CONTENT, "content"),
+        ):
             items = sug.get(key) or []
             if items:
                 top = items[0]
@@ -397,7 +435,9 @@ class SelectorWizardPanel:
         self.set_type(platform)
         if self.on_type_change:
             self.on_type_change()
-        self._set_status(t("gui.selector.switched_platform", platform=platform), ok=True)
+        self._set_status(
+            t("gui.selector.switched_platform", platform=platform), ok=True
+        )
 
     def _switch_rss(self, feed_url: str) -> None:
         self.set_type("rss")
@@ -415,7 +455,10 @@ class SelectorWizardPanel:
             return
         role = self.role_var.get()
         self.set_entry(role, path)
-        self._set_status(t("gui.selector.inserted_selector", role=_role_label(role), path=path), ok=True)
+        self._set_status(
+            t("gui.selector.inserted_selector", role=_role_label(role), path=path),
+            ok=True,
+        )
 
     def _on_apply_suggestions(self) -> None:
         if not self._analysis or not self._analysis.suggestions:
@@ -428,7 +471,10 @@ class SelectorWizardPanel:
         if self._analysis.recommend_mode in ("rss", "platform"):
             if not messagebox.askyesno(
                 t("dialog.confirm"),
-                t("gui.selector.css_vs_recommended", mode=self._analysis.recommend_mode),
+                t(
+                    "gui.selector.css_vs_recommended",
+                    mode=self._analysis.recommend_mode,
+                ),
                 parent=self.dialog,
             ):
                 return
@@ -445,7 +491,11 @@ class SelectorWizardPanel:
             if items:
                 sel = items[0].get("selector") or ""
                 if sel == ".":
-                    sel = "a" if role == ROLE_TITLE else ("a[href]" if role == ROLE_LINK else sel)
+                    sel = (
+                        "a"
+                        if role == ROLE_TITLE
+                        else ("a[href]" if role == ROLE_LINK else sel)
+                    )
                 if sel and sel != ".":
                     self.set_entry(role, sel)
                     applied.append(f"{_role_label(role)}={sel}")
@@ -453,7 +503,9 @@ class SelectorWizardPanel:
             self.apply_site_config({"fetch_detail_page": True, "type": "css"})
             applied.append(t("gui.selector.applied_detail_on"))
         if applied:
-            self._set_status(t("gui.selector.suggestions_applied", items=", ".join(applied)), ok=True)
+            self._set_status(
+                t("gui.selector.suggestions_applied", items=", ".join(applied)), ok=True
+            )
         else:
             self._set_status(t("gui.selector.no_suggestions"))
 
@@ -500,7 +552,9 @@ class SelectorWizardPanel:
         ]
         self._set_result("\n".join(lines))
 
-    def _run_selector_test(self, html: str, base: str, entries: dict, field: str, selector: str) -> str:
+    def _run_selector_test(
+        self, html: str, base: str, entries: dict, field: str, selector: str
+    ) -> str:
         soup = parse_html(html, base)
         if field in ("title", "link") and (entries.get("item") or "").strip():
             item_sel = entries["item"].strip()
@@ -510,24 +564,35 @@ class SelectorWizardPanel:
                 return t("gui.selector.item_selector_error", error=e)
             if not items:
                 return t("gui.selector.item_no_match", selector=item_sel)
-            lines = [t("gui.selector.item_relative", count=len(items), selector=selector)]
+            lines = [
+                t("gui.selector.item_relative", count=len(items), selector=selector)
+            ]
             hit = 0
             for i, it in enumerate(items[:8]):
                 r = evaluate_selector(soup, selector, limit=1, root=it)
                 if r.error:
-                    lines.append(t("gui.selector.test_row_error", index=i + 1, error=r.error))
+                    lines.append(
+                        t("gui.selector.test_row_error", index=i + 1, error=r.error)
+                    )
                 elif r.count:
                     hit += 1
                     sample = r.samples[0].text if r.samples else ""
-                    lines.append(t("gui.selector.test_row_ok", index=i + 1, sample=sample))
+                    lines.append(
+                        t("gui.selector.test_row_ok", index=i + 1, sample=sample)
+                    )
                 else:
                     lines.append(t("gui.selector.test_row_none", index=i + 1))
-            lines.append(t("gui.selector.test_summary", shown=min(8, len(items)), hit=hit))
+            lines.append(
+                t("gui.selector.test_summary", shown=min(8, len(items)), hit=hit)
+            )
             return "\n".join(lines)
         r = evaluate_selector(soup, selector, limit=8)
         if r.error:
             return r.error
-        lines = [t("gui.selector.test_selector", selector=selector), t("gui.selector.test_match_count", count=r.count)]
+        lines = [
+            t("gui.selector.test_selector", selector=selector),
+            t("gui.selector.test_match_count", count=r.count),
+        ]
         for i, s in enumerate(r.samples, 1):
             lines.append(f"  {i}. {s.text}")
         return "\n".join(lines)
@@ -545,18 +610,26 @@ class SelectorWizardPanel:
         field = key_map.get(role, "item")
         selector = (entries.get(field) or "").strip()
         if not selector:
-            messagebox.showwarning(t("dialog.warning"), t("gui.selector.empty_selector"), parent=self.dialog)
+            messagebox.showwarning(
+                t("dialog.warning"),
+                t("gui.selector.empty_selector"),
+                parent=self.dialog,
+            )
             return
 
         if self._html:
-            msg = self._run_selector_test(self._html, self._base_url, entries, field, selector)
+            msg = self._run_selector_test(
+                self._html, self._base_url, entries, field, selector
+            )
             self._set_result(msg)
             self._set_status(t("gui.selector.test_done_cached"), ok=True)
             return
 
         url = self.get_url().strip()
         if not url:
-            messagebox.showwarning(t("dialog.warning"), t("gui.selector.url_needed"), parent=self.dialog)
+            messagebox.showwarning(
+                t("dialog.warning"), t("gui.selector.url_needed"), parent=self.dialog
+            )
             return
         if not self._warn_private_url(url):
             return
@@ -615,7 +688,9 @@ class SelectorWizardPanel:
             )
             return
         if not snap.get("url"):
-            messagebox.showwarning(t("dialog.warning"), t("gui.selector.url_required"), parent=self.dialog)
+            messagebox.showwarning(
+                t("dialog.warning"), t("gui.selector.url_required"), parent=self.dialog
+            )
             return
         if self.is_pipeline_running and self.is_pipeline_running():
             if not messagebox.askyesno(
@@ -653,13 +728,26 @@ class SelectorWizardPanel:
                 for i, a in enumerate(arts, 1):
                     title = (a.get("title") or "")[:60]
                     url = (a.get("url") or "")[:80]
-                    body = (a.get("content") or "")
+                    body = a.get("content") or ""
                     plain = body[:120].replace("\n", " ")
-                    flag = t("gui.selector.list_fallback_flag") if a.get("_content_fallback") else ""
-                    lines.append(
-                        t("gui.selector.preview_item", index=i, flag=flag, title=title, url=url, plain=plain)
+                    flag = (
+                        t("gui.selector.list_fallback_flag")
+                        if a.get("_content_fallback")
+                        else ""
                     )
-                msg = ("\n".join(lines) if arts else t("gui.selector.preview_empty")) + stats_note
+                    lines.append(
+                        t(
+                            "gui.selector.preview_item",
+                            index=i,
+                            flag=flag,
+                            title=title,
+                            url=url,
+                            plain=plain,
+                        )
+                    )
+                msg = (
+                    "\n".join(lines) if arts else t("gui.selector.preview_empty")
+                ) + stats_note
             except Exception as e:
                 msg = t("gui.selector.preview_failed", error=e)
             self._schedule(gen, lambda: self._finish_preview(msg, gen))
@@ -689,6 +777,8 @@ class SelectorWizardPanel:
             )
         else:
             self._set_status(
-                t("gui.selector.preview_done") if ok else t("gui.selector.preview_failed_status"),
+                t("gui.selector.preview_done")
+                if ok
+                else t("gui.selector.preview_failed_status"),
                 ok=ok,
             )

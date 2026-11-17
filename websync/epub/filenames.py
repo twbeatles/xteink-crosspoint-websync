@@ -4,6 +4,7 @@
 합본: ``Daily_Digest_{YYYY-MM-DD}_{hash8}[_{HHMMSS_ffffff}].epub``
 기기 전송명은 여기에 원본 basename MD5 6자리가 더 붙는다(``upload/uploader.py``).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -31,10 +32,13 @@ def batch_digest(articles) -> str:
     같은 기사 집합의 재빌드는 같은 값을 가진다.
     """
     keys = sorted(
-        (art.get("url") or "").strip() or f"{art.get('title', '')}\n{art.get('content', '')}"
+        (art.get("url") or "").strip()
+        or f"{art.get('title', '')}\n{art.get('content', '')}"
         for art in articles
     )
-    return hashlib.sha256("\n".join(keys).encode("utf-8", errors="replace")).hexdigest()[:8]
+    return hashlib.sha256(
+        "\n".join(keys).encode("utf-8", errors="replace")
+    ).hexdigest()[:8]
 
 
 def safe_site_component(site_name: str) -> str:
@@ -43,7 +47,9 @@ def safe_site_component(site_name: str) -> str:
     return kept.replace(" ", "_")
 
 
-def epub_basename(prefix: str, day: str, batch_id: str, *, time_suffix: bool = False) -> str:
+def epub_basename(
+    prefix: str, day: str, batch_id: str, *, time_suffix: bool = False
+) -> str:
     """빌더가 쓰는 파일명. time_suffix=True면 로컬 충돌 회피용 시각을 붙인다."""
     name = f"{prefix}_{day}_{batch_id}"
     if time_suffix:

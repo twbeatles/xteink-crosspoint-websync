@@ -3,6 +3,7 @@
 Only acknowledged targets are excluded on retry. A lost response remains uncertain:
 this local queue cannot promise exactly-once delivery to a remote device.
 """
+
 from __future__ import annotations
 
 import copy
@@ -34,15 +35,19 @@ def valid_pending_job(value: object) -> bool:
         isinstance(fingerprint, list)
         and (not fingerprint or len(fingerprint) == 3)
         and all(type(part) is int and part >= 0 for part in fingerprint)
-        and all(isinstance(value.get(key, []), list)
-                and all(isinstance(item, str) for item in value.get(key, []))
-                for key in ("targets", "completed"))
+        and all(
+            isinstance(value.get(key, []), list)
+            and all(isinstance(item, str) for item in value.get(key, []))
+            for key in ("targets", "completed")
+        )
     )
 
 
 def target_key(target: dict, remote_dir: str) -> str:
     # Include destination: changing folder requests another copy on that device.
-    return json.dumps([target.get("history_key") or target["ip"], remote_dir], ensure_ascii=False)
+    return json.dumps(
+        [target.get("history_key") or target["ip"], remote_dir], ensure_ascii=False
+    )
 
 
 @dataclass
@@ -61,9 +66,20 @@ class WatchRetryQueue:
     legacy pending_files entry. Success is removed only after durable saving.
     """
 
-    def __init__(self, make_uploader, attempt, save, *, pending_files=(),
-                 pending_jobs=None, on_error=None, retry_base=2.0, retry_cap=300.0,
-                 stability_interval=0.5, stability_checks=2):
+    def __init__(
+        self,
+        make_uploader,
+        attempt,
+        save,
+        *,
+        pending_files=(),
+        pending_jobs=None,
+        on_error=None,
+        retry_base=2.0,
+        retry_cap=300.0,
+        stability_interval=0.5,
+        stability_checks=2,
+    ):
         self.make_uploader = make_uploader
         self.attempt = attempt
         self.save = save
@@ -80,7 +96,9 @@ class WatchRetryQueue:
         for path in dict.fromkeys([*pending_files, *states]):
             absolute = os.path.abspath(path)
             state = states.get(path, {})
-            self._jobs[absolute] = _Job(copy.deepcopy(state) if valid_pending_job(state) else {})
+            self._jobs[absolute] = _Job(
+                copy.deepcopy(state) if valid_pending_job(state) else {}
+            )
 
     def _add(self, path: str, *, deferred: bool) -> bool:
         path = os.path.abspath(path)
@@ -147,17 +165,29 @@ class WatchRetryQueue:
                 return False
         uploader = self.make_uploader()
         targets = uploader._build_target_list()
-        keys = {target_key(target, uploader.remote_dir): target["ip"] for target in targets}
+        keys = {
+            target_key(target, uploader.remote_dir): target["ip"] for target in targets
+        }
         previous = job.state
-        completed = set(previous.get("completed", [])) if previous.get("fingerprint") == fingerprint else set()
+        completed = (
+            set(previous.get("completed", []))
+            if previous.get("fingerprint") == fingerprint
+            else set()
+        )
         completed.intersection_update(keys)
-        state = {"fingerprint": fingerprint, "targets": sorted(keys), "completed": sorted(completed)}
+        state = {
+            "fingerprint": fingerprint,
+            "targets": sorted(keys),
+            "completed": sorted(completed),
+        }
         self.save(path, state)
         job.state = state
         pending = [ip for key, ip in keys.items() if key not in completed]
         if self.stop_event.is_set():
             return False
-        results = self.attempt(path, uploader, pending, self.stop_event) if pending else {}
+        results = (
+            self.attempt(path, uploader, pending, self.stop_event) if pending else {}
+        )
         # Never acknowledge a mutable source under the old fingerprint.
         if file_fingerprint(path) != fingerprint:
             job.state = {}
@@ -165,7 +195,10 @@ class WatchRetryQueue:
             return False
         completed.update(key for key, ip in keys.items() if results.get(ip) is True)
         current = self.make_uploader()
-        current_keys = {target_key(target, current.remote_dir) for target in current._build_target_list()}
+        current_keys = {
+            target_key(target, current.remote_dir)
+            for target in current._build_target_list()
+        }
         completed.intersection_update(current_keys)
         keys = current_keys
         state["targets"] = sorted(keys)
@@ -180,7 +213,11 @@ class WatchRetryQueue:
         while not self.stop_event.is_set():
             with self._condition:
                 while not self.stop_event.is_set():
-                    eligible = [(path, job) for path, job in self._jobs.items() if not job.deferred]
+                    eligible = [
+                        (path, job)
+                        for path, job in self._jobs.items()
+                        if not job.deferred
+                    ]
                     if not eligible:
                         self._condition.wait()
                         continue
@@ -213,4 +250,6 @@ class WatchRetryQueue:
                 else:
                     # Avoid enormous exponent values during extended offline periods.
                     job.failures = min(job.failures + 1, 30)
-                    job.due = time.monotonic() + min(self.retry_cap, self.retry_base * 2 ** (job.failures - 1))
+                    job.due = time.monotonic() + min(
+                        self.retry_cap, self.retry_base * 2 ** (job.failures - 1)
+                    )

@@ -4,6 +4,7 @@ Validates mimetype placement/compression, container.xml, OPF metadata/spine,
 NAV/TOC chapter count+order, XHTML well-formedness, Korean titles, and that
 per_site vs daily_digest differ exactly as contracted.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,8 +17,16 @@ from websync.epub.builder import EpubBuilder
 
 def _articles():
     return [
-        {"title": "한글 첫 글 😀", "url": "https://a.example/1", "content": "<p>본문 <b>하나</b></p>"},
-        {"title": "둘째 <escape> & test", "url": "https://a.example/2", "content": "<p>본문 둘</p>"},
+        {
+            "title": "한글 첫 글 😀",
+            "url": "https://a.example/1",
+            "content": "<p>본문 <b>하나</b></p>",
+        },
+        {
+            "title": "둘째 <escape> & test",
+            "url": "https://a.example/2",
+            "content": "<p>본문 둘</p>",
+        },
     ]
 
 
@@ -42,9 +51,12 @@ def test_per_site_epub_structure(tmp_path):
         opf = ET.tostring(ET.fromstring(zf.read(opf_name)), encoding="unicode")
         assert "한글 첫 글" in opf or "opf" in opf_name
         # every spine xhtml parses as XML and titles appear in order
-        xhtmls = sorted(n for n in names if n.startswith("EPUB/chap_") or n.endswith(".xhtml"))
+        xhtmls = sorted(
+            n for n in names if n.startswith("EPUB/chap_") or n.endswith(".xhtml")
+        )
         assert len([n for n in xhtmls if "chap_" in n or "chapter" in n]) >= 2
         import re as _re
+
         bodies = []
         for n in names:
             if n.endswith(".xhtml"):
@@ -74,7 +86,9 @@ def test_digest_epub_single_bundle_all_sites(tmp_path):
 
 
 def test_epub_expectations_fixture_matches(tmp_path):
-    exp_path = os.path.join(os.path.dirname(__file__), "fixtures", "contracts", "epub_expectations.json")
+    exp_path = os.path.join(
+        os.path.dirname(__file__), "fixtures", "contracts", "epub_expectations.json"
+    )
     exp = json.load(open(exp_path, encoding="utf-8"))
     builder = EpubBuilder(output_dir=str(tmp_path))
     path = builder.build("S", _articles(), generate_cover=False)

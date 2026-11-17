@@ -1,4 +1,5 @@
 """생성 EPUB 파일명 규칙 정본과 OPDS 표시 제목 (2026-11-02 감사 ISSUE-003)."""
+
 from __future__ import annotations
 
 import os
@@ -33,14 +34,19 @@ def test_builder_names_follow_shared_format(tmp_path):
     second = os.path.basename(builder.build("테크 뉴스", arts, generate_cover=False))
     digest = batch_digest(arts)
     assert first.startswith("테크_뉴스_") and first.endswith(f"_{digest}.epub")
-    assert re.fullmatch(rf"테크_뉴스_\d{{4}}-\d{{2}}-\d{{2}}_{digest}_\d{{6}}_\d{{6}}\.epub", second)
+    assert re.fullmatch(
+        rf"테크_뉴스_\d{{4}}-\d{{2}}-\d{{2}}_{digest}_\d{{6}}_\d{{6}}\.epub", second
+    )
     for name in (first, second):
         assert display_title(name).startswith("테크 뉴스 (")
         assert parse_sync_epub_date(name) is not None
 
 
 def test_epub_basename_plain():
-    assert epub_basename("Daily_Digest", "2026-11-02", "deadbeef") == "Daily_Digest_2026-11-02_deadbeef.epub"
+    assert (
+        epub_basename("Daily_Digest", "2026-11-02", "deadbeef")
+        == "Daily_Digest_2026-11-02_deadbeef.epub"
+    )
 
 
 def test_opds_catalog_uses_display_title(tmp_path):
@@ -52,7 +58,9 @@ def test_opds_catalog_uses_display_title(tmp_path):
     try:
         import urllib.request
 
-        with urllib.request.urlopen(f"http://127.0.0.1:{server.port}/opds", timeout=5) as resp:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{server.port}/opds", timeout=5
+        ) as resp:
             body = resp.read().decode("utf-8")
     finally:
         server.stop()

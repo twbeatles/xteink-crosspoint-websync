@@ -1,4 +1,5 @@
 """HTML 템플릿 로더 (개발 / PyInstaller frozen)."""
+
 from __future__ import annotations
 
 import os
@@ -19,7 +20,9 @@ def load_template(name: str) -> str:
         if hasattr(sys, "_MEIPASS"):
             base_dir = os.path.join(sys._MEIPASS, "websync", "servers", "templates")
         else:
-            base_dir = os.path.join(os.path.dirname(sys.executable), "servers", "templates")
+            base_dir = os.path.join(
+                os.path.dirname(sys.executable), "servers", "templates"
+            )
     else:
         base_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"

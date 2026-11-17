@@ -1,4 +1,5 @@
 """하위 호환: 상수는 websync.core.update.constants 로 이동."""
+
 from websync.core.update.constants import (
     UPDATE_ARTIFACT_MAX_BYTES,
     UPDATE_BACKUP_KEEP_COUNT,

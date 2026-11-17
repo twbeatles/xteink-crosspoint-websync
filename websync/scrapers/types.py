@@ -18,6 +18,4 @@ SCRAPER_TYPES: tuple[str, ...] = (
 )
 
 # CSS 선택자가 필요 없는 전용 타입 (폼 필드 비활성)
-SPECIALIZED_TYPES: frozenset[str] = frozenset(
-    t for t in SCRAPER_TYPES if t != "css"
-)
+SPECIALIZED_TYPES: frozenset[str] = frozenset(t for t in SCRAPER_TYPES if t != "css")

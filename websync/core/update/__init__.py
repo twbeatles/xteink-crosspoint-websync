@@ -1,4 +1,5 @@
 """자동 업데이트 패키지 — 상수·매니페스트·설치·서비스."""
+
 from websync.core.update.constants import (
     UPDATE_ARTIFACT_MAX_BYTES,
     UPDATE_BACKUP_KEEP_COUNT,

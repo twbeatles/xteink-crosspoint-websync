@@ -1,4 +1,5 @@
 """portable_data / backup_sync 설정 호환 테스트."""
+
 import json
 import os
 import tempfile

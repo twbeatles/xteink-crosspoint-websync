@@ -2,6 +2,7 @@
 
 This is eventual data reconciliation, not a distributed delivery lock.
 """
+
 import socket
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -58,8 +59,10 @@ def merge_replica_inputs(folder, sites_payload, history_payload, include_history
         # Reconcile records before publishing the merged payload. Duplicate
         # snapshots must not resurrect an older deletion or duplicate a resend.
         posts, tombstones = {}, {}
-        for key, output, timestamp in (("posts", posts, "synced_at"),
-                                       ("deleted_posts", tombstones, "deleted_at")):
+        for key, output, timestamp in (
+            ("posts", posts, "synced_at"),
+            ("deleted_posts", tombstones, "deleted_at"),
+        ):
             for item in history.get(key) or []:
                 if not isinstance(item, dict):
                     raise ValueError("Invalid replica history record")
@@ -67,17 +70,22 @@ def merge_replica_inputs(folder, sites_payload, history_payload, include_history
                 if not all(isinstance(value, str) and value for value in identity):
                     raise ValueError("Invalid replica history identity")
                 old = output.get(identity)
-                if old is None or SyncHistoryDb._time_key(item.get(timestamp) or "") > SyncHistoryDb._time_key(old.get(timestamp) or ""):
+                if old is None or SyncHistoryDb._time_key(
+                    item.get(timestamp) or ""
+                ) > SyncHistoryDb._time_key(old.get(timestamp) or ""):
                     output[identity] = item
         for identity in set(posts) & set(tombstones):
-            if SyncHistoryDb._time_key(tombstones[identity].get("deleted_at") or "") >= SyncHistoryDb._time_key(posts[identity].get("synced_at") or ""):
+            if SyncHistoryDb._time_key(
+                tombstones[identity].get("deleted_at") or ""
+            ) >= SyncHistoryDb._time_key(posts[identity].get("synced_at") or ""):
                 del posts[identity]
             else:
                 del tombstones[identity]
         history["posts"] = list(posts.values())
         history["deleted_posts"] = list(tombstones.values())
-    return build_sites_payload(sites, exported_at=exported_at or None,
-                               deleted_sites=deleted), history if include_history else None
+    return build_sites_payload(
+        sites, exported_at=exported_at or None, deleted_sites=deleted
+    ), history if include_history else None
 
 
 def publish_replica(folder, replica_id, sites_payload, history_payload):

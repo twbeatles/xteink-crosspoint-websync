@@ -3,6 +3,7 @@
 Real loopback OPDSServer; asserts catalog/file behavior on the actual
 download route /opds/download/<name>, not query-string guesses.
 """
+
 import os
 import tempfile
 
@@ -36,7 +37,9 @@ def test_opds_korean_download_and_disposition(tmp_path):
         base = f"http://127.0.0.1:{srv.port}"
         r = _get(base + "/opds")
         assert r.status_code == 200
-        assert "han" not in r.text.lower() or True  # catalog is XML-escaped; file check below
+        assert (
+            "han" not in r.text.lower() or True
+        )  # catalog is XML-escaped; file check below
         from urllib.parse import quote
 
         dl = _get(base + "/opds/download/" + quote(name, safe=""))
@@ -65,13 +68,19 @@ def test_opds_traversal_and_symlink_denied(tmp_path):
     assert srv.start() is True
     try:
         base = f"http://127.0.0.1:{srv.port}"
-        for evil in ("..%2Fsecret.epub", "%2E%2E%5Csecret.epub", "..%2F..%2Fsecret.epub"):
+        for evil in (
+            "..%2Fsecret.epub",
+            "%2E%2E%5Csecret.epub",
+            "..%2F..%2Fsecret.epub",
+        ):
             rr = _get(base + "/opds/download/" + evil)
             assert rr.status_code in (400, 403, 404)
             assert b"SECRET-BYTES" not in rr.content
         if has_link:
             rr = _get(base + "/opds/download/link.epub")
-            assert rr.status_code in (400, 403, 404) or b"SECRET-BYTES" not in rr.content
+            assert (
+                rr.status_code in (400, 403, 404) or b"SECRET-BYTES" not in rr.content
+            )
         # non-epub extension rejected
         with open(os.path.join(outdir, "note.txt"), "w") as f:
             f.write("hi")
@@ -81,13 +90,21 @@ def test_opds_traversal_and_symlink_denied(tmp_path):
 
 
 def test_opds_auth_required_when_configured(tmp_path):
-    srv = OPDSServer(output_dir=str(tmp_path), port=0, bind_host="127.0.0.1",
-                     api_key="secret-key-xyz-123", require_auth=True)
+    srv = OPDSServer(
+        output_dir=str(tmp_path),
+        port=0,
+        bind_host="127.0.0.1",
+        api_key="secret-key-xyz-123",
+        require_auth=True,
+    )
     assert srv.start() is True
     try:
         base = f"http://127.0.0.1:{srv.port}"
         assert _get(base + "/opds").status_code == 401
         assert _get(base + "/opds", Authorization="Bearer wrong").status_code == 401
-        assert _get(base + "/opds", Authorization="Bearer secret-key-xyz-123").status_code == 200
+        assert (
+            _get(base + "/opds", Authorization="Bearer secret-key-xyz-123").status_code
+            == 200
+        )
     finally:
         srv.stop()

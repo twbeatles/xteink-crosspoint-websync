@@ -1,4 +1,5 @@
 """하단 바 및 프로그램 로그 영역 컴포넌트 (CustomTkinter 기반)"""
+
 from __future__ import annotations
 
 import os
@@ -107,17 +108,29 @@ class BottomBar(ctk.CTkFrame):
         self.status_label.pack(side="left")
 
         self.log_toggle_btn = make_button(
-            status_row, t("gui.bottom.log_hide"), self.toggle_log,
-            kind="secondary", width=96, height=26,
+            status_row,
+            t("gui.bottom.log_hide"),
+            self.toggle_log,
+            kind="secondary",
+            width=96,
+            height=26,
         )
         self.log_toggle_btn.pack(side="right")
         make_button(
-            status_row, t("gui.bottom.log_clear"), self.clear_log,
-            kind="secondary", width=60, height=26,
+            status_row,
+            t("gui.bottom.log_clear"),
+            self.clear_log,
+            kind="secondary",
+            width=60,
+            height=26,
         ).pack(side="right", padx=(0, 6))
         make_button(
-            status_row, t("gui.bottom.log_folder"), self._open_log_folder,
-            kind="secondary", width=110, height=26,
+            status_row,
+            t("gui.bottom.log_folder"),
+            self._open_log_folder,
+            kind="secondary",
+            width=110,
+            height=26,
         ).pack(side="right", padx=(0, 6))
 
         self.progress_bar = ctk.CTkProgressBar(
@@ -141,7 +154,7 @@ class BottomBar(ctk.CTkFrame):
             corner_radius=6,
             wrap="word",
             height=LOG_HEIGHT_EXPANDED,
-            activate_scrollbars=True
+            activate_scrollbars=True,
         )
         self.log_txt.pack(fill="both", expand=True, padx=6, pady=6)
         self.log_txt.configure(state="disabled")
@@ -210,9 +223,11 @@ class BottomBar(ctk.CTkFrame):
                 os.startfile(folder)  # type: ignore[attr-defined]
             elif sys.platform == "darwin":
                 import subprocess
+
                 subprocess.Popen(["open", folder])
             else:
                 import subprocess
+
                 subprocess.Popen(["xdg-open", folder])
         except Exception as e:
             self.app._log_message(t("gui.sync.folder_open_failed", error=e))
@@ -220,6 +235,7 @@ class BottomBar(ctk.CTkFrame):
     def _wrap_log_txt_methods(self):
         """Tkinter Text의 config(state=...) 호환성을 위한 래퍼 메소드."""
         orig_config = self.log_txt.configure
+
         def compat_config(**kwargs):
             if "state" in kwargs:
                 val = kwargs["state"]
@@ -229,4 +245,5 @@ class BottomBar(ctk.CTkFrame):
                     orig_config(state="disabled")
             else:
                 orig_config(**kwargs)
+
         self.log_txt.config = compat_config

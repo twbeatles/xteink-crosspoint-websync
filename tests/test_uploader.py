@@ -91,6 +91,7 @@ def test_upload_to_targets_partial_failure():
         f.write(b"data")
         path = f.name
     try:
+
         def side_effect(file_path, ip, safe_filename, timeout, remote_dir=None):
             return ip == "10.0.0.1"
 
@@ -137,7 +138,9 @@ def test_upload_to_ip_includes_remote_path_query():
         path = f.name
     try:
         mock_resp = type("R", (), {"status_code": 200, "text": "ok"})()
-        with patch("websync.upload.uploader.requests.post", return_value=mock_resp) as mpost:
+        with patch(
+            "websync.upload.uploader.requests.post", return_value=mock_resp
+        ) as mpost:
             assert u._upload_to_ip(path, "10.0.0.1", "book.epub", 30) is True
         url = mpost.call_args.args[0]
         assert url.startswith("http://10.0.0.1/upload")
@@ -154,7 +157,9 @@ def test_upload_to_ip_root_no_path_query():
         path = f.name
     try:
         mock_resp = type("R", (), {"status_code": 200, "text": "ok"})()
-        with patch("websync.upload.uploader.requests.post", return_value=mock_resp) as mpost:
+        with patch(
+            "websync.upload.uploader.requests.post", return_value=mock_resp
+        ) as mpost:
             u._upload_to_ip(path, "10.0.0.1", "book.epub", 30)
         assert mpost.call_args.args[0] == "http://10.0.0.1/upload"
     finally:
@@ -183,4 +188,3 @@ def test_test_connection_requires_2xx_status():
         side_effect=ConnectionError("down"),
     ):
         assert u.test_connection() is False
-

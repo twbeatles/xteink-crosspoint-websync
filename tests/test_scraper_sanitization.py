@@ -4,6 +4,7 @@ Real product sanitize path (EpubBuilder + sanitize_body_html): executable
 content must not survive; javascript: URLs, event handlers, iframe/form
 must be stripped. Redirect/URL-scheme guards use is_allowed_fetch_url.
 """
+
 from __future__ import annotations
 
 from websync.epub.sanitize import sanitize_body_html
@@ -11,10 +12,12 @@ from websync.scrapers.base import is_allowed_fetch_url
 
 
 def test_script_iframe_form_removed():
-    dirty = ('<p>ok</p><script>alert(1)</script>'
-             '<iframe src="https://evil.example"></iframe>'
-             '<form action="https://evil.example"><input></form>'
-             '<style>body{}</style>')
+    dirty = (
+        "<p>ok</p><script>alert(1)</script>"
+        '<iframe src="https://evil.example"></iframe>'
+        '<form action="https://evil.example"><input></form>'
+        "<style>body{}</style>"
+    )
     clean = sanitize_body_html(dirty)
     assert "<script" not in clean and "<iframe" not in clean
     assert "<form" not in clean and "alert(1)" not in clean
@@ -22,8 +25,10 @@ def test_script_iframe_form_removed():
 
 
 def test_event_handlers_and_javascript_urls_stripped():
-    dirty = ('<a href="javascript:alert(1)" onclick="x()">link</a>'
-             '<img src="javascript:alert(2)" onerror="y()">')
+    dirty = (
+        '<a href="javascript:alert(1)" onclick="x()">link</a>'
+        '<img src="javascript:alert(2)" onerror="y()">'
+    )
     clean = sanitize_body_html(dirty).lower()
     assert "javascript:" not in clean
     assert "onclick" not in clean and "onerror" not in clean
@@ -50,8 +55,13 @@ def test_epub_builder_sanitizes_malicious_chapter(tmp_path):
     from websync.epub.builder import EpubBuilder
 
     builder = EpubBuilder(output_dir=str(tmp_path))
-    arts = [{"title": "evil", "url": "https://a.example/e",
-             "content": '<p>hi</p><script>steal()</script><a href="javascript:x">c</a>'}]
+    arts = [
+        {
+            "title": "evil",
+            "url": "https://a.example/e",
+            "content": '<p>hi</p><script>steal()</script><a href="javascript:x">c</a>',
+        }
+    ]
     path = builder.build("S", arts, generate_cover=False)
     with zipfile.ZipFile(path) as zf:
         blob = b"\n".join(zf.read(n) for n in zf.namelist() if n.endswith(".xhtml"))

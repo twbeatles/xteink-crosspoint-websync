@@ -4,6 +4,7 @@ Uses real SyncService/EpubBuilder/HTTP/SQLite and a real shared folder.
 Covers plan 6.1 items 1,2,4,10. INV-05: pull/push failure never overwrites
 the shared canonical bytes.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,11 @@ from websync.scrapers.factory import ScraperFactory
 
 
 def _article(n: int) -> dict:
-    return {"title": f"글 {n}", "content": f"<p>본문 {n}</p>", "url": f"https://blog.example/{n}"}
+    return {
+        "title": f"글 {n}",
+        "content": f"<p>본문 {n}</p>",
+        "url": f"https://blog.example/{n}",
+    }
 
 
 def _make_pc(root, name, ip, device_id, shared, server_host):
@@ -38,17 +43,28 @@ def _make_pc(root, name, ip, device_id, shared, server_host):
     cfg["epub_cover"] = False
     cfg["device_files"] = {"default_upload_path": "/Books"}
     cfg["sites"] = [
-        {"name": "Blog", "type": "rss", "url": "https://blog.example/feed", "limit": 10, "enabled": True}
+        {
+            "name": "Blog",
+            "type": "rss",
+            "url": "https://blog.example/feed",
+            "limit": 10,
+            "enabled": True,
+        }
     ]
     cfg["portable_data"] = {
-        "enabled": True, "folder": shared, "include_history": True,
-        "auto_export": True, "auto_import_on_start": True,
+        "enabled": True,
+        "folder": shared,
+        "include_history": True,
+        "auto_export": True,
+        "auto_import_on_start": True,
         "history_mode": "per_device",
     }
     cm.save_config(cfg)
     db = SyncHistoryDb(os.path.join(root, f"{name}.db"))
-    with patch("websync.pipeline.service.SyncHistoryDb", return_value=db), \
-         patch("websync.backup.local_import.import_local_sidecars", return_value={}):
+    with (
+        patch("websync.pipeline.service.SyncHistoryDb", return_value=db),
+        patch("websync.backup.local_import.import_local_sidecars", return_value={}),
+    ):
         svc = SyncService(cm)
     return svc, db
 
@@ -59,8 +75,10 @@ def _run(svc, articles):
     scraper = MagicMock()
     scraper.fetch_articles.side_effect = lambda _s: [dict(a) for a in articles]
     scraper.last_fetch_stats = {}
-    with patch.object(ScraperFactory, "get_scraper", return_value=scraper), \
-         patch("websync.integrations.notifier.ToastNotifier.show_toast"):
+    with (
+        patch.object(ScraperFactory, "get_scraper", return_value=scraper),
+        patch("websync.integrations.notifier.ToastNotifier.show_toast"),
+    ):
         return svc.run_sync_pipeline(log_callback=lambda _m: None)
 
 

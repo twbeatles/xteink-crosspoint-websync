@@ -3,6 +3,7 @@
 INV-09: normalization must never yield an empty string, a drive root, or
 an upward escape; sanitized EPUB names stay firmware-safe.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -17,10 +18,23 @@ from websync.upload.remote_path import (
 from websync.upload.uploader import X3Uploader
 
 
-@pytest.mark.parametrize("raw", [
-    "", "   ", None, "/", "//", "/a/../b", "a\\b\\c", "/../..",
-    "C:\\Books", "http://x/", ".", "..",
-])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "",
+        "   ",
+        None,
+        "/",
+        "//",
+        "/a/../b",
+        "a\\b\\c",
+        "/../..",
+        "C:\\Books",
+        "http://x/",
+        ".",
+        "..",
+    ],
+)
 def test_normalize_never_escapes_or_empties(raw):
     out = normalize_remote_path(raw)  # type: ignore[arg-type]
     assert out.startswith("/")
@@ -42,14 +56,17 @@ def test_normalize_idempotent_and_joins_safe():
         join_remote_path("/Books", "a/b")
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("http://192.168.31.54/", "192.168.31.54"),
-    ("https://crosspoint.local/path?q=1", "crosspoint.local"),
-    ("  10.0.0.1:8080/ ", "10.0.0.1:8080"),
-    ("", ""),
-    (None, ""),
-    ("192.168.1.10//upload", "192.168.1.10"),
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("http://192.168.31.54/", "192.168.31.54"),
+        ("https://crosspoint.local/path?q=1", "crosspoint.local"),
+        ("  10.0.0.1:8080/ ", "10.0.0.1:8080"),
+        ("", ""),
+        (None, ""),
+        ("192.168.1.10//upload", "192.168.1.10"),
+    ],
+)
 def test_host_normalization(raw, expected):
     assert normalize_device_host(raw) == expected
 
@@ -66,7 +83,9 @@ def test_sanitize_filename_properties():
         assert n.endswith(".epub")
         assert " " not in n and "/" not in n and "\\" not in n
     # same stem -> same name (deterministic), different stem -> different hash suffix
-    assert up._sanitize_filename("/a/title.epub") == up._sanitize_filename("/b/title.epub")
+    assert up._sanitize_filename("/a/title.epub") == up._sanitize_filename(
+        "/b/title.epub"
+    )
     assert up._sanitize_filename("/a/one.epub") != up._sanitize_filename("/a/two.epub")
 
 

@@ -1,4 +1,5 @@
 """Cancellation belongs to accepted jobs; close must drain persisted work."""
+
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -10,16 +11,27 @@ from websync.pipeline.service import SyncService
 
 def make_service(tmp_path):
     cm = ConfigManager(str(tmp_path / "config.json"))
-    cm.patch_fields(sites=[{"name": "A", "type": "rss", "url": "https://example.com/feed"}],
-                    output_dir=str(tmp_path / "output"), epub_cover=False)
+    cm.patch_fields(
+        sites=[{"name": "A", "type": "rss", "url": "https://example.com/feed"}],
+        output_dir=str(tmp_path / "output"),
+        epub_cover=False,
+    )
     return SyncService(cm)
 
 
 def test_cancel_then_preview_selected_and_build_restart(tmp_path, monkeypatch):
     svc = make_service(tmp_path)
-    article = {"title": "Example", "content": "<p>Article</p>", "url": "https://example.com/one"}
-    scraper = SimpleNamespace(fetch_articles=lambda _: [dict(article)], last_fetch_stats={})
-    monkeypatch.setattr("websync.scrapers.factory.ScraperFactory.get_scraper", lambda _: scraper)
+    article = {
+        "title": "Example",
+        "content": "<p>Article</p>",
+        "url": "https://example.com/one",
+    }
+    scraper = SimpleNamespace(
+        fetch_articles=lambda _: [dict(article)], last_fetch_stats={}
+    )
+    monkeypatch.setattr(
+        "websync.scrapers.factory.ScraperFactory.get_scraper", lambda _: scraper
+    )
     assert len(svc.preview_articles()) == 1
     svc.request_cancel()
     chosen = svc.preview_articles()
@@ -27,8 +39,10 @@ def test_cancel_then_preview_selected_and_build_restart(tmp_path, monkeypatch):
     svc.request_cancel()
     assert svc.build_selected_epubs(chosen)
     assert not svc.is_cancel_requested()
-    monkeypatch.setattr("websync.upload.uploader.X3Uploader.upload_to_targets",
-                        lambda self, path, only_ips=None: {ip: True for ip in only_ips})
+    monkeypatch.setattr(
+        "websync.upload.uploader.X3Uploader.upload_to_targets",
+        lambda self, path, only_ips=None: {ip: True for ip in only_ips},
+    )
     svc.request_cancel()
     assert svc.sync_selected_articles(chosen)
     assert svc.db.get_count() == 1
@@ -75,7 +89,9 @@ def test_gui_close_keeps_root_alive_until_commit(tmp_path):
     app.service = svc
     app._background_threads_lock = threading.Lock()
     app._background_threads = {worker}
-    app.root = SimpleNamespace(after=lambda delay, fn: callbacks.append(fn), destroy=MagicMock())
+    app.root = SimpleNamespace(
+        after=lambda delay, fn: callbacks.append(fn), destroy=MagicMock()
+    )
     app.tab_settings = SimpleNamespace(_stop_watch_worker=lambda **kw: None)
     app._on_close()
     callbacks.pop(0)()
@@ -92,7 +108,9 @@ def test_gui_close_keeps_root_alive_until_commit(tmp_path):
 
 def test_async_exception_updates_status_and_unlocks(tmp_path, monkeypatch):
     svc = make_service(tmp_path)
-    monkeypatch.setattr(svc, "_run_pipeline_body", MagicMock(side_effect=ValueError("failure")))
+    monkeypatch.setattr(
+        svc, "_run_pipeline_body", MagicMock(side_effect=ValueError("failure"))
+    )
     assert svc.begin_sync_pipeline_async()
     svc._pipeline_thread.join(3)
     assert svc.get_last_pipeline_result()["status"] == "failed"
@@ -127,9 +145,13 @@ def test_gui_close_destroys_even_if_after_drain_fails(tmp_path, monkeypatch):
     app.service = svc
     app._background_threads_lock = threading.Lock()
     app._background_threads = set()
-    app.root = SimpleNamespace(after=lambda delay, fn: callbacks.append(fn), destroy=MagicMock())
+    app.root = SimpleNamespace(
+        after=lambda delay, fn: callbacks.append(fn), destroy=MagicMock()
+    )
     app.tab_settings = SimpleNamespace(_stop_watch_worker=lambda **kw: None)
-    monkeypatch.setattr("websync.gui.app_core.sync_control.messagebox.showerror", MagicMock())
+    monkeypatch.setattr(
+        "websync.gui.app_core.sync_control.messagebox.showerror", MagicMock()
+    )
 
     def boom():
         raise RuntimeError("helper failed")

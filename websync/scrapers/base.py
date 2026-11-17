@@ -1,4 +1,5 @@
 """스크래퍼 공통 기반 및 유틸리티"""
+
 from abc import ABC, abstractmethod
 from urllib.parse import urljoin, urlparse
 
@@ -68,7 +69,9 @@ def _build_session() -> requests.Session:
 _session = _build_session()
 
 
-def fetch_url(url: str, headers: dict | None = None, timeout: int = 15) -> requests.Response:
+def fetch_url(
+    url: str, headers: dict | None = None, timeout: int = 15
+) -> requests.Response:
     """재시도 세션을 통해 HTTP GET 요청을 수행합니다.
 
     모든 스크래퍼는 이 헬퍼를 사용하여 일시적 네트워크 오류에 대한

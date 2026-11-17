@@ -1,4 +1,5 @@
 """네이버 스크래퍼 공통 유틸리티"""
+
 from websync.core.logger import get_logger
 
 logger = get_logger()
@@ -27,4 +28,6 @@ def clean_naver_content(container) -> None:
     # 모든 style, class 속성 강제 삭제 (배경색/글자색 초기화)
     for tag in container.find_all(True):
         if tag.attrs:
-            tag.attrs = {k: v for k, v in tag.attrs.items() if k not in ("style", "class")}
+            tag.attrs = {
+                k: v for k, v in tag.attrs.items() if k not in ("style", "class")
+            }

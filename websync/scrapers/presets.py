@@ -3,6 +3,7 @@
 GUI 사이트 등록 대화상자의 프리셋 드롭다운과
 문서/검증 스크립트에서 공유합니다.
 """
+
 from __future__ import annotations
 
 from typing import Any, TypedDict
@@ -384,7 +385,11 @@ def presets_for_category(category: str = "") -> list[SitePreset]:
     """카테고리에 속한 프리셋 (빈 값=전체). 카테고리 없는 프리셋은 항상 포함."""
     if not category:
         return list(KOREAN_SITE_PRESETS)
-    return [p for p in KOREAN_SITE_PRESETS if not p.get("category") or p.get("category") == category]
+    return [
+        p
+        for p in KOREAN_SITE_PRESETS
+        if not p.get("category") or p.get("category") == category
+    ]
 
 
 def category_display_label(category: str) -> str:

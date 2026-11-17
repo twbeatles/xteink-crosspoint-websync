@@ -1,4 +1,5 @@
 """NaverCafeScraper — clubid 해석 및 API 목록 파싱 단위 테스트."""
+
 from unittest.mock import MagicMock, patch
 
 from websync.scrapers.naver_cafe import NaverCafeScraper
@@ -12,7 +13,9 @@ def test_resolve_club_id_from_page():
     resp.text = html
 
     with patch("websync.scrapers.naver_cafe.fetch_url", return_value=resp):
-        cid = sc._resolve_club_id("steamindiegame", "https://cafe.naver.com/steamindiegame")
+        cid = sc._resolve_club_id(
+            "steamindiegame", "https://cafe.naver.com/steamindiegame"
+        )
     assert cid == "27842958"
 
 

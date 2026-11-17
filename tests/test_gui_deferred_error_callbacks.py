@@ -6,6 +6,7 @@ which point CPython has deleted `e` -> NameError on the error path and the
 failure is never reported. The fix binds `e` eagerly (`lambda e=e` /
 `def err(e=e)`).
 """
+
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -26,9 +27,13 @@ def test_backup_pull_failure_callback_runs_after_handler_exit():
     callbacks, root = _deferred_root()
     messages = []
     service = SimpleNamespace(
-        config={"backup_sync": {
-            "enabled": True, "auto_import_on_start": True, "folder": "C:\\shared",
-        }},
+        config={
+            "backup_sync": {
+                "enabled": True,
+                "auto_import_on_start": True,
+                "folder": "C:\\shared",
+            }
+        },
     )
 
     def maybe_backup_pull():
@@ -65,7 +70,7 @@ def test_backup_sync_error_callback_runs_after_handler_exit():
     app = SimpleNamespace(
         root=root,
         _log_message=lambda _m: None,
-        _make_log_callback=lambda: (lambda _m: None),
+        _make_log_callback=lambda: lambda _m: None,
         _start_background_task=lambda target, **kwargs: target(),
         tab_sync=SimpleNamespace(_refresh_site_tree=lambda: None),
         tab_history=SimpleNamespace(_refresh_history=lambda: None),
@@ -74,7 +79,8 @@ def test_backup_sync_error_callback_runs_after_handler_exit():
         service=service,
         app=app,
         backup_status_label=SimpleNamespace(
-            configure=lambda **kwargs: configured.append(kwargs)),
+            configure=lambda **kwargs: configured.append(kwargs)
+        ),
         _save_backup_sync_settings=lambda: None,
         _refresh_backup_status_label=lambda: None,
     )
@@ -82,5 +88,7 @@ def test_backup_sync_error_callback_runs_after_handler_exit():
         SettingsBackupSyncMixin._run_backup_sync_now(host)
         assert len(callbacks) == 1
         callbacks[0]()  # NameError here before the fix
-    assert any("sync-boom" in str(a) for c in box.showerror.call_args_list for a in c.args)
+    assert any(
+        "sync-boom" in str(a) for c in box.showerror.call_args_list for a in c.args
+    )
     assert any("sync-boom" in str(kw.get("text", "")) for kw in configured)

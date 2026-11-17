@@ -39,7 +39,9 @@ class _PipelineApp(_DummyApp):
         super().__init__()
         self.service = MagicMock()
         self.service.is_pipeline_running.return_value = False
-        self.service.config = {"sites": [{"name": "s", "url": "https://example.com", "enabled": True}]}
+        self.service.config = {
+            "sites": [{"name": "s", "url": "https://example.com", "enabled": True}]
+        }
         self.bottom_bar = SimpleNamespace(progress_bar={})
         self.busy = False
         self.messages = []
@@ -80,10 +82,14 @@ def test_immediate_sync_does_not_start_when_settings_save_fails():
 
 def test_immediate_sync_without_enabled_sources_guides_user_instead_of_running():
     app = _PipelineApp()
-    app.service.config = {"sites": [{"name": "s", "url": "https://example.com", "enabled": False}]}
+    app.service.config = {
+        "sites": [{"name": "s", "url": "https://example.com", "enabled": False}]
+    }
     app.tabview = SimpleNamespace(_name_list=["sync"], set=lambda _name: None)
     app.tab_sync = MagicMock()
-    with patch("websync.gui.app_core.sync_control.messagebox.askyesno", return_value=True) as ask:
+    with patch(
+        "websync.gui.app_core.sync_control.messagebox.askyesno", return_value=True
+    ) as ask:
         app._run_immediate_sync()
     ask.assert_called_once()
     app.tab_sync.focus_site_list.assert_called_once()
@@ -96,7 +102,9 @@ def test_immediate_sync_with_no_sources_offers_add_dialog():
     app.service.config = {"sites": []}
     app.tabview = SimpleNamespace(_name_list=["sync"], set=lambda _name: None)
     app.tab_sync = MagicMock()
-    with patch("websync.gui.app_core.sync_control.messagebox.askyesno", return_value=True):
+    with patch(
+        "websync.gui.app_core.sync_control.messagebox.askyesno", return_value=True
+    ):
         app._run_immediate_sync()
     app.tab_sync._add_site_popup.assert_called_once()
     app.service.run_sync_pipeline.assert_not_called()
@@ -165,7 +173,9 @@ def test_preview_error_restores_gui():
 def test_selected_sync_error_restores_gui():
     app = _PipelineApp()
     tab = _PreviewTab(app)
-    app.service.sync_selected_articles.side_effect = RuntimeError("selected sync failed")
+    app.service.sync_selected_articles.side_effect = RuntimeError(
+        "selected sync failed"
+    )
     with patch("websync.gui.app_core.sync_control.messagebox.showerror") as showerror:
         tab._run_selected_sync_task([{"url": "https://example.com/1"}])
         app._wait_for_background_tasks(timeout=2)

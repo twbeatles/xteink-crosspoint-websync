@@ -3,6 +3,7 @@
 Journey: settings-save failure -> 0 sync/schedule; worker exception ->
 busy/buttons/progress recover; cancel between batches. INV-14.
 """
+
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -16,11 +17,15 @@ class _JourneyApp(AppSyncControlMixin):
         self._background_threads_lock = threading.Lock()
         self.service = MagicMock()
         self.service.is_pipeline_running.return_value = False
-        self.service.config = {"sites": [{"name": "s", "url": "https://example.com", "enabled": True}]}
+        self.service.config = {
+            "sites": [{"name": "s", "url": "https://example.com", "enabled": True}]
+        }
         self.bottom_bar = SimpleNamespace(progress_bar={})
         self.busy = False
         self.messages = []
-        self.root = SimpleNamespace(after=lambda _d, cb: cb(), winfo_exists=lambda: True)
+        self.root = SimpleNamespace(
+            after=lambda _d, cb: cb(), winfo_exists=lambda: True
+        )
         self.save_ok = True
 
     def _save_ui_settings(self):
@@ -69,19 +74,33 @@ def test_epub_only_journey_never_touches_uploader_or_db():
     from websync.pipeline.epub_only import build_selected_epubs
 
     builder = MagicMock()
-    builder.build.side_effect = lambda name, arts, generate_cover=True: f"/out/{name}.epub"
+    builder.build.side_effect = lambda name, arts, generate_cover=True: (
+        f"/out/{name}.epub"
+    )
     service = SimpleNamespace(
         logger=logging.getLogger("journey"),
         config={"epub_merge_mode": "per_site", "epub_cover": False},
-        epub_builder=builder, uploader=MagicMock(), db=MagicMock(),
+        epub_builder=builder,
+        uploader=MagicMock(),
+        db=MagicMock(),
         is_cancel_requested=lambda: False,
         _try_acquire_pipeline_locks=lambda _log: True,
         _release_pipeline_locks=MagicMock(),
     )
     service._reload_config = lambda: None
     arts = [
-        {"site_name": "S", "title": "one", "url": "https://x.example/1", "content": "<p>1</p>"},
-        {"site_name": "S", "title": "two", "url": "https://x.example/2", "content": "<p>2</p>"},
+        {
+            "site_name": "S",
+            "title": "one",
+            "url": "https://x.example/1",
+            "content": "<p>1</p>",
+        },
+        {
+            "site_name": "S",
+            "title": "two",
+            "url": "https://x.example/2",
+            "content": "<p>2</p>",
+        },
     ]
     paths = build_selected_epubs(service, arts)
     assert paths == ["/out/S.epub"]

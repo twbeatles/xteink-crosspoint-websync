@@ -1,4 +1,5 @@
 """RssScraper 인코딩 및 빈 description 보정 테스트."""
+
 from unittest.mock import MagicMock, patch
 
 from websync.scrapers.rss import RssScraper, _decode_feed_xml

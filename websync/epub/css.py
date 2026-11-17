@@ -1,4 +1,5 @@
 """EPUB 테마 CSS 로딩 및 기본 스타일 생성."""
+
 from __future__ import annotations
 
 import os
@@ -33,7 +34,10 @@ def load_theme_css(
         except Exception as e:
             if logger:
                 from websync.i18n import t
-                logger.warning(t("epub.css_custom_failed", path=epub_custom_css, error=e))
+
+                logger.warning(
+                    t("epub.css_custom_failed", path=epub_custom_css, error=e)
+                )
     elif epub_theme and epub_theme != "default":
         theme_path = os.path.join(themes_dir(), f"{epub_theme}.css")
         try:
@@ -42,6 +46,7 @@ def load_theme_css(
         except Exception as e:
             if logger:
                 from websync.i18n import t
+
                 logger.warning(t("epub.css_theme_failed", path=theme_path, error=e))
 
     if css_text:
@@ -58,9 +63,14 @@ def build_default_css(
     line_height: float | str = 1.7,
 ) -> str:
     """기본 CSS를 생성합니다 (검증된 값 사용)."""
-    safe_font = "".join(
-        c for c in str(font_family or "serif") if c.isalnum() or c in (" ", "-", "_", ",", "'")
-    ).strip() or "serif"
+    safe_font = (
+        "".join(
+            c
+            for c in str(font_family or "serif")
+            if c.isalnum() or c in (" ", "-", "_", ",", "'")
+        ).strip()
+        or "serif"
+    )
     try:
         safe_size = max(8, min(48, int(font_size)))
     except (TypeError, ValueError):

@@ -27,13 +27,19 @@ class SyncSitesMixin:
         sites = self.service.config.get("sites", []) or []
         for idx, site in enumerate(sites):
             enabled = site.get("enabled", True)
-            self.tree.insert("", "end", iid=str(idx), values=(
-                t("gui.sync.site_on") if enabled else t("gui.sync.site_off"),
-                site.get("name"),
-                site_type_label(site.get("type", "css")),
-                site.get("limit", 5),
-                site.get("url"),
-            ), tags=() if enabled else ("disabled",))
+            self.tree.insert(
+                "",
+                "end",
+                iid=str(idx),
+                values=(
+                    t("gui.sync.site_on") if enabled else t("gui.sync.site_off"),
+                    site.get("name"),
+                    site_type_label(site.get("type", "css")),
+                    site.get("limit", 5),
+                    site.get("url"),
+                ),
+                tags=() if enabled else ("disabled",),
+            )
         keep = [iid for iid in prev_selection if self.tree.exists(iid)]
         if keep:
             self.tree.selection_set(keep)
@@ -41,7 +47,9 @@ class SyncSitesMixin:
         enabled_count = sum(1 for s in sites if s.get("enabled", True))
         if hasattr(self, "sites_summary_label"):
             self.sites_summary_label.configure(
-                text=t("gui.sync.sites_summary", enabled=enabled_count, total=len(sites))
+                text=t(
+                    "gui.sync.sites_summary", enabled=enabled_count, total=len(sites)
+                )
             )
         if hasattr(self, "sites_empty_label"):
             if sites:
@@ -106,17 +114,32 @@ class SyncSitesMixin:
         single = len(self.tree.selection()) == 1
         menu.add_command(label=t("gui.sync.add_site"), command=self._add_site_popup)
         menu.add_separator()
-        menu.add_command(label=t("gui.sync.edit_site"), command=self._edit_site_popup,
-                         state="normal" if single else "disabled")
-        menu.add_command(label=t("gui.sync.toggle_enabled"), command=self._toggle_site_enabled,
-                         state="normal" if has_sel else "disabled")
-        menu.add_command(label=t("gui.sync.duplicate_site"), command=self._duplicate_site,
-                         state="normal" if single else "disabled")
-        menu.add_command(label=t("gui.sync.open_site_url"), command=self._open_selected_site_url,
-                         state="normal" if single else "disabled")
+        menu.add_command(
+            label=t("gui.sync.edit_site"),
+            command=self._edit_site_popup,
+            state="normal" if single else "disabled",
+        )
+        menu.add_command(
+            label=t("gui.sync.toggle_enabled"),
+            command=self._toggle_site_enabled,
+            state="normal" if has_sel else "disabled",
+        )
+        menu.add_command(
+            label=t("gui.sync.duplicate_site"),
+            command=self._duplicate_site,
+            state="normal" if single else "disabled",
+        )
+        menu.add_command(
+            label=t("gui.sync.open_site_url"),
+            command=self._open_selected_site_url,
+            state="normal" if single else "disabled",
+        )
         menu.add_separator()
-        menu.add_command(label=t("gui.sync.delete_selected"), command=self._delete_site,
-                         state="normal" if has_sel else "disabled")
+        menu.add_command(
+            label=t("gui.sync.delete_selected"),
+            command=self._delete_site,
+            state="normal" if has_sel else "disabled",
+        )
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -140,6 +163,7 @@ class SyncSitesMixin:
         config = self.service.config
         sites = config.get("sites", [])
         from websync.backup.format import now_iso
+
         stamp = now_iso()
         # 여러 개를 고르면 하나라도 꺼져 있으면 모두 켜고, 전부 켜져 있으면 모두 끈다
         targets = [sites[i] for i in indices if 0 <= i < len(sites)]
@@ -159,10 +183,13 @@ class SyncSitesMixin:
             return
         config = self.service.config
         sites = config.get("sites", [])
-        names = [str(sites[i].get("name") or "") for i in indices if 0 <= i < len(sites)]
+        names = [
+            str(sites[i].get("name") or "") for i in indices if 0 <= i < len(sites)
+        ]
         preview = ", ".join(names[:5]) + (" …" if len(names) > 5 else "")
         if not messagebox.askyesno(
-            t("dialog.confirm"), t("gui.sync.confirm_delete_named", count=len(names), names=preview)
+            t("dialog.confirm"),
+            t("gui.sync.confirm_delete_named", count=len(names), names=preview),
         ):
             return
         from websync.backup.format import merge_site_tombstones, now_iso
@@ -179,7 +206,8 @@ class SyncSitesMixin:
                 tombstones.append({"url": url, "deleted_at": stamp})
         portable = get_portable_cfg(config)
         portable["deleted_sites"] = merge_site_tombstones(
-            portable.get("deleted_sites", []), tombstones,
+            portable.get("deleted_sites", []),
+            tombstones,
         )
         apply_portable_cfg(config, portable)
         if not self.app._safe_save_config(config):
@@ -209,7 +237,9 @@ class SyncSitesMixin:
             messagebox.showwarning(t("dialog.warning"), t("gui.sync.select_to_edit"))
             return
         idx = indices[0]
-        self._open_site_dialog(t("gui.sync.dialog_edit_title"), idx, self.service.config["sites"][idx])
+        self._open_site_dialog(
+            t("gui.sync.dialog_edit_title"), idx, self.service.config["sites"][idx]
+        )
 
     # ------------------------------------------------------------------
     # M5: Import / Export 구현부
@@ -219,29 +249,30 @@ class SyncSitesMixin:
         selected = self.tree.selection()
         # 선택된 인덱스 계산
         indices = [int(i) for i in selected] if selected else None
-        
+
         file_path = filedialog.asksaveasfilename(
             title=t("gui.sync.export_title"),
             defaultextension=".json",
-            filetypes=[("JSON", "*.json")]
+            filetypes=[("JSON", "*.json")],
         )
         if not file_path:
             return
-        
+
         try:
             self.config_manager.export_sites(file_path, indices)
             messagebox.showinfo(t("dialog.info"), t("gui.sync.export_ok"))
         except Exception as e:
-            messagebox.showerror(t("dialog.error"), t("gui.sync.export_failed", error=e))
+            messagebox.showerror(
+                t("dialog.error"), t("gui.sync.export_failed", error=e)
+            )
 
     def _import_sites_action(self):
         file_path = filedialog.askopenfilename(
-            title=t("gui.sync.import_title"),
-            filetypes=[("JSON", "*.json")]
+            title=t("gui.sync.import_title"), filetypes=[("JSON", "*.json")]
         )
         if not file_path:
             return
-        
+
         try:
             added_sites = self.config_manager.import_sites(file_path)
             if added_sites:
@@ -258,4 +289,6 @@ class SyncSitesMixin:
             else:
                 messagebox.showinfo(t("dialog.info"), t("gui.sync.import_none"))
         except Exception as e:
-            messagebox.showerror(t("dialog.error"), t("gui.sync.import_failed", error=e))
+            messagebox.showerror(
+                t("dialog.error"), t("gui.sync.import_failed", error=e)
+            )

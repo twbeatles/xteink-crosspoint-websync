@@ -1,4 +1,5 @@
 """사설·로컬 URL 판별."""
+
 from __future__ import annotations
 
 import ipaddress

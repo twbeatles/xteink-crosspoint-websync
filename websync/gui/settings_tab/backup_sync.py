@@ -1,4 +1,5 @@
 """공유 데이터 폴더 (OneDrive 등) 설정 UI (CustomTkinter 카드 기반)."""
+
 from __future__ import annotations
 
 import os
@@ -40,7 +41,11 @@ def _label_to_mode() -> dict[str, str]:
 
 class SettingsBackupSyncMixin:
     def _build_backup_sync_section(self, body) -> None:
-        card = CardFrame(body, title=t("gui.settings.backup.card_title"), subtitle=t("gui.settings.backup.card_sub"))
+        card = CardFrame(
+            body,
+            title=t("gui.settings.backup.card_title"),
+            subtitle=t("gui.settings.backup.card_sub"),
+        )
         card.pack(fill="x", padx=8, pady=6)
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
@@ -64,15 +69,29 @@ class SettingsBackupSyncMixin:
             command=self._save_backup_sync_settings,
         ).grid(row=1, column=0, columnspan=2, padx=4, pady=4, sticky="w")
 
-        ctk.CTkLabel(inner, text=t("gui.settings.backup.folder_label"), font=get_font(13)).grid(row=2, column=0, padx=(0, 6), pady=6, sticky="w")
+        ctk.CTkLabel(
+            inner, text=t("gui.settings.backup.folder_label"), font=get_font(13)
+        ).grid(row=2, column=0, padx=(0, 6), pady=6, sticky="w")
         self.backup_folder_entry = ctk.CTkEntry(inner, font=get_font(12), height=34)
         self.backup_folder_entry.grid(row=2, column=1, padx=4, pady=6, sticky="we")
-        ctk.CTkButton(inner, text=t("gui.settings.backup.browse_btn"), font=get_font(12), width=90, height=34, command=self._browse_backup_folder).grid(
-            row=2, column=2, padx=4, pady=6
-        )
-        ctk.CTkButton(inner, text=t("gui.settings.backup.open_btn"), font=get_font(12), width=90, height=34, fg_color=("#e9ecef", "#343a40"), text_color=COLOR_FG, command=self._open_backup_folder).grid(
-            row=2, column=3, padx=4, pady=6
-        )
+        ctk.CTkButton(
+            inner,
+            text=t("gui.settings.backup.browse_btn"),
+            font=get_font(12),
+            width=90,
+            height=34,
+            command=self._browse_backup_folder,
+        ).grid(row=2, column=2, padx=4, pady=6)
+        ctk.CTkButton(
+            inner,
+            text=t("gui.settings.backup.open_btn"),
+            font=get_font(12),
+            width=90,
+            height=34,
+            fg_color=("#e9ecef", "#343a40"),
+            text_color=COLOR_FG,
+            command=self._open_backup_folder,
+        ).grid(row=2, column=3, padx=4, pady=6)
         self.app._bind_autosave(self.backup_folder_entry)
 
         self.backup_include_history_var = tk.BooleanVar(value=True)
@@ -102,7 +121,9 @@ class SettingsBackupSyncMixin:
             command=self._save_backup_sync_settings,
         ).grid(row=5, column=0, columnspan=2, padx=4, pady=2, sticky="w")
 
-        ctk.CTkLabel(inner, text=t("gui.settings.backup.mode_label"), font=get_font(13)).grid(row=6, column=0, padx=(0, 6), pady=6, sticky="w")
+        ctk.CTkLabel(
+            inner, text=t("gui.settings.backup.mode_label"), font=get_font(13)
+        ).grid(row=6, column=0, padx=(0, 6), pady=6, sticky="w")
         mode_labels = _history_mode_labels()
         self.backup_history_mode_cb = ctk.CTkOptionMenu(
             inner,
@@ -110,10 +131,12 @@ class SettingsBackupSyncMixin:
             dropdown_font=get_font(12),
             font=get_font(12),
             width=340,
-            command=lambda _v: self._save_backup_sync_settings()
+            command=lambda _v: self._save_backup_sync_settings(),
         )
         self.backup_history_mode_cb.set(mode_labels[HISTORY_MODE_PER_DEVICE])
-        self.backup_history_mode_cb.grid(row=6, column=1, columnspan=2, padx=4, pady=6, sticky="w")
+        self.backup_history_mode_cb.grid(
+            row=6, column=1, columnspan=2, padx=4, pady=6, sticky="w"
+        )
 
         btn_row = ctk.CTkFrame(card, fg_color="transparent")
         btn_row.pack(fill="x", padx=12, pady=(0, 8))
@@ -146,19 +169,25 @@ class SettingsBackupSyncMixin:
     def _open_backup_folder(self):
         folder = self.backup_folder_entry.get().strip()
         if not folder or not os.path.isdir(folder):
-            messagebox.showwarning(t("dialog.warning"), t("gui.settings.backup.bad_folder"))
+            messagebox.showwarning(
+                t("dialog.warning"), t("gui.settings.backup.bad_folder")
+            )
             return
         try:
             if os.name == "nt":
                 os.startfile(folder)  # type: ignore[attr-defined]
             elif sys.platform == "darwin":
                 import subprocess
+
                 subprocess.Popen(["open", folder])
             else:
                 import subprocess
+
                 subprocess.Popen(["xdg-open", folder])
         except Exception as e:
-            messagebox.showerror(t("dialog.error"), t("gui.settings.backup.open_fail", error=e))
+            messagebox.showerror(
+                t("dialog.error"), t("gui.settings.backup.open_fail", error=e)
+            )
 
     def _collect_backup_sync_into_config(self, config: dict) -> None:
         mode_label = ""
@@ -204,7 +233,11 @@ class SettingsBackupSyncMixin:
         cfg = config or self.service.config
         bs = get_portable_cfg(cfg)
         hm = normalize_history_mode(bs.get("history_mode"))
-        mode_label = t("gui.settings.backup.mode_short_device") if hm == HISTORY_MODE_PER_DEVICE else t("gui.settings.backup.mode_short_global")
+        mode_label = (
+            t("gui.settings.backup.mode_short_device")
+            if hm == HISTORY_MODE_PER_DEVICE
+            else t("gui.settings.backup.mode_short_global")
+        )
         last = bs.get("last_sync_at") or ""
 
         if bs.get("enabled") and last:
@@ -223,10 +256,15 @@ class SettingsBackupSyncMixin:
         config = self.service.config
         bs = get_portable_cfg(config)
         if not (bs.get("folder") or "").strip():
-            messagebox.showwarning(t("gui.settings.backup.folder_needed_title"), t("gui.settings.backup.folder_needed"))
+            messagebox.showwarning(
+                t("gui.settings.backup.folder_needed_title"),
+                t("gui.settings.backup.folder_needed"),
+            )
             return
 
-        self.backup_status_label.configure(text=t("gui.settings.backup.syncing"), text_color=COLOR_ACCENT[0])
+        self.backup_status_label.configure(
+            text=t("gui.settings.backup.syncing"), text_color=COLOR_ACCENT[0]
+        )
         self.app._log_message(t("gui.settings.backup.log_sync"))
 
         def task():
@@ -237,7 +275,9 @@ class SettingsBackupSyncMixin:
                 ok = bool(result.get("ok"))
                 pull = result.get("pull") or {}
                 push = result.get("push") or {}
-                msg = f"{pull.get('message', '')} / {push.get('message', '')}".strip(" /")
+                msg = f"{pull.get('message', '')} / {push.get('message', '')}".strip(
+                    " /"
+                )
 
                 def done():
                     self.service._reload_config()
@@ -248,21 +288,30 @@ class SettingsBackupSyncMixin:
                     except Exception:
                         pass
                     if ok:
-                        messagebox.showinfo(t("gui.settings.backup.sync_ok_title"), msg or t("gui.settings.backup.sync_ok"))
+                        messagebox.showinfo(
+                            t("gui.settings.backup.sync_ok_title"),
+                            msg or t("gui.settings.backup.sync_ok"),
+                        )
                     else:
                         messagebox.showerror(
                             t("gui.settings.backup.sync_fail_title"),
                             msg or t("gui.settings.backup.sync_fail"),
                         )
                         self.backup_status_label.configure(
-                            text=msg or t("gui.settings.backup.sync_fail"), text_color=COLOR_DANGER[0]
+                            text=msg or t("gui.settings.backup.sync_fail"),
+                            text_color=COLOR_DANGER[0],
                         )
 
                 self.app.root.after(0, done)
             except Exception as e:
+
                 def err(e=e):
-                    messagebox.showerror(t("gui.settings.backup.sync_error_title"), str(e))
-                    self.backup_status_label.configure(text=str(e), text_color=COLOR_DANGER[0])
+                    messagebox.showerror(
+                        t("gui.settings.backup.sync_error_title"), str(e)
+                    )
+                    self.backup_status_label.configure(
+                        text=str(e), text_color=COLOR_DANGER[0]
+                    )
 
                 self.app.root.after(0, err)
 

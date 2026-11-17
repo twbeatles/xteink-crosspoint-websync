@@ -1,4 +1,5 @@
 """config.json 설정 값 검증 유틸리티"""
+
 import math
 from dataclasses import dataclass
 from typing import Literal
@@ -17,7 +18,9 @@ class ValidationIssue:
     severity: Literal["error", "warning"] = "error"
 
 
-def _shape_issues(value: object, defaults: dict, path: str = "") -> list[ValidationIssue]:
+def _shape_issues(
+    value: object, defaults: dict, path: str = ""
+) -> list[ValidationIssue]:
     if not isinstance(value, dict):
         return [ValidationIssue(path or "$", "type", f"{path or '$'}: expected object")]
     issues = []
@@ -36,7 +39,9 @@ def _shape_issues(value: object, defaults: dict, path: str = "") -> list[Validat
         elif isinstance(default, (int, float)):
             try:
                 number = float(item) if isinstance(default, float) else int(item)
-                valid = not isinstance(item, bool) and isinstance(item, (int, float, str))
+                valid = not isinstance(item, bool) and isinstance(
+                    item, (int, float, str)
+                )
                 valid = valid and math.isfinite(float(number))
                 if isinstance(default, int) and isinstance(item, float):
                     valid = valid and item.is_integer()
@@ -47,7 +52,9 @@ def _shape_issues(value: object, defaults: dict, path: str = "") -> list[Validat
         if not valid:
             message = f"{field}: expected {type(default).__name__}"
             if key == "port":
-                message = t("validator.port_not_int", section=path, port_key=key, port=item)
+                message = t(
+                    "validator.port_not_int", section=path, port_key=key, port=item
+                )
             elif key == "font_size":
                 message = t("validator.font_size_not_int", value=item)
             elif key == "line_height":
@@ -61,50 +68,89 @@ def _shape_issues(value: object, defaults: dict, path: str = "") -> list[Validat
 def validate_config_structure(config: object) -> list[ValidationIssue]:
     """Fatal shape errors only; legacy semantic warnings remain loadable."""
     from websync.config.manager import ConfigManager
+
     issues = _shape_issues(config, ConfigManager.DEFAULT_CONFIG)
     if not isinstance(config, dict):
         return issues
-    for index, site in enumerate(config.get("sites", []) if isinstance(config.get("sites", []), list) else []):
-        issues.extend(_shape_issues(site, {**ConfigManager.DEFAULT_SITE, "_sync_updated_at": ""}, f"sites[{index}]"))
+    for index, site in enumerate(
+        config.get("sites", []) if isinstance(config.get("sites", []), list) else []
+    ):
+        issues.extend(
+            _shape_issues(
+                site,
+                {**ConfigManager.DEFAULT_SITE, "_sync_updated_at": ""},
+                f"sites[{index}]",
+            )
+        )
     devices = config.get("x3_devices", [])
     if isinstance(devices, list):
         for index, device in enumerate(devices):
-            issues.extend(_shape_issues(device, {"name": "", "ip": "", "id": "", "alias_ids": []}, f"x3_devices[{index}]"))
+            issues.extend(
+                _shape_issues(
+                    device,
+                    {"name": "", "ip": "", "id": "", "alias_ids": []},
+                    f"x3_devices[{index}]",
+                )
+            )
     for section in ("portable_data", "backup_sync"):
         data = config.get(section)
         if isinstance(data, dict) and "deleted_sites" in data:
             deleted = data["deleted_sites"]
             if not isinstance(deleted, list):
-                issues.append(ValidationIssue(f"{section}.deleted_sites", "type", f"{section}.deleted_sites: expected list"))
+                issues.append(
+                    ValidationIssue(
+                        f"{section}.deleted_sites",
+                        "type",
+                        f"{section}.deleted_sites: expected list",
+                    )
+                )
             else:
                 for index, item in enumerate(deleted):
-                    issues.extend(_shape_issues(item, {"url": "", "deleted_at": ""}, f"{section}.deleted_sites[{index}]"))
-    string_lists = [("x3_primary_device_alias_ids", config.get("x3_primary_device_alias_ids", []))]
+                    issues.extend(
+                        _shape_issues(
+                            item,
+                            {"url": "", "deleted_at": ""},
+                            f"{section}.deleted_sites[{index}]",
+                        )
+                    )
+    string_lists = [
+        ("x3_primary_device_alias_ids", config.get("x3_primary_device_alias_ids", []))
+    ]
     watch = config.get("calibre_watch")
     if isinstance(watch, dict):
-        string_lists.append(("calibre_watch.pending_files", watch.get("pending_files", [])))
+        string_lists.append(
+            ("calibre_watch.pending_files", watch.get("pending_files", []))
+        )
         jobs = watch.get("pending_jobs", {})
         if isinstance(jobs, dict):
             from websync.watch.retry import valid_pending_job
+
             for path, state in jobs.items():
                 if not isinstance(path, str) or not valid_pending_job(state):
                     field = f"calibre_watch.pending_jobs[{path!r}]"
-                    issues.append(ValidationIssue(field, "type", f"{field}: invalid pending job"))
+                    issues.append(
+                        ValidationIssue(field, "type", f"{field}: invalid pending job")
+                    )
     if isinstance(devices, list):
         for index, device in enumerate(devices):
             if isinstance(device, dict):
-                string_lists.append((f"x3_devices[{index}].alias_ids", device.get("alias_ids", [])))
+                string_lists.append(
+                    (f"x3_devices[{index}].alias_ids", device.get("alias_ids", []))
+                )
     for field, items in string_lists:
         if isinstance(items, list):
             for index, item in enumerate(items):
                 if not isinstance(item, str):
                     path = f"{field}[{index}]"
-                    issues.append(ValidationIssue(path, "type", f"{path}: expected str"))
+                    issues.append(
+                        ValidationIssue(path, "type", f"{path}: expected str")
+                    )
     return issues
 
 
 def validate_site_issues(site: object) -> list[ValidationIssue]:
     from websync.config.manager import ConfigManager
+
     issues = _shape_issues(site, {**ConfigManager.DEFAULT_SITE, "_sync_updated_at": ""})
     if issues:
         return issues
@@ -112,9 +158,12 @@ def validate_site_issues(site: object) -> list[ValidationIssue]:
     from urllib.parse import urlsplit
 
     from websync.scrapers.types import SCRAPER_TYPES
+
     issues = []
+
     def add(field: str, message: str) -> None:
         issues.append(ValidationIssue(field, "invalid_value", message))
+
     if not site.get("name", "").strip():
         add("name", t("validator.site_name_empty"))
     url = site.get("url", "").strip()
@@ -137,7 +186,13 @@ def validate_site_issues(site: object) -> list[ValidationIssue]:
     if site_type == "css":
         if not site.get("item_selector", "").strip():
             add("item_selector", t("validator.css_item_required"))
-        for key in ("item_selector", "title_selector", "content_selector", "link_selector", "remove_selectors"):
+        for key in (
+            "item_selector",
+            "title_selector",
+            "content_selector",
+            "link_selector",
+            "remove_selectors",
+        ):
             selector = site.get(key, "").strip()
             if selector:
                 error = _css_selector_syntax_error(selector)
@@ -156,11 +211,22 @@ def validate_config_issues(config: object) -> list[ValidationIssue]:
         if key == "sites":
             for index, site in enumerate(value):
                 for issue in validate_site_issues(site):
-                    issues.append(ValidationIssue(f"sites[{index}].{issue.field}", issue.code, issue.message, "warning"))
+                    issues.append(
+                        ValidationIssue(
+                            f"sites[{index}].{issue.field}",
+                            issue.code,
+                            issue.message,
+                            "warning",
+                        )
+                    )
         else:
             for message in _validate_config_values({key: value, "sites": []}):
-                field = f"{key}.port" if key in ("opds_server", "web_dashboard") else key
-                issues.append(ValidationIssue(field, "invalid_value", message, "warning"))
+                field = (
+                    f"{key}.port" if key in ("opds_server", "web_dashboard") else key
+                )
+                issues.append(
+                    ValidationIssue(field, "invalid_value", message, "warning")
+                )
     return issues
 
 
@@ -191,19 +257,23 @@ def _validate_config_values(config: dict) -> list[str]:
             try:
                 port_int = int(port)
                 if not (1024 <= port_int <= 65535):
-                    errors.append(t(
-                        "validator.port_range",
+                    errors.append(
+                        t(
+                            "validator.port_range",
+                            section=section_key,
+                            port_key=port_key,
+                            port=port,
+                        )
+                    )
+            except (ValueError, TypeError):
+                errors.append(
+                    t(
+                        "validator.port_not_int",
                         section=section_key,
                         port_key=port_key,
                         port=port,
-                    ))
-            except (ValueError, TypeError):
-                errors.append(t(
-                    "validator.port_not_int",
-                    section=section_key,
-                    port_key=port_key,
-                    port=port,
-                ))
+                    )
+                )
 
     # font_size 범위
     font_size = config.get("font_size")
@@ -237,7 +307,11 @@ def _validate_config_values(config: dict) -> list[str]:
         errors.append(t("validator.theme", themes=valid_themes, value=theme))
 
     ui_language = config.get("ui_language")
-    if ui_language is not None and str(ui_language).strip().lower() not in ("auto", "ko", "en"):
+    if ui_language is not None and str(ui_language).strip().lower() not in (
+        "auto",
+        "ko",
+        "en",
+    ):
         errors.append(t("validator.ui_language", value=ui_language))
 
     # 사이트 검증

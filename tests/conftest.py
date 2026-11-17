@@ -21,12 +21,17 @@ STORAGE_GUARD = install_storage_guard(ROOT)
 _SESSION_SANDBOX = tempfile.TemporaryDirectory(prefix="websync-pytest-")
 _SANDBOX_ROOT = Path(_SESSION_SANDBOX.name)
 # Child Python processes import a copy, whose default storage root is temporary.
-shutil.copytree(Path(ROOT) / "websync", _SANDBOX_ROOT / "websync",
-                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+shutil.copytree(
+    Path(ROOT) / "websync",
+    _SANDBOX_ROOT / "websync",
+    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+)
 shutil.copy2(Path(__file__).with_name("storage_sandbox.py"), _SANDBOX_ROOT)
 (_SANDBOX_ROOT / "sitecustomize.py").write_text(
     "from storage_sandbox import install_storage_guard\n"
-    f"install_storage_guard({ROOT!r})\n", encoding="utf-8")
+    f"install_storage_guard({ROOT!r})\n",
+    encoding="utf-8",
+)
 _COLLECTION_STORAGE = _SANDBOX_ROOT / "collection-storage"
 _COLLECTION_STORAGE.mkdir()
 os.environ["X3_WEBSYNC_STORAGE_ROOT"] = str(_COLLECTION_STORAGE)
@@ -73,7 +78,9 @@ def isolated_storage(tmp_path, monkeypatch):
     monkeypatch.setattr(SyncService, "_pipeline_lock", threading.Lock())
     # The updater captures its root in a function default at import time.
     defaults = UpdateService.__init__.__defaults__
-    monkeypatch.setattr(UpdateService.__init__, "__defaults__", (*defaults[:-1], str(tmp_path)))
+    monkeypatch.setattr(
+        UpdateService.__init__, "__defaults__", (*defaults[:-1], str(tmp_path))
+    )
     logger = logger_module._app_logger
     if logger is not None:
         for handler in list(logger.handlers):
@@ -86,7 +93,9 @@ def isolated_storage(tmp_path, monkeypatch):
     for filename in ("x3_websync.py", "x3_websync.spec"):
         shutil.copy2(Path(ROOT) / filename, tmp_path / filename)
     monkeypatch.chdir(tmp_path)
-    python_path = os.pathsep.join((str(_SANDBOX_ROOT), ROOT, os.environ.get("PYTHONPATH", "")))
+    python_path = os.pathsep.join(
+        (str(_SANDBOX_ROOT), ROOT, os.environ.get("PYTHONPATH", ""))
+    )
     monkeypatch.setenv("PYTHONPATH", python_path)
     monkeypatch.setenv("X3_WEBSYNC_STORAGE_ROOT", str(tmp_path))
     before = len(STORAGE_GUARD.violations)
@@ -97,7 +106,9 @@ def isolated_storage(tmp_path, monkeypatch):
         for handler in list(logger.handlers):
             logger.removeHandler(handler)
             handler.close()
-    assert STORAGE_GUARD.violations[before:] == [], "\n".join(STORAGE_GUARD.violations[before:])
+    assert STORAGE_GUARD.violations[before:] == [], "\n".join(
+        STORAGE_GUARD.violations[before:]
+    )
 
 
 def pytest_sessionfinish(session, exitstatus):

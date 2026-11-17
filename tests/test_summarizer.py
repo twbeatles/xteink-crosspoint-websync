@@ -6,7 +6,9 @@ from websync.pipeline.summarizer import Summarizer
 
 
 def _config(enabled=True):
-    return {"ai_summary": {"enabled": enabled, "provider": "openai", "api_key": "test-key"}}
+    return {
+        "ai_summary": {"enabled": enabled, "provider": "openai", "api_key": "test-key"}
+    }
 
 
 def test_summarizer_unavailable_when_disabled():
@@ -24,7 +26,9 @@ def test_call_openai_malformed_no_choices():
 
 def test_call_openai_empty_content():
     s = Summarizer(_config())
-    fake_resp = BytesIO(json.dumps({"choices": [{"message": {"content": ""}}]}).encode())
+    fake_resp = BytesIO(
+        json.dumps({"choices": [{"message": {"content": ""}}]}).encode()
+    )
 
     with patch("urllib.request.urlopen", return_value=fake_resp):
         assert s._call_openai("prompt") == ""
@@ -32,7 +36,9 @@ def test_call_openai_empty_content():
 
 def test_call_openai_valid_response():
     s = Summarizer(_config())
-    fake_resp = BytesIO(json.dumps({"choices": [{"message": {"content": "요약문입니다."}}]}).encode())
+    fake_resp = BytesIO(
+        json.dumps({"choices": [{"message": {"content": "요약문입니다."}}]}).encode()
+    )
 
     with patch("urllib.request.urlopen", return_value=fake_resp):
         result = s._call_openai("prompt")
@@ -41,6 +47,7 @@ def test_call_openai_valid_response():
 
 
 # --- N8: logger 주입 테스트 ---
+
 
 def test_summarizer_uses_logger_when_provided():
     """logger 주입 시 API 호출 실패를 logger.warning 으로 출력."""

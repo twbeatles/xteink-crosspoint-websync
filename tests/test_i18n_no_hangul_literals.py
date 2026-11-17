@@ -1,4 +1,5 @@
 """사용자 대면 한글 리터럴이 카탈로그 밖으로 되돌아가지 않는지 가드."""
+
 from __future__ import annotations
 
 import ast
@@ -39,7 +40,9 @@ def _iter_py_literals():
         docstring_ids: set[int] = set()
         fstring_const_ids: set[int] = set()
         for node in ast.walk(tree):
-            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if isinstance(
+                node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+            ):
                 if (
                     node.body
                     and isinstance(node.body[0], ast.Expr)
@@ -75,7 +78,9 @@ def test_no_unexpected_hangul_string_literals():
         for rel, lineno, text in _iter_py_literals()
         if rel not in _ALLOW_FILES
     ]
-    assert offenders == [], "Move user-facing Korean strings into i18n catalogs:\n" + "\n".join(offenders)
+    assert offenders == [], (
+        "Move user-facing Korean strings into i18n catalogs:\n" + "\n".join(offenders)
+    )
 
 
 def test_html_templates_have_no_raw_hangul():
@@ -87,4 +92,6 @@ def test_html_templates_have_no_raw_hangul():
                 continue
             if _has_hangul(line):
                 bad.append(f"{path.name}:{i}: {line.strip()[:80]}")
-    assert bad == [], "Replace leftover Korean in HTML with {{i18n.key}}:\n" + "\n".join(bad)
+    assert bad == [], (
+        "Replace leftover Korean in HTML with {{i18n.key}}:\n" + "\n".join(bad)
+    )

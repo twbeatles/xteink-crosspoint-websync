@@ -166,6 +166,7 @@ def test_backup_push_pull_roundtrip():
         # Windows SQLite 잠금 — 실패해도 테스트 본문은 이미 검증됨
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except Exception:
             pass
@@ -192,6 +193,7 @@ def test_backup_disabled_skips():
     finally:
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except Exception:
             pass
@@ -224,6 +226,7 @@ def test_backup_push_respects_auto_export():
     finally:
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except Exception:
             pass
@@ -245,7 +248,9 @@ def test_backup_push_refuses_to_overwrite_corrupt_shared_json():
         cm = ConfigManager(os.path.join(tmp, "config.json"))
         cfg = cm.load_config()
         cfg["backup_sync"] = {
-            "enabled": True, "folder": cloud, "include_history": True,
+            "enabled": True,
+            "folder": cloud,
+            "include_history": True,
             "auto_export": True,
         }
         cm.save_config(cfg)
@@ -258,7 +263,9 @@ def test_backup_push_refuses_to_overwrite_corrupt_shared_json():
 
 
 @pytest.mark.parametrize("failed_step", ["import_deleted_posts", "import_posts_union"])
-def test_backup_push_keeps_shared_files_when_history_merge_fails(tmp_path, monkeypatch, failed_step):
+def test_backup_push_keeps_shared_files_when_history_merge_fails(
+    tmp_path, monkeypatch, failed_step
+):
     cloud = tmp_path / "cloud"
     cloud.mkdir()
     sites_path = cloud / SITES_FILENAME
@@ -266,24 +273,34 @@ def test_backup_push_keeps_shared_files_when_history_merge_fails(tmp_path, monke
     manifest_path = cloud / "manifest.json"
     sites_path.write_text(json.dumps(build_sites_payload([])), encoding="utf-8")
     remote_post = {
-        "url": "https://remote.example/1", "device_ip": "dev_remote",
-        "site_name": "Remote", "title": "remote", "synced_at": "2026-09-01T00:00:00Z",
+        "url": "https://remote.example/1",
+        "device_ip": "dev_remote",
+        "site_name": "Remote",
+        "title": "remote",
+        "synced_at": "2026-09-01T00:00:00Z",
     }
     remote_tombstone = {
-        "url": "https://remote.example/deleted", "device_ip": "dev_remote",
+        "url": "https://remote.example/deleted",
+        "device_ip": "dev_remote",
         "deleted_at": "2026-09-02T00:00:00Z",
     }
     history_path.write_text(
-        json.dumps(build_history_payload([remote_post], deleted_posts=[remote_tombstone])),
+        json.dumps(
+            build_history_payload([remote_post], deleted_posts=[remote_tombstone])
+        ),
         encoding="utf-8",
     )
     manifest_path.write_text('{"previous": true}', encoding="utf-8")
-    before = {path: path.read_bytes() for path in (sites_path, history_path, manifest_path)}
+    before = {
+        path: path.read_bytes() for path in (sites_path, history_path, manifest_path)
+    }
 
     cm = ConfigManager(str(tmp_path / "config.json"))
     cfg = cm.load_config()
     cfg["backup_sync"] = {
-        "enabled": True, "folder": str(cloud), "include_history": True,
+        "enabled": True,
+        "folder": str(cloud),
+        "include_history": True,
         "auto_export": True,
     }
     cm.save_config(cfg)
@@ -292,8 +309,10 @@ def test_backup_push_keeps_shared_files_when_history_merge_fails(tmp_path, monke
     svc = BackupSyncService(cm, db)
 
     with monkeypatch.context() as patcher:
+
         def fail(_entries):
             raise SyncHistoryDbError("simulated SQLite failure")
+
         patcher.setattr(db, failed_step, fail)
         result = svc.push(force=True)
 
@@ -306,7 +325,8 @@ def test_backup_push_keeps_shared_files_when_history_merge_fails(tmp_path, monke
     assert retry["ok"] is True
     payload = json.loads(history_path.read_text(encoding="utf-8"))
     assert {post["url"] for post in payload["posts"]} == {
-        remote_post["url"], "https://local.example/1",
+        remote_post["url"],
+        "https://local.example/1",
     }
     assert payload["deleted_posts"] == [remote_tombstone]
 
@@ -315,7 +335,9 @@ def test_manual_backup_does_not_push_after_failed_pull(tmp_path, monkeypatch):
     cm = ConfigManager(str(tmp_path / "config.json"))
     db = SyncHistoryDb(str(tmp_path / "history.db"))
     svc = BackupSyncService(cm, db)
-    monkeypatch.setattr(svc, "_pull_unlocked", lambda **_: {"ok": False, "message": "pull failed"})
+    monkeypatch.setattr(
+        svc, "_pull_unlocked", lambda **_: {"ok": False, "message": "pull failed"}
+    )
 
     def unexpected_push(**_):
         raise AssertionError("push must not run after a failed pull")
@@ -334,7 +356,9 @@ def test_concurrent_backup_pushes_preserve_both_devices_history(tmp_path):
         cm = ConfigManager(str(tmp_path / f"{name}.json"))
         cfg = cm.load_config()
         cfg["backup_sync"] = {
-            "enabled": True, "folder": str(cloud), "include_history": True,
+            "enabled": True,
+            "folder": str(cloud),
+            "include_history": True,
             "auto_export": True,
         }
         cm.save_config(cfg)
@@ -360,7 +384,8 @@ def test_concurrent_backup_pushes_preserve_both_devices_history(tmp_path):
     assert len(results) == 2 and all(result["ok"] for result in results)
     payload = json.loads((cloud / HISTORY_FILENAME).read_text(encoding="utf-8"))
     assert {post["url"] for post in payload["posts"]} == {
-        "https://one.example/1", "https://two.example/1",
+        "https://one.example/1",
+        "https://two.example/1",
     }
 
 
@@ -372,7 +397,9 @@ def test_backup_push_reports_partial_write_and_retries(tmp_path, monkeypatch):
     cm = ConfigManager(str(tmp_path / "config.json"))
     cfg = cm.load_config()
     cfg["backup_sync"] = {
-        "enabled": True, "folder": str(cloud), "include_history": True,
+        "enabled": True,
+        "folder": str(cloud),
+        "include_history": True,
         "auto_export": True,
     }
     cm.save_config(cfg)
@@ -411,7 +438,8 @@ def test_backup_push_reports_partial_write_and_retries(tmp_path, monkeypatch):
     assert retried["manifest_written"] is True
     payload = json.loads(history_path.read_text(encoding="utf-8"))
     assert {post["url"] for post in payload["posts"]} == {
-        "https://example.com/first", "https://example.com/second",
+        "https://example.com/first",
+        "https://example.com/second",
     }
 
 
@@ -442,6 +470,7 @@ def test_backup_pull_retries_when_folder_locked():
             released["ok"] = True
 
         import threading
+
         t = threading.Thread(target=_release_soon)
         t.start()
         result = svc.pull(force=True)
@@ -452,6 +481,7 @@ def test_backup_pull_retries_when_folder_locked():
     finally:
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except Exception:
             pass
@@ -459,7 +489,15 @@ def test_backup_pull_retries_when_folder_locked():
 
 def test_history_payload_helpers():
     payload = build_history_payload(
-        [{"url": "u", "device_ip": "1.1.1.1", "site_name": "s", "title": "t", "synced_at": "2026-01-01 00:00:00"}]
+        [
+            {
+                "url": "u",
+                "device_ip": "1.1.1.1",
+                "site_name": "s",
+                "title": "t",
+                "synced_at": "2026-01-01 00:00:00",
+            }
+        ]
     )
     assert payload["kind"] == "synced_posts"
     assert payload["export_version"] == 2
@@ -521,6 +559,7 @@ def test_backup_propagates_history_deletion_without_resurrection():
         _cleanup_objs(svc2, svc1, db2, db1, cm2, cm1)
     finally:
         import shutil
+
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -538,7 +577,9 @@ def test_backup_propagates_site_tombstone_without_resurrection():
             cfg = cm.load_config()
             cfg["sites"] = []
             cfg["backup_sync"] = {
-                "enabled": True, "folder": cloud, "include_history": False,
+                "enabled": True,
+                "folder": cloud,
+                "include_history": False,
                 "auto_export": True,
             }
             cm.save_config(cfg)
@@ -549,10 +590,14 @@ def test_backup_propagates_site_tombstone_without_resurrection():
         cm2, db2, svc2 = make_service("site-two")
         url = "https://feed.example/rss"
         cfg1 = cm1.load_config()
-        cfg1["sites"] = [{
-            "name": "Shared", "type": "rss", "url": url,
-            "_sync_updated_at": "2026-01-01T00:00:00",
-        }]
+        cfg1["sites"] = [
+            {
+                "name": "Shared",
+                "type": "rss",
+                "url": url,
+                "_sync_updated_at": "2026-01-01T00:00:00",
+            }
+        ]
         cm1.save_config(cfg1)
         assert svc1.push(force=True)["ok"]
         assert svc2.pull(force=True)["ok"]
@@ -576,4 +621,5 @@ def test_backup_propagates_site_tombstone_without_resurrection():
         _cleanup_objs(svc2, svc1, db2, db1, cm2, cm1)
     finally:
         import shutil
+
         shutil.rmtree(tmp, ignore_errors=True)

@@ -1,4 +1,5 @@
 """i18n 코어: 감지, 카탈로그 조회, 폴백."""
+
 from __future__ import annotations
 
 from websync.i18n import (

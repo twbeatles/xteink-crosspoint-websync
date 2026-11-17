@@ -3,6 +3,7 @@
 Only metadata is read. No config/DB contents, credentials or article text is read.
 No retention policy is applied: replicas and tombstones must not be pruned blindly.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,10 +15,16 @@ def storage_report(root: Path) -> dict:
     root = root.resolve(strict=True)
     if not root.is_dir():
         raise ValueError("Storage root must be a directory")
-    groups = {name: {"files": 0, "bytes": 0} for name in ("epubs", "logs", "replicas", "history")}
+    groups = {
+        name: {"files": 0, "bytes": 0}
+        for name in ("epubs", "logs", "replicas", "history")
+    }
     errors = 0
-    for folder, group in ((root / "output", "epubs"), (root / "logs", "logs"),
-                          (root / ".websync-replicas", "replicas")):
+    for folder, group in (
+        (root / "output", "epubs"),
+        (root / "logs", "logs"),
+        (root / ".websync-replicas", "replicas"),
+    ):
         if folder.is_symlink():
             continue
         try:
@@ -46,7 +53,12 @@ def storage_report(root: Path) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, required=True, help="Application folder or shared folder to inspect")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        required=True,
+        help="Application folder or shared folder to inspect",
+    )
     args = parser.parse_args()
     try:
         print(json.dumps(storage_report(args.root), indent=2))

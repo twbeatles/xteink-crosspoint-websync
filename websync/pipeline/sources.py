@@ -3,6 +3,7 @@
 Identity follows the configured feed URL, so renaming a source preserves it.
 Preview metadata is advisory: translation options always come from current config.
 """
+
 from __future__ import annotations
 
 import copy
@@ -17,11 +18,16 @@ def source_id(site: dict) -> str:
 
 
 def source_metadata(site: dict) -> dict:
-    return {"source_id": source_id(site), "source_url": site.get("url", ""),
-            "site_name": site.get("name", "")}
+    return {
+        "source_id": source_id(site),
+        "source_url": site.get("url", ""),
+        "site_name": site.get("name", ""),
+    }
 
 
-def selected_source_groups(articles: list[dict], sites: list[dict], fallback: str) -> tuple[dict, dict]:
+def selected_source_groups(
+    articles: list[dict], sites: list[dict], fallback: str
+) -> tuple[dict, dict]:
     """Return independent article copies grouped by identity and current source options.
 
     Old callers that supply only a name remain supported when unambiguous.
@@ -37,9 +43,12 @@ def selected_source_groups(articles: list[dict], sites: list[dict], fallback: st
         identity = art.get("source_id")
         url = art.get("source_url")
         if identity or url:
-            matches = [site for site in sites if
-                       (not identity or source_id(site) == identity) and
-                       (not url or site.get("url") == url)]
+            matches = [
+                site
+                for site in sites
+                if (not identity or source_id(site) == identity)
+                and (not url or site.get("url") == url)
+            ]
         else:
             matches = [site for site in sites if site.get("name") == name]
             if len(matches) > 1:

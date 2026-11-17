@@ -4,6 +4,7 @@ Each case asserts: uploader returns False (never True on failure),
 the failing host is recorded in last_errors without touching the peer's
 success, and the 200-without-commit lie is surfaced by listing check.
 """
+
 from __future__ import annotations
 
 import os as _os
@@ -62,7 +63,9 @@ def test_uploader_reports_200_without_commit_as_suspect(server, tmp_path):
 def test_connection_refused_and_dns_are_failure_not_success(tmp_path):
     up = X3Uploader("127.0.0.1", devices=[{"name": "dead", "ip": "127.0.0.1"}])
     # port 1 is (practically) always refused on loopback
-    assert up._upload_to_ip(str(tmp_path / "x.epub"), "127.0.0.1:1", "x.epub", 2) is False
+    assert (
+        up._upload_to_ip(str(tmp_path / "x.epub"), "127.0.0.1:1", "x.epub", 2) is False
+    )
     assert "127.0.0.1:1" in up.last_errors
     client = X3DeviceClient("nonexistent.invalid")
     with pytest.raises(DeviceClientError):
@@ -88,10 +91,13 @@ def test_zero_byte_and_large_upload_roundtrip(server, tmp_path):
 
 
 def test_duplicate_registration_same_reader_ip_and_hostname(tmp_path):
-    up = X3Uploader("127.0.0.1", devices=[
-        {"name": "same", "ip": "127.0.0.1"},
-        {"name": "other", "ip": "127.0.0.2"},
-    ])
+    up = X3Uploader(
+        "127.0.0.1",
+        devices=[
+            {"name": "same", "ip": "127.0.0.1"},
+            {"name": "other", "ip": "127.0.0.2"},
+        ],
+    )
     ips = [t["ip"] for t in up._build_target_list()]
     assert ips.count("127.0.0.1") == 1
     assert "127.0.0.2" in ips

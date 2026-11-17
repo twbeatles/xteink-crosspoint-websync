@@ -1,4 +1,5 @@
 """External settings are rejected before any persistent state can change."""
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,30 +24,61 @@ def manager(tmp_path):
 
 
 def snapshots(cm):
-    return {suffix: Path(cm.config_path + suffix).read_bytes() for suffix in ("", ".bak")}
+    return {
+        suffix: Path(cm.config_path + suffix).read_bytes() for suffix in ("", ".bak")
+    }
 
 
-@pytest.mark.parametrize("bad", [None, [], 3, {"name": None, "url": "https://a", "type": "rss"},
-    {"name": "bad", "url": ["https://a"], "type": "rss"},
-    {"name": "bad", "url": "https://a", "type": "rss", "enabled": "false"},
-    {"name": "bad", "url": "https://a", "type": "rss", "limit": 0},
-    {"name": "bad", "url": "https://", "type": "rss"},
-    {"name": "bad", "url": "https://a", "type": "css", "item_selector": "[[["}])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        None,
+        [],
+        3,
+        {"name": None, "url": "https://a", "type": "rss"},
+        {"name": "bad", "url": ["https://a"], "type": "rss"},
+        {"name": "bad", "url": "https://a", "type": "rss", "enabled": "false"},
+        {"name": "bad", "url": "https://a", "type": "rss", "limit": 0},
+        {"name": "bad", "url": "https://", "type": "rss"},
+        {"name": "bad", "url": "https://a", "type": "css", "item_selector": "[[["},
+    ],
+)
 def test_import_rejection_is_all_or_nothing(tmp_path, bad):
     cm = manager(tmp_path)
     before = snapshots(cm)
     source = tmp_path / "import.json"
-    source.write_text(json.dumps({"sites": [{"name": "valid", "url": "https://valid", "type": "rss"}, bad]}), encoding="utf-8")
+    source.write_text(
+        json.dumps(
+            {"sites": [{"name": "valid", "url": "https://valid", "type": "rss"}, bad]}
+        ),
+        encoding="utf-8",
+    )
     with pytest.raises(ConfigLoadError):
         cm.import_sites(str(source))
     assert snapshots(cm) == before
     assert cm.load_config()["sites"] == []
 
 
-@pytest.mark.parametrize("patch", [{"sites": None}, {"sites": [None]}, {"sites": [{"_sync_updated_at": 42}]}, {"calibre_watch": {"pending_files": [None]}}, {"x3_devices": [{"alias_ids": [3]}]}, {"opds_server": None},
-    {"font_size": {}}, {"config_version": []}, {"config_version": "3"}, {"_config_revision": "0"}, {"_config_revision": None},
-    {"x3_devices": [3]}, {"portable_data": {"deleted_sites": [None]}},
-    {"line_height": float("nan")}, {"web_dashboard": {"port": float("inf")}}])
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"sites": None},
+        {"sites": [None]},
+        {"sites": [{"_sync_updated_at": 42}]},
+        {"calibre_watch": {"pending_files": [None]}},
+        {"x3_devices": [{"alias_ids": [3]}]},
+        {"opds_server": None},
+        {"font_size": {}},
+        {"config_version": []},
+        {"config_version": "3"},
+        {"_config_revision": "0"},
+        {"_config_revision": None},
+        {"x3_devices": [3]},
+        {"portable_data": {"deleted_sites": [None]}},
+        {"line_height": float("nan")},
+        {"web_dashboard": {"port": float("inf")}},
+    ],
+)
 def test_save_and_rmw_reject_before_mutation(tmp_path, patch):
     cm = manager(tmp_path)
     before = snapshots(cm)
@@ -61,7 +93,16 @@ def test_save_and_rmw_reject_before_mutation(tmp_path, patch):
     assert snapshots(cm) == before
 
 
-@pytest.mark.parametrize("bad", [[], None, {"sites": [{"name": None}]}, {"opds_server": []}, {"config_version": "3"}])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        [],
+        None,
+        {"sites": [{"name": None}]},
+        {"opds_server": []},
+        {"config_version": "3"},
+    ],
+)
 def test_load_rejects_before_normalization_write(tmp_path, bad):
     path = tmp_path / "config.json"
     path.write_text(json.dumps(bad), encoding="utf-8")
@@ -84,7 +125,15 @@ def test_explicit_recovery_preserves_bad_original_and_good_backup(tmp_path):
     assert cm.load_config()["sites"] == []
 
 
-@pytest.mark.parametrize("bad", [{"sites": None}, {"config_version": "3"}, {"calibre_watch": {"pending_files": [None]}}, {"sites": [{"_sync_updated_at": 42}]}])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"sites": None},
+        {"config_version": "3"},
+        {"calibre_watch": {"pending_files": [None]}},
+        {"sites": [{"_sync_updated_at": 42}]},
+    ],
+)
 def test_invalid_recovery_does_not_change_config_or_backup(tmp_path, bad):
     cm = manager(tmp_path)
     before = snapshots(cm)
@@ -117,7 +166,9 @@ def test_structured_validation_has_stable_field_code_and_legacy_strings():
     assert issues[0].field == "sites[0].name"
     assert issues[0].code == "type"
     assert validate_config({"sites": [{"name": None}]}) == [i.message for i in issues]
-    issues = validate_site_issues({"name": "x", "url": "https://a", "type": "rss", "limit": 0})
+    issues = validate_site_issues(
+        {"name": "x", "url": "https://a", "type": "rss", "limit": 0}
+    )
     assert issues[0].field == "limit" and issues[0].code == "invalid_value"
 
 
@@ -129,6 +180,7 @@ def test_legacy_semantic_warning_remains_loadable(tmp_path):
 
 def test_gui_cancel_has_no_recovery_write(monkeypatch):
     from websync.gui import config_recovery
+
     root = Mock()
     monkeypatch.setattr(config_recovery.tk, "Tk", lambda: root)
     monkeypatch.setattr(config_recovery.messagebox, "askyesno", lambda *a, **k: False)
@@ -138,17 +190,32 @@ def test_gui_cancel_has_no_recovery_write(monkeypatch):
     root.destroy.assert_called_once()
 
 
-@pytest.mark.parametrize("source,restore_error,expected", [("chosen.json", None, True), ("", None, False), ("chosen.json", ConfigLoadError("bad source"), False)])
-def test_gui_chosen_recovery_cleans_up_on_every_exit(monkeypatch, source, restore_error, expected):
+@pytest.mark.parametrize(
+    "source,restore_error,expected",
+    [
+        ("chosen.json", None, True),
+        ("", None, False),
+        ("chosen.json", ConfigLoadError("bad source"), False),
+    ],
+)
+def test_gui_chosen_recovery_cleans_up_on_every_exit(
+    monkeypatch, source, restore_error, expected
+):
     from websync.gui import config_recovery
+
     root = Mock()
     monkeypatch.setattr(config_recovery.tk, "Tk", lambda: root)
     monkeypatch.setattr(config_recovery.os.path, "isfile", lambda path: False)
     monkeypatch.setattr(config_recovery.messagebox, "askyesno", lambda *a, **k: True)
     monkeypatch.setattr(config_recovery.messagebox, "showinfo", Mock())
     monkeypatch.setattr(config_recovery.messagebox, "showerror", Mock())
-    monkeypatch.setattr(config_recovery.filedialog, "askopenfilename", lambda **kwargs: source)
-    cm = SimpleNamespace(config_path="unused.json", restore_config=Mock(return_value="preserved.json", side_effect=restore_error))
+    monkeypatch.setattr(
+        config_recovery.filedialog, "askopenfilename", lambda **kwargs: source
+    )
+    cm = SimpleNamespace(
+        config_path="unused.json",
+        restore_config=Mock(return_value="preserved.json", side_effect=restore_error),
+    )
     assert config_recovery.offer_config_recovery(cm, ConfigLoadError("bad")) is expected
     root.destroy.assert_called_once()
     if source:
@@ -160,6 +227,7 @@ def test_gui_chosen_recovery_cleans_up_on_every_exit(monkeypatch, source, restor
 def test_cli_explicit_recovery_and_sync_failure(monkeypatch):
     import x3_websync
     from websync.gui import config_recovery
+
     cm = Mock()
     cm.restore_config.return_value = "rejected.json"
     cm.load_config.side_effect = ConfigLoadError("invalid settings")
@@ -169,7 +237,9 @@ def test_cli_explicit_recovery_and_sync_failure(monkeypatch):
     monkeypatch.setattr(x3_websync, "SyncService", Mock())
     offer = Mock()
     monkeypatch.setattr(config_recovery, "offer_config_recovery", offer)
-    monkeypatch.setattr("sys.argv", ["x3_websync.py", "--recover-config", "backup.json"])
+    monkeypatch.setattr(
+        "sys.argv", ["x3_websync.py", "--recover-config", "backup.json"]
+    )
     with pytest.raises(SystemExit) as outcome:
         x3_websync.main()
     assert outcome.value.code == 0
@@ -188,7 +258,14 @@ def test_recovery_accepts_config_with_only_semantic_warnings(tmp_path):
     cm = manager(tmp_path)
     good = cm.load_config()
     good["web_dashboard"]["port"] = 80
-    good["sites"] = [{"name": "legacy", "type": "css", "url": "https://example.test/", "item_selector": ""}]
+    good["sites"] = [
+        {
+            "name": "legacy",
+            "type": "css",
+            "url": "https://example.test/",
+            "item_selector": "",
+        }
+    ]
     source = tmp_path / "warned.json"
     source.write_text(json.dumps(good, ensure_ascii=False), encoding="utf-8")
     assert validate_config(good)  # semantic warnings exist

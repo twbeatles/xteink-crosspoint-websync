@@ -40,7 +40,6 @@ def get_logger() -> logging.Logger:
     if _logger_initialized and _app_logger is not None:
         return _app_logger
 
-
     log_dir = os.path.join(PROJECT_ROOT, "logs")
     os.makedirs(log_dir, exist_ok=True)
     _log_date = datetime.now().strftime("%Y-%m-%d")
@@ -52,7 +51,11 @@ def get_logger() -> logging.Logger:
         log_dir, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
     )
     fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+    fh.setFormatter(
+        logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        )
+    )
     _log_handler = fh
 
     if sys.stdout and hasattr(sys.stdout, "write"):

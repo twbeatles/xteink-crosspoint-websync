@@ -3,6 +3,7 @@
 mask_secret / redact_config_for_log 의 동작을 검증한다.
 GUI 토글 로직이 mask_secret 에 의존하므로 유틸 자체를 고정한다.
 """
+
 from websync.config.secrets import (
     SECRET_FIELD_PATHS,
     mask_secret,

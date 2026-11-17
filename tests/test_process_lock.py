@@ -66,5 +66,7 @@ def test_is_held_by_other_while_locked():
 
 def test_default_pipeline_lock_lives_under_project_root():
     lock = ProcessFileLock()
-    expected = os.path.normpath(os.path.join(paths.PROJECT_ROOT, DEFAULT_PIPELINE_LOCK_NAME))
+    expected = os.path.normpath(
+        os.path.join(paths.PROJECT_ROOT, DEFAULT_PIPELINE_LOCK_NAME)
+    )
     assert os.path.normpath(lock.lock_path) == expected

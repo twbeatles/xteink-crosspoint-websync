@@ -1,4 +1,5 @@
 """업데이터 헬퍼 프로세스: 스테이징된 바이너리 교체."""
+
 from __future__ import annotations
 
 import os

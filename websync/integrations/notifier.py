@@ -21,15 +21,15 @@ class ToastNotifier:
         icon = "Error" if is_error else "Info"
         ps_script = (
             '[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms"); '
-            '$obj = New-Object System.Windows.Forms.NotifyIcon; '
-            '$obj.Icon = [System.Drawing.SystemIcons]::Information; '
-            '$obj.BalloonTipIcon = $args[2]; '
-            '$obj.BalloonTipTitle = $args[0]; '
-            '$obj.BalloonTipText = $args[1]; '
-            '$obj.Visible = $True; '
-            '$obj.ShowBalloonTip(5000); '
-            'Start-Sleep -Seconds 5; '
-            '$obj.Dispose();'
+            "$obj = New-Object System.Windows.Forms.NotifyIcon; "
+            "$obj.Icon = [System.Drawing.SystemIcons]::Information; "
+            "$obj.BalloonTipIcon = $args[2]; "
+            "$obj.BalloonTipTitle = $args[0]; "
+            "$obj.BalloonTipText = $args[1]; "
+            "$obj.Visible = $True; "
+            "$obj.ShowBalloonTip(5000); "
+            "Start-Sleep -Seconds 5; "
+            "$obj.Dispose();"
         )
         try:
             subprocess.Popen(

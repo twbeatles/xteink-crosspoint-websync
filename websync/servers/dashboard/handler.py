@@ -1,4 +1,5 @@
 """웹 대시보드 HTTP 요청 핸들러."""
+
 from __future__ import annotations
 
 import http.cookies
@@ -93,21 +94,29 @@ class DashboardHandler(GracefulHTTPHandler):
                 log_text = self._ctx.get_log_callback() or ""
             else:
                 from websync.core.paths import PROJECT_ROOT
+
                 log_dir = os.path.join(PROJECT_ROOT, "logs")
                 if os.path.isdir(log_dir):
                     matching_files = [
-                        f for f in os.listdir(log_dir)
+                        f
+                        for f in os.listdir(log_dir)
                         if f.startswith("sync_") and f.endswith(".log")
                     ]
                     if not matching_files:
                         matching_files = os.listdir(log_dir)
                     if matching_files:
                         matching_files.sort(
-                            key=lambda fname: os.path.getmtime(os.path.join(log_dir, fname)),
+                            key=lambda fname: os.path.getmtime(
+                                os.path.join(log_dir, fname)
+                            ),
                             reverse=True,
                         )
                         try:
-                            with open(os.path.join(log_dir, matching_files[0]), "r", encoding="utf-8") as f:
+                            with open(
+                                os.path.join(log_dir, matching_files[0]),
+                                "r",
+                                encoding="utf-8",
+                            ) as f:
                                 lines = f.readlines()
                                 log_text = "".join(lines[-100:])
                         except Exception:
@@ -147,7 +156,9 @@ class DashboardHandler(GracefulHTTPHandler):
                 self._send_json(503, {"error": t("dashboard.no_token")})
                 return
             auth = self.headers.get("Authorization", "")
-            token_ok = auth.startswith("Bearer ") and token_matches(auth[7:].strip(), token)
+            token_ok = auth.startswith("Bearer ") and token_matches(
+                auth[7:].strip(), token
+            )
             if not token_ok:
                 try:
                     body = body_bytes.decode("utf-8") if body_bytes else "{}"
@@ -163,7 +174,11 @@ class DashboardHandler(GracefulHTTPHandler):
                 f"Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_MAX_AGE_SEC}"
             )
             if self._ctx.allow_lan:
-                cookie_flags += "; Secure" if self.headers.get("X-Forwarded-Proto") == "https" else ""
+                cookie_flags += (
+                    "; Secure"
+                    if self.headers.get("X-Forwarded-Proto") == "https"
+                    else ""
+                )
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header(
@@ -180,16 +195,22 @@ class DashboardHandler(GracefulHTTPHandler):
                 return
             busy_cb = self._ctx.pipeline_busy_callback
             if busy_cb and busy_cb():
-                self._send_json(409, {"ok": False, "message": t("dashboard.already_running")})
+                self._send_json(
+                    409, {"ok": False, "message": t("dashboard.already_running")}
+                )
                 return
             sync_cb = self._ctx.sync_callback
             if not sync_cb:
-                self._send_json(503, {"ok": False, "message": t("dashboard.no_sync_cb")})
+                self._send_json(
+                    503, {"ok": False, "message": t("dashboard.no_sync_cb")}
+                )
                 return
 
             # 기동 직전 재확인 (TOCTOU 완화)
             if busy_cb and busy_cb():
-                self._send_json(409, {"ok": False, "message": t("dashboard.already_running")})
+                self._send_json(
+                    409, {"ok": False, "message": t("dashboard.already_running")}
+                )
                 return
 
             # sync_callback 계약:
@@ -230,13 +251,19 @@ class DashboardHandler(GracefulHTTPHandler):
                 return
             cancel_cb = self._ctx.cancel_callback
             if not cancel_cb:
-                self._send_json(503, {"ok": False, "message": t("dashboard.no_cancel_cb")})
+                self._send_json(
+                    503, {"ok": False, "message": t("dashboard.no_cancel_cb")}
+                )
                 return
             try:
                 cancel_cb()
             except Exception as e:
-                self._send_json(500, {"ok": False, "message": t("dashboard.cancel_failed", error=e)})
+                self._send_json(
+                    500, {"ok": False, "message": t("dashboard.cancel_failed", error=e)}
+                )
                 return
-            self._send_json(200, {"ok": True, "message": t("dashboard.cancel_requested")})
+            self._send_json(
+                200, {"ok": True, "message": t("dashboard.cancel_requested")}
+            )
         else:
             self.send_error(404)

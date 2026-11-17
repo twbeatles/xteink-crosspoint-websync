@@ -1,4 +1,5 @@
 """민감 설정 필드 처리 유틸 (마스킹·로그 안전 출력)."""
+
 from __future__ import annotations
 
 from typing import Any

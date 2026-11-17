@@ -1,4 +1,5 @@
 """NaverBlogScraper"""
+
 import re
 from concurrent.futures import ThreadPoolExecutor
 
@@ -17,8 +18,10 @@ from websync.scrapers.naver_common import clean_naver_content
 # 상세 페이지 병렬 수집 워커 수 (N2)
 _DETAIL_MAX_WORKERS = 3
 
+
 class NaverBlogScraper(BaseScraper):
     """네이버 블로그를 iframe 우회 및 RSS 피드를 활용해 깔끔하게 크롤링하는 클래스"""
+
     def __init__(self):
         self.logger = get_logger()
         self.last_fetch_stats: dict = {}
@@ -93,7 +96,11 @@ class NaverBlogScraper(BaseScraper):
                 results = list(
                     executor.map(
                         lambda m: self._fetch_post_detail(
-                            blog_id, m["log_no"], m["title"], m["post_link"], site_config
+                            blog_id,
+                            m["log_no"],
+                            m["title"],
+                            m["post_link"],
+                            site_config,
                         ),
                         post_meta,
                     )
@@ -122,14 +129,24 @@ class NaverBlogScraper(BaseScraper):
         if reason:
             reasons.append(reason)
 
-    def _fetch_post_detail(self, blog_id: str, log_no: str, title: str, post_link: str, site_config: dict):
+    def _fetch_post_detail(
+        self, blog_id: str, log_no: str, title: str, post_link: str, site_config: dict
+    ):
         """단일 포스트 상세 본문 수집. 실패 시 None 반환 (스킵)."""
         try:
             # iframe 우회용 실제 본문 주소 호출
-            post_view_url = f"https://blog.naver.com/PostView.naver?blogId={blog_id}&logNo={log_no}"
+            post_view_url = (
+                f"https://blog.naver.com/PostView.naver?blogId={blog_id}&logNo={log_no}"
+            )
             post_response = fetch_url(post_view_url, timeout=15)
             if post_response.status_code != 200:
-                self.logger.error(t("naver.http_failed", status=post_response.status_code, title=title))
+                self.logger.error(
+                    t(
+                        "naver.http_failed",
+                        status=post_response.status_code,
+                        title=title,
+                    )
+                )
                 return None
 
             # 인코딩 처리
@@ -137,7 +154,9 @@ class NaverBlogScraper(BaseScraper):
             post_soup = BeautifulSoup(post_response.text, "html.parser")
 
             # SmartEditor One 본문 또는 구버전 포스팅 본문 컨테이너 식별
-            content_elem = post_soup.select_one("div.se-main-container") or post_soup.select_one("#postViewArea")
+            content_elem = post_soup.select_one(
+                "div.se-main-container"
+            ) or post_soup.select_one("#postViewArea")
 
             if not content_elem:
                 self.logger.warning(t("naver.no_container", title=title))

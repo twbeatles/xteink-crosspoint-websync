@@ -1,4 +1,5 @@
 """ISSUE-003: preview 취소 계약 회귀 테스트."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -40,9 +41,7 @@ def test_preview_returns_partial_results_when_cancelled():
         {"title": "A1", "url": "https://a.example/1", "content": "<p>a</p>"}
     ]
     scraper_b = MagicMock()
-    with patch(
-        "websync.pipeline.preview.ScraperFactory"
-    ) as mock_factory:
+    with patch("websync.pipeline.preview.ScraperFactory") as mock_factory:
         mock_factory.get_scraper.side_effect = [scraper_a, scraper_b]
         results = preview_articles(svc)
 

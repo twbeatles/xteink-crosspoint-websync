@@ -1,4 +1,5 @@
 """Calibre 서재 폴더 변경 감시 모듈 (watchdog 사용)"""
+
 import os
 import threading
 import time
@@ -23,8 +24,14 @@ def _is_watch_book_file(path: str) -> bool:
 class CalibreWatcher:
     """Calibre 라이브러리 폴더에 새 파일이 추가되면 콜백을 호출하는 감시자"""
 
-    def __init__(self, watch_dir: str, on_new_file: Callable[[str], None], debounce_sec: float = DEBOUNCE_SECONDS,
-                 *, on_pending_file: Callable[[str], None] | None = None):
+    def __init__(
+        self,
+        watch_dir: str,
+        on_new_file: Callable[[str], None],
+        debounce_sec: float = DEBOUNCE_SECONDS,
+        *,
+        on_pending_file: Callable[[str], None] | None = None,
+    ):
         self.watch_dir = watch_dir
         self.on_new_file = on_new_file
         self.on_pending_file = on_pending_file
@@ -46,7 +53,9 @@ class CalibreWatcher:
             self._stability_retries[fpath] = 0
             if self._debounce_timer:
                 self._debounce_timer.cancel()
-            self._debounce_timer = threading.Timer(self.debounce_sec, self._flush_pending)
+            self._debounce_timer = threading.Timer(
+                self.debounce_sec, self._flush_pending
+            )
             self._debounce_timer.daemon = True
             self._debounce_timer.start()
 
@@ -77,7 +86,11 @@ class CalibreWatcher:
             if self._stopped.is_set():
                 return
             now = time.time()
-            candidates = [path for path, ts in self._pending.items() if now - ts >= self.debounce_sec]
+            candidates = [
+                path
+                for path, ts in self._pending.items()
+                if now - ts >= self.debounce_sec
+            ]
             for path in candidates:
                 del self._pending[path]
             self._checking.update(candidates)
@@ -111,7 +124,9 @@ class CalibreWatcher:
                 if self._pending:
                     if self._debounce_timer:
                         self._debounce_timer.cancel()
-                    self._debounce_timer = threading.Timer(self.debounce_sec, self._flush_pending)
+                    self._debounce_timer = threading.Timer(
+                        self.debounce_sec, self._flush_pending
+                    )
                     self._debounce_timer.daemon = True
                     self._debounce_timer.start()
         finally:

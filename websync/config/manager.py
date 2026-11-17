@@ -26,9 +26,8 @@ from websync.i18n import t
 
 
 class ConfigManager:
-
-
     """설정 파일(config.json)의 로드 및 저장을 전담하는 클래스"""
+
     _lock = threading.Lock()
 
     DEFAULT_SITE = {
@@ -90,39 +89,35 @@ class ConfigManager:
                 "enabled": False,
                 "include_images": False,
                 "translate_to": "",
-            }
+            },
         ],
-        "schedule": {
-            "enabled": False,
-            "hour": "07",
-            "minute": "00"
-        },
+        "schedule": {"enabled": False, "hour": "07", "minute": "00"},
         "ai_summary": {
             "enabled": False,
             "provider": "openai",
             "api_key": "",
             "model": "gpt-4o-mini",
-            "ollama_host": "http://localhost:11434"
+            "ollama_host": "http://localhost:11434",
         },
         "translation": {
             "enabled": False,
             "provider": "googletrans",
             "libretranslate_host": "http://localhost:5000",
-            "libretranslate_api_key": ""
+            "libretranslate_api_key": "",
         },
         "opds_server": {
             "enabled": False,
             "port": 8765,
             "bind_host": "127.0.0.1",
             "allow_lan": False,
-            "api_key": ""
+            "api_key": "",
         },
         "web_dashboard": {
             "enabled": False,
             "port": 8766,
             "bind_host": "127.0.0.1",
             "allow_lan": False,
-            "api_token": ""
+            "api_token": "",
         },
         "calibre_watch": {
             "enabled": False,
@@ -134,7 +129,7 @@ class ConfigManager:
             "default_browse_path": "/",
             "default_upload_path": "/",
             "cleanup_older_days": 14,
-            "warn_overwrite": True
+            "warn_overwrite": True,
         },
         # 공유 데이터 폴더 (OneDrive 등) — 사이트·이력 정본
         "portable_data": {
@@ -169,7 +164,6 @@ class ConfigManager:
         "_config_revision": 0,
     }
 
-
     def __init__(self, config_path: str | None = None):
         if config_path is None:
             self.config_path = os.path.join(PROJECT_ROOT, "config.json")
@@ -200,11 +194,16 @@ class ConfigManager:
                 try:
                     with open(self.config_path, "r", encoding="utf-8") as handle:
                         current = json.load(handle)
-                    if isinstance(current, dict) and type(current.get("_config_revision")) is int:
+                    if (
+                        isinstance(current, dict)
+                        and type(current.get("_config_revision")) is int
+                    ):
                         disk_revision = current["_config_revision"]
                 except (OSError, ValueError):
                     pass  # The rejected file can be unreadable; preserve it below.
-                candidate["_config_revision"] = max(disk_revision, candidate.get("_config_revision", 0)) + 1
+                candidate["_config_revision"] = (
+                    max(disk_revision, candidate.get("_config_revision", 0)) + 1
+                )
                 preserved = None
                 if os.path.exists(self.config_path):
                     preserved = f"{self.config_path}.rejected.{uuid.uuid4().hex}.json"
@@ -213,7 +212,13 @@ class ConfigManager:
                 tmp = f"{self.config_path}.{uuid.uuid4().hex}.recovery.tmp"
                 try:
                     with open(tmp, "w", encoding="utf-8") as handle:
-                        json.dump(candidate, handle, ensure_ascii=False, indent=4, allow_nan=False)
+                        json.dump(
+                            candidate,
+                            handle,
+                            ensure_ascii=False,
+                            indent=4,
+                            allow_nan=False,
+                        )
                         handle.flush()
                         os.fsync(handle.fileno())
                     os.replace(tmp, self.config_path)
@@ -425,6 +430,7 @@ class ConfigManager:
 
     def patch_fields(self, **fields) -> dict:
         """디스크 최신본에 최상위 필드만 덮어씁니다 (사이트 목록 등 다른 키 보존)."""
+
         def mutate(cfg: dict) -> None:
             for key, value in fields.items():
                 cfg[key] = value
@@ -482,11 +488,13 @@ class ConfigManager:
         cfg = config or self.load_config()
         return resolve_path(cfg.get("output_dir", "./output"))
 
-    def export_sites(self, file_path: str, site_indices: list[int] | None = None) -> None:
+    def export_sites(
+        self, file_path: str, site_indices: list[int] | None = None
+    ) -> None:
         """선택된 인덱스의 사이트 설정을 JSON 파일로 내보냅니다."""
         config = self.load_config()
         sites = config.get("sites", [])
-        
+
         if site_indices is not None:
             exported_sites = [sites[i] for i in site_indices if 0 <= i < len(sites)]
         else:
@@ -494,10 +502,12 @@ class ConfigManager:
 
         export_data = {
             "export_version": 1,
-            "exported_at": datetime.now().isoformat() if hasattr(datetime, "now") else str(time.time()),
-            "sites": exported_sites
+            "exported_at": datetime.now().isoformat()
+            if hasattr(datetime, "now")
+            else str(time.time()),
+            "sites": exported_sites,
         }
-        
+
         try:
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(export_data, f, ensure_ascii=False, indent=4)
@@ -527,10 +537,13 @@ class ConfigManager:
         for index, site in enumerate(imported_sites):
             issues = validate_site_issues(site)
             if issues:
-                raise ConfigLoadError("\n".join(f"sites[{index}].{i.field}: {i.message}" for i in issues))
+                raise ConfigLoadError(
+                    "\n".join(f"sites[{index}].{i.field}: {i.message}" for i in issues)
+                )
 
         prepared: list[dict] = []
         from websync.backup.format import now_iso
+
         for site in imported_sites:
             if not isinstance(site, dict):
                 continue
@@ -568,16 +581,17 @@ class ConfigManager:
                     apply_portable_cfg,
                     get_portable_cfg,
                 )
+
                 added_urls = {
                     (site.get("url") or "").strip().lower() for site in added_holder
                 }
                 portable = get_portable_cfg(config)
                 portable["deleted_sites"] = [
-                    item for item in portable.get("deleted_sites", [])
+                    item
+                    for item in portable.get("deleted_sites", [])
                     if (item.get("url") or "").strip().lower() not in added_urls
                 ]
                 apply_portable_cfg(config, portable)
 
         self.update_config(_mutator)
         return added_holder
-

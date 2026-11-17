@@ -29,6 +29,7 @@ class SyncHistoryDb:
     로컬 작업용 캐시 DB입니다. OneDrive 등 공유 폴더에는 JSON 정본을 쓰며
     이 파일을 클라우드 경로에 직접 두지 마세요.
     """
+
     _db_lock = threading.Lock()
 
     def __init__(self, db_path: str | None = None):
@@ -105,10 +106,13 @@ class SyncHistoryDb:
     def _migrate_legacy_schema(self, conn: sqlite3.Connection):
         conn.execute("ALTER TABLE synced_posts RENAME TO synced_posts_legacy")
         self._create_v2_table(conn)
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO synced_posts (url, device_ip, site_name, title, synced_at)
             SELECT url, ?, site_name, title, synced_at FROM synced_posts_legacy
-        """, (LEGACY_DEVICE_IP,))
+        """,
+            (LEGACY_DEVICE_IP,),
+        )
         conn.execute("DROP TABLE synced_posts_legacy")
 
     def is_synced_for_device(self, url: str, device_ip: str) -> bool:
@@ -225,7 +229,9 @@ class SyncHistoryDb:
             try:
                 with self._connect() as conn:
                     cursor = conn.cursor()
-                    cursor.execute("SELECT 1 FROM synced_posts WHERE url = ? LIMIT 1", (url,))
+                    cursor.execute(
+                        "SELECT 1 FROM synced_posts WHERE url = ? LIMIT 1", (url,)
+                    )
                     return cursor.fetchone() is not None
             except Exception as e:
                 raise SyncHistoryDbError(t("db.query_failed", error=e)) from e
@@ -233,7 +239,14 @@ class SyncHistoryDb:
     def mark_synced(self, url: str, site_name: str, title: str, device_ip: str):
         """특정 기기에 대한 전송 완료 이력을 저장합니다."""
         self.mark_synced_many(
-            [{"url": url, "site_name": site_name, "title": title, "device_ip": device_ip}]
+            [
+                {
+                    "url": url,
+                    "site_name": site_name,
+                    "title": title,
+                    "device_ip": device_ip,
+                }
+            ]
         )
 
     def mark_synced_many(self, entries: list[dict]) -> int:
@@ -278,7 +291,10 @@ class SyncHistoryDb:
                     )
                     cursor.executemany(
                         "DELETE FROM deleted_posts WHERE url = ? AND device_ip = ?",
-                        [(url, device_ip) for url, device_ip, _site, _title, _at in rows],
+                        [
+                            (url, device_ip)
+                            for url, device_ip, _site, _title, _at in rows
+                        ],
                     )
                     conn.commit()
                     return len(rows)
@@ -464,7 +480,9 @@ class SyncHistoryDb:
                         )
                         row = cursor.fetchone()
                         old_deleted = (row[0] if row else "") or ""
-                        if not row or self._time_key(deleted_at) > self._time_key(old_deleted):
+                        if not row or self._time_key(deleted_at) > self._time_key(
+                            old_deleted
+                        ):
                             cursor.execute(
                                 "INSERT OR REPLACE INTO deleted_posts (url, device_ip, deleted_at) VALUES (?, ?, ?)",
                                 (url, device_ip, deleted_at),
@@ -481,7 +499,9 @@ class SyncHistoryDb:
                         )
                         synced = cursor.fetchone()
                         if synced and effective_tombstone:
-                            if self._time_key(effective_tombstone[0] or "") >= self._time_key(synced[0] or ""):
+                            if self._time_key(
+                                effective_tombstone[0] or ""
+                            ) >= self._time_key(synced[0] or ""):
                                 cursor.execute(
                                     "DELETE FROM synced_posts WHERE url = ? AND device_ip = ?",
                                     (url, device_ip),
@@ -500,7 +520,11 @@ class SyncHistoryDb:
 
     @staticmethod
     def _utc_now_iso() -> str:
-        return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+        return (
+            datetime.now(timezone.utc)
+            .isoformat(timespec="microseconds")
+            .replace("+00:00", "Z")
+        )
 
     @staticmethod
     def _time_key(value: str) -> datetime:
@@ -508,7 +532,9 @@ class SyncHistoryDb:
         if not text:
             return datetime.min.replace(tzinfo=timezone.utc)
         try:
-            parsed = datetime.fromisoformat(text.replace("Z", "+00:00").replace(" ", "T", 1))
+            parsed = datetime.fromisoformat(
+                text.replace("Z", "+00:00").replace(" ", "T", 1)
+            )
         except (TypeError, ValueError):
             return datetime.min.replace(tzinfo=timezone.utc)
         if parsed.tzinfo is None:
@@ -547,7 +573,9 @@ class SyncHistoryDb:
                             (url, device_ip),
                         )
                         tombstone = cursor.fetchone()
-                        if tombstone and self._time_key(tombstone[0] or "") >= self._time_key(synced_at):
+                        if tombstone and self._time_key(
+                            tombstone[0] or ""
+                        ) >= self._time_key(synced_at):
                             continue
                         if tombstone:
                             cursor.execute(
@@ -600,12 +628,20 @@ class SyncHistoryDb:
                                 SET site_name = ?, title = ?, synced_at = ?
                                 WHERE url = ? AND device_ip = ?
                                 """,
-                                (site_name or old_site, title or old_title, new_at_s, url, device_ip),
+                                (
+                                    site_name or old_site,
+                                    title or old_title,
+                                    new_at_s,
+                                    url,
+                                    device_ip,
+                                ),
                             )
                             changed += 1
                         elif not old_at_s and not new_at_s:
                             # 둘 다 시각 없음: 메타만 보강
-                            if (site_name and site_name != old_site) or (title and title != old_title):
+                            if (site_name and site_name != old_site) or (
+                                title and title != old_title
+                            ):
                                 cursor.execute(
                                     """
                                     UPDATE synced_posts

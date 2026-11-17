@@ -1,4 +1,5 @@
 """프리뷰(스크래핑만) 파이프라인."""
+
 from __future__ import annotations
 
 from typing import Callable, Optional
@@ -15,14 +16,15 @@ from websync.upload.uploader import X3Uploader
 def preview_articles(
     service,
     log_callback: Optional[Callable[[str], None]] = None,
-    progress_callback: Optional[Callable[[int, int], None]] = None
+    progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> list[dict]:
     """
     기사를 스크래핑하고 필터링하지만 EPUB 빌드 및 업로드는 생략하고 결과를 반환합니다.
-    
+
     Returns:
         [{"site_name": str, "title": str, "url": str, "content": str, "scraper_type": str}]
     """
+
     def log(msg: str):
         service.logger.info(msg)
         if log_callback:
@@ -44,7 +46,9 @@ def preview_articles(
                 "success": False,
                 "message": pull_result.get("message", ""),
             }
-            raise BackupSyncError(pull_result.get("message") or "Shared data import failed")
+            raise BackupSyncError(
+                pull_result.get("message") or "Shared data import failed"
+            )
         # config 스냅샷 사용 — 실행 중 service.config 교체로 인한 stale 참조 방지
         config = service.config_manager.load_config()
         enabled_sites = [s for s in config.get("sites", []) if s.get("enabled", True)]
@@ -117,19 +121,29 @@ def preview_articles(
                     ):
                         new_articles.append(art)
 
-                log(t("pipeline.preview.collected", total=len(articles), new=len(new_articles)))
+                log(
+                    t(
+                        "pipeline.preview.collected",
+                        total=len(articles),
+                        new=len(new_articles),
+                    )
+                )
                 for art in new_articles:
-                    preview_results.append({
-                        **source_metadata(site),
-                        "title": art.get("title", t("pipeline.preview.untitled")),
-                        "url": art.get("url", ""),
-                        "content": art.get("content", ""),
-                        "scraper_type": scraper_type,
-                        "include_images": bool(site.get("include_images", False)),
-                    })
+                    preview_results.append(
+                        {
+                            **source_metadata(site),
+                            "title": art.get("title", t("pipeline.preview.untitled")),
+                            "url": art.get("url", ""),
+                            "content": art.get("content", ""),
+                            "scraper_type": scraper_type,
+                            "include_images": bool(site.get("include_images", False)),
+                        }
+                    )
             except Exception as e:
                 errors += 1
-                service.logger.exception(t("pipeline.preview.error_log", site=name, error=e))
+                service.logger.exception(
+                    t("pipeline.preview.error_log", site=name, error=e)
+                )
                 log(t("pipeline.preview.scrape_fail", site=name, error=e))
 
         if progress_callback:
@@ -137,8 +151,11 @@ def preview_articles(
 
         log(t("pipeline.preview.summary", n=len(preview_results)))
         service._last_pipeline_result = {
-            "status": "cancelled" if cancelled else ("errors" if errors else "completed"),
-            "success": not cancelled and not errors, "article_count": len(preview_results),
+            "status": "cancelled"
+            if cancelled
+            else ("errors" if errors else "completed"),
+            "success": not cancelled and not errors,
+            "article_count": len(preview_results),
             "site_errors": errors,
         }
         return preview_results

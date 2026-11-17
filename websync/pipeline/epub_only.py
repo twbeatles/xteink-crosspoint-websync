@@ -3,6 +3,7 @@
 프리뷰 창의 "EPUB만 만들기" — 전송 전에 결과물(글꼴·테마·표지)을 확인하는 용도.
 번역·AI 요약은 외부 API 비용이 드므로 실제 전송 시에만 적용한다.
 """
+
 from __future__ import annotations
 
 import os
@@ -38,7 +39,9 @@ def build_selected_epubs(
         generate_cover = bool(config.get("epub_cover", True))
 
         articles_by_site, _options = selected_source_groups(
-            selected_articles, config.get("sites", []), t("pipeline.selected.other_site")
+            selected_articles,
+            config.get("sites", []),
+            t("pipeline.selected.other_site"),
         )
         for arts in articles_by_site.values():
             for art in arts:
@@ -52,7 +55,9 @@ def build_selected_epubs(
         elif config.get("epub_merge_mode", "per_site") == "daily_digest":
             if progress_callback:
                 progress_callback(0, 1)
-            paths.append(builder.build_digest(articles_by_site, generate_cover=generate_cover))
+            paths.append(
+                builder.build_digest(articles_by_site, generate_cover=generate_cover)
+            )
             if progress_callback:
                 progress_callback(1, 1)
         else:
@@ -65,16 +70,25 @@ def build_selected_epubs(
                     break
                 if progress_callback:
                     progress_callback(idx, total)
-                paths.append(builder.build(site_name, arts, generate_cover=generate_cover))
+                paths.append(
+                    builder.build(site_name, arts, generate_cover=generate_cover)
+                )
             if progress_callback:
                 progress_callback(total, total)
 
         for path in paths:
             log(t("pipeline.file_created", filename=os.path.basename(path)))
-        log(t("pipeline.epub_only.done", count=len(paths), folder=os.path.dirname(paths[0]) if paths else ""))
+        log(
+            t(
+                "pipeline.epub_only.done",
+                count=len(paths),
+                folder=os.path.dirname(paths[0]) if paths else "",
+            )
+        )
         service._last_pipeline_result = {
             "status": "cancelled" if cancelled else "completed",
-            "success": not cancelled, "paths": paths,
+            "success": not cancelled,
+            "paths": paths,
         }
         return paths
     except Exception as error:

@@ -1,4 +1,5 @@
 """RSS/Atom 피드 발견 및 플랫폼 핑거프린트."""
+
 from __future__ import annotations
 
 import re
@@ -27,7 +28,6 @@ def _looks_like_feed_body(text: str, content_type: str = "") -> bool:
     return "<rss" in head or "<feed" in head or "xmlns:atom" in head
 
 
-
 def discover_feeds(
     soup: BeautifulSoup,
     base_url: str,
@@ -45,14 +45,18 @@ def discover_feeds(
     found: list[FeedInfo] = []
     seen: set[str] = set()
 
-    def add(href: str, title: str = "", feed_type: str = "rss", source: str = "link") -> None:
+    def add(
+        href: str, title: str = "", feed_type: str = "rss", source: str = "link"
+    ) -> None:
         if not href:
             return
         full = urljoin(base_url, href.strip())
         if full in seen:
             return
         seen.add(full)
-        found.append(FeedInfo(url=full, title=title or "", feed_type=feed_type, source=source))
+        found.append(
+            FeedInfo(url=full, title=title or "", feed_type=feed_type, source=source)
+        )
 
     for link in soup.find_all("link"):
         if not isinstance(link, Tag):
@@ -79,14 +83,18 @@ def discover_feeds(
             continue
         href = a.get("href") or ""
         low = href.lower()
-        if any(k in low for k in ("/feed", "rss", "atom.xml", "feed.xml", "feeds/posts")):
+        if any(
+            k in low for k in ("/feed", "rss", "atom.xml", "feed.xml", "feeds/posts")
+        ):
             if "comment" in low:
                 continue
             add(href, title=_text_preview(a, 40) or "feed", source="link")
 
     # link 태그로 본문 피드를 이미 찾으면 path probe 생략 (지연·부하 감소)
     has_primary = any(
-        f.source == "link" and "comment" not in f.url.lower() and "oembed" not in f.url.lower()
+        f.source == "link"
+        and "comment" not in f.url.lower()
+        and "oembed" not in f.url.lower()
         for f in found
     )
 
@@ -129,7 +137,9 @@ def discover_feeds(
     return found
 
 
-def fingerprint_platform(url: str, soup: Optional[BeautifulSoup] = None) -> Optional[str]:
+def fingerprint_platform(
+    url: str, soup: Optional[BeautifulSoup] = None
+) -> Optional[str]:
     """알려진 플랫폼이면 전용 scraper type 문자열 반환."""
     host = urlparse(url).netloc.lower()
     path = urlparse(url).path or ""

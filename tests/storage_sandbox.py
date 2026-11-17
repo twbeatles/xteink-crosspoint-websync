@@ -4,6 +4,7 @@ Checks audited Python file/SQLite operations and descriptor-relative os.open.
 This is not an OS sandbox: native libraries or non-Python child processes may
 perform I/O without emitting Python audit events.
 """
+
 from __future__ import annotations
 
 import os
@@ -67,12 +68,14 @@ class StorageGuard:
     @staticmethod
     def _mutable(relative: Path) -> bool:
         first = relative.parts[0].lower() if relative.parts else ""
-        return (first in {"output", "logs", "dist", ".updates"}
-                or first.startswith("config.json")
-                or first.startswith("sync_history.db")
-                or first in {"sites.json", "synced_posts.json", "manifest.json"}
-                or first.endswith(".lock")
-                or "설정백업" in first)
+        return (
+            first in {"output", "logs", "dist", ".updates"}
+            or first.startswith("config.json")
+            or first.startswith("sync_history.db")
+            or first in {"sites.json", "synced_posts.json", "manifest.json"}
+            or first.endswith(".lock")
+            or "설정백업" in first
+        )
 
     def _toolchain(self, event: str, relative: Path, resolved: Path) -> bool:
         """pytest/coverage metadata inside the checkout is not application state.
@@ -86,11 +89,13 @@ class StorageGuard:
         if event == "os.mkdir" and resolved == self.repository:
             return True
         first = relative.parts[0].lower() if relative.parts else ""
-        return (first == ".pytest_cache"
-                or first.startswith("pytest-cache-files-")
-                or first == ".coverage"
-                or first.startswith(".coverage.")
-                or first == "coverage.xml")
+        return (
+            first == ".pytest_cache"
+            or first.startswith("pytest-cache-files-")
+            or first == ".coverage"
+            or first.startswith(".coverage.")
+            or first == "coverage.xml"
+        )
 
     def __call__(self, event: str, args: tuple) -> None:
         paths = []
@@ -99,15 +104,23 @@ class StorageGuard:
             paths = [args[0]]
             mode, flags = args[1:3]
             context = getattr(self._descriptor_open, "context", None)
-            if (context is not None and not context["consumed"] and mode is None
-                    and os.fsdecode(args[0]) == context["path"]):
+            if (
+                context is not None
+                and not context["consumed"]
+                and mode is None
+                and os.fsdecode(args[0]) == context["path"]
+            ):
                 # os.open emits the raw relative path without its dir_fd.
                 # Use the wrapper's actual path for this one matching event.
                 context["consumed"] = True
                 paths = [context["resolved"]]
             write = (isinstance(mode, str) and any(c in mode for c in "wax+")) or (
-                isinstance(flags, int) and bool(flags & (
-                    os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND)))
+                isinstance(flags, int)
+                and bool(
+                    flags
+                    & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND)
+                )
+            )
         elif event == "sqlite3.connect":
             name = os.fsdecode(args[0])
             if name == ":memory:":
@@ -119,19 +132,30 @@ class StorageGuard:
                 name = unquote(uri.path)
                 if uri.netloc and uri.netloc != "localhost":
                     name = "//" + uri.netloc + name
-                elif os.name == "nt" and len(name) > 2 and name[0] == "/" and name[2] == ":":
+                elif (
+                    os.name == "nt"
+                    and len(name) > 2
+                    and name[0] == "/"
+                    and name[2] == ":"
+                ):
                     name = name[1:]
             paths, write = [name], True
         elif event in {"os.remove", "os.rmdir", "os.mkdir", "os.chmod", "os.truncate"}:
             fd_index = 2 if event in {"os.mkdir", "os.chmod"} else 1
-            dir_fd = args[fd_index] if event != "os.truncate" and len(args) > fd_index else None
+            dir_fd = (
+                args[fd_index]
+                if event != "os.truncate" and len(args) > fd_index
+                else None
+            )
             paths, write = [self._with_dir_fd(args[0], dir_fd)], True
         elif event in {"os.rename", "os.link", "os.symlink"}:
             if event == "os.symlink":
                 paths = [args[0], self._with_dir_fd(args[1], args[2])]
             else:
-                paths = [self._with_dir_fd(args[0], args[2]),
-                         self._with_dir_fd(args[1], args[3])]
+                paths = [
+                    self._with_dir_fd(args[0], args[2]),
+                    self._with_dir_fd(args[1], args[3]),
+                ]
             write = True
         else:
             return
@@ -144,13 +168,20 @@ class StorageGuard:
             null_sink = os.fsdecode(path).lower() in {os.devnull.lower(), "\\\\.\\nul"}
             # Python/pytest caches contain no application state.
             cache = relative is not None and (
-                "__pycache__" in relative.parts or ".pytest_cache" in relative.parts)
+                "__pycache__" in relative.parts or ".pytest_cache" in relative.parts
+            )
             temporary = self._temporary(resolved)
             protected = relative is not None and self._mutable(relative)
-            toolchain = (relative is not None
-                         and self._toolchain(event, relative, resolved))
-            if protected or (write and not temporary and not cache
-                             and not toolchain and not null_sink):
+            toolchain = relative is not None and self._toolchain(
+                event, relative, resolved
+            )
+            if protected or (
+                write
+                and not temporary
+                and not cache
+                and not toolchain
+                and not null_sink
+            ):
                 message = f"Unsafe test storage access: {event} {path}"
                 self.violations.append(message)
                 raise AssertionError(message)
@@ -171,7 +202,10 @@ class StorageGuard:
         if sys.platform == "darwin":
             try:
                 import fcntl
-                directory = os.fsdecode(fcntl.fcntl(dir_fd, 50, bytes(1024)).split(b"\0", 1)[0])
+
+                directory = os.fsdecode(
+                    fcntl.fcntl(dir_fd, 50, bytes(1024)).split(b"\0", 1)[0]
+                )
                 if os.path.isabs(directory):
                     return os.path.join(directory, os.fsdecode(path))
             except OSError:
@@ -195,7 +229,9 @@ def install_storage_guard(repository: str | Path) -> StorageGuard:
             guard("open", (resolved, None, flags))
             previous = getattr(guard._descriptor_open, "context", None)
             guard._descriptor_open.context = {
-                "path": os.fsdecode(path), "resolved": resolved, "consumed": False,
+                "path": os.fsdecode(path),
+                "resolved": resolved,
+                "consumed": False,
             }
             try:
                 return original_open(path, flags, mode, dir_fd=dir_fd)

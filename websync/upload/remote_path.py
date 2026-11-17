@@ -1,4 +1,5 @@
 """기기 SD 원격 경로 유틸 (정규화·결합·크기 표시)."""
+
 from __future__ import annotations
 
 from websync.i18n import t

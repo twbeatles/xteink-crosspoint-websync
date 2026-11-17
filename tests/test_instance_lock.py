@@ -49,6 +49,8 @@ def test_sync_mode_skips_gui_lock_in_main():
                     with patch.object(x3_websync, "get_logger"):
                         with patch.object(x3_websync, "release_instance_lock"):
                             with patch.object(x3_websync.sys, "exit"):
-                                mock_svc.return_value.run_sync_pipeline.return_value = True
+                                mock_svc.return_value.run_sync_pipeline.return_value = (
+                                    True
+                                )
                                 x3_websync.main()
                                 mock_lock.assert_not_called()

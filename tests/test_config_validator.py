@@ -1,4 +1,5 @@
 """config.json 설정 검증 로직 테스트"""
+
 from websync.config.validator import (
     log_validation_warnings,
     validate_config,
@@ -103,7 +104,12 @@ def test_validate_site_invalid_url_scheme():
 
 
 def test_validate_site_invalid_type():
-    site = {"name": "테스트", "type": "unknown_type", "url": "https://example.com", "limit": 5}
+    site = {
+        "name": "테스트",
+        "type": "unknown_type",
+        "url": "https://example.com",
+        "limit": 5,
+    }
     errors = validate_site(site)
     assert any("타입" in e for e in errors)
 

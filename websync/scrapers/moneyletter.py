@@ -37,15 +37,39 @@ class MoneyLetterScraper(BaseNewsletterScraper):
         re.IGNORECASE,
     )
 
-    _EXCLUDED_SLUGS = frozenset({
-        "newsletter", "category", "tag", "author", "page", "product",
-        "shop", "subscription", "wp-admin", "wp-login.php", "wp-content",
-        "wp-json", "feed", "cart", "checkout", "my-account", "privacy-policy",
-        "about", "contact", "search",
-    })
+    _EXCLUDED_SLUGS = frozenset(
+        {
+            "newsletter",
+            "category",
+            "tag",
+            "author",
+            "page",
+            "product",
+            "shop",
+            "subscription",
+            "wp-admin",
+            "wp-login.php",
+            "wp-content",
+            "wp-json",
+            "feed",
+            "cart",
+            "checkout",
+            "my-account",
+            "privacy-policy",
+            "about",
+            "contact",
+            "search",
+        }
+    )
 
     # 짧은 구독/프로모 CTA 제거 키워드
-    _CTA_KEYWORDS = ("구독하기", "무료 구독", "뉴스레터 구독", "개인정보 수집", "광고성 정보")
+    _CTA_KEYWORDS = (
+        "구독하기",
+        "무료 구독",
+        "뉴스레터 구독",
+        "개인정보 수집",
+        "광고성 정보",
+    )
 
     CONTENT_CANDIDATES = [
         ".elementor-widget-theme-post-content .elementor-widget-container",
@@ -70,7 +94,9 @@ class MoneyLetterScraper(BaseNewsletterScraper):
             return False
         return True
 
-    def _extract_links(self, soup: BeautifulSoup, base_url: str) -> list[tuple[str, str]]:
+    def _extract_links(
+        self, soup: BeautifulSoup, base_url: str
+    ) -> list[tuple[str, str]]:
         """머니레터 아카이브 포스트 그리드에서 기사 링크를 추출."""
         results: list[tuple[str, str]] = []
         seen: set[str] = set()
@@ -157,7 +183,10 @@ class MoneyLetterScraper(BaseNewsletterScraper):
             maybe_strip_images(container, site_config)
 
             html_out = self._to_eink_html(container)
-            if not html_out or len(BeautifulSoup(html_out, "lxml").get_text(strip=True)) < 50:
+            if (
+                not html_out
+                or len(BeautifulSoup(html_out, "lxml").get_text(strip=True)) < 50
+            ):
                 self.logger.warning(t("moneyletter.too_short", url=url))
                 return ""
             return html_out
@@ -168,7 +197,16 @@ class MoneyLetterScraper(BaseNewsletterScraper):
     def _clean_content(self, container: BeautifulSoup, site_config: dict) -> None:
         """머니레터 특화 정제 (클래스 선택자는 속성 제거 전에 수행)."""
         # 공통 태그 제거 (nav/script 등) — 속성 strip 전에 클래스 기반 제거
-        for tag_name in ("nav", "header", "footer", "aside", "script", "style", "form", "noscript"):
+        for tag_name in (
+            "nav",
+            "header",
+            "footer",
+            "aside",
+            "script",
+            "style",
+            "form",
+            "noscript",
+        ):
             for el in container.find_all(tag_name):
                 el.decompose()
 
@@ -195,7 +233,11 @@ class MoneyLetterScraper(BaseNewsletterScraper):
 
         # 속성 최소화 (EPUB 안전)
         for tag in container.find_all(True):
-            kept = {k: v for k, v in tag.attrs.items() if k in ("href", "src", "alt", "title")}
+            kept = {
+                k: v
+                for k, v in tag.attrs.items()
+                if k in ("href", "src", "alt", "title")
+            }
             tag.attrs = kept
 
     def _to_eink_html(self, container: Tag) -> str:
@@ -211,7 +253,9 @@ class MoneyLetterScraper(BaseNewsletterScraper):
             if not isinstance(el, Tag):
                 continue
             # 자식에 블록이 있으면 컨테이너로만 보고 건너뜀 (리프 텍스트만)
-            if el.name == "div" and el.find(["h1", "h2", "h3", "h4", "p", "li", "div", "ul", "ol"]):
+            if el.name == "div" and el.find(
+                ["h1", "h2", "h3", "h4", "p", "li", "div", "ul", "ol"]
+            ):
                 continue
             if el.name != "div" and el.find(["h1", "h2", "h3", "h4", "p", "li"]):
                 continue
@@ -250,7 +294,17 @@ class MoneyLetterScraper(BaseNewsletterScraper):
         """table/tr/td 레이아웃 껍질을 제거해 본문 흐름만 남긴다."""
         for _ in range(40):
             tags = container.find_all(
-                ["table", "tbody", "thead", "tfoot", "tr", "td", "th", "colgroup", "col"]
+                [
+                    "table",
+                    "tbody",
+                    "thead",
+                    "tfoot",
+                    "tr",
+                    "td",
+                    "th",
+                    "colgroup",
+                    "col",
+                ]
             )
             if not tags:
                 break

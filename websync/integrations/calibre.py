@@ -7,6 +7,7 @@ from websync.i18n import t
 
 class CalibreManager:
     """calibredb.exe 명령어를 래핑하여 Calibre 도서 정보를 조회하고 경로를 추적하는 클래스"""
+
     def __init__(
         self,
         calibre_path: str = "C:\\Program Files\\Calibre2\\calibredb.exe",
@@ -26,7 +27,12 @@ class CalibreManager:
         if not self.calibre_path or not os.path.exists(self.calibre_path):
             return False
         try:
-            result = subprocess.run(self._base_cmd() + ["--version"], capture_output=True, text=True, timeout=3)
+            result = subprocess.run(
+                self._base_cmd() + ["--version"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
             return result.returncode == 0
         except Exception:
             return False
@@ -36,8 +42,20 @@ class CalibreManager:
         if not self.test_connection():
             return []
         try:
-            cmd = self._base_cmd() + ["list", "--fields", "id,title,authors,formats", "--to-json"]
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=15)
+            cmd = self._base_cmd() + [
+                "list",
+                "--fields",
+                "id,title,authors,formats",
+                "--to-json",
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                timeout=15,
+            )
             if result.returncode == 0 and result.stdout.strip():
                 return json.loads(result.stdout)
             return []
@@ -51,7 +69,14 @@ class CalibreManager:
             return ""
         try:
             cmd = self._base_cmd() + ["format-paths", str(book_id)]
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=10)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                timeout=10,
+            )
             if result.returncode == 0:
                 lines = result.stdout.strip().split("\n")
                 paths = {}
@@ -59,7 +84,7 @@ class CalibreManager:
                     if ":" in line:
                         fmt, path = line.split(":", 1)
                         paths[fmt.strip().lower()] = path.strip()
-                
+
                 # EPUB 포맷 선호, 없으면 차선책 조회
                 for fmt in ["epub", "pdf", "mobi", "txt"]:
                     if fmt in paths:

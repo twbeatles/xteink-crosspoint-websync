@@ -9,6 +9,7 @@ Everything happens in a temporary folder: the executable is copied there as the
 "installed" app and started (a window may flash), then the real ``--apply-update``
 helper replaces it while it is still running. No user data or install is touched.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,17 +33,28 @@ def _kill_everything_under(root: Path) -> None:
         f"$_.ExecutablePath.StartsWith('{root}', 'OrdinalIgnoreCase') }} | "
         "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
     )
-    subprocess.run(["powershell", "-NoProfile", "-Command", script], check=False, capture_output=True)
+    subprocess.run(
+        ["powershell", "-NoProfile", "-Command", script],
+        check=False,
+        capture_output=True,
+    )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path, required=True)
-    parser.add_argument("--hold-seconds", type=float, default=8.0,
-                        help="time to let the installed app start before swapping")
+    parser.add_argument(
+        "--hold-seconds",
+        type=float,
+        default=8.0,
+        help="time to let the installed app start before swapping",
+    )
     args = parser.parse_args()
     if sys.platform != "win32":
-        print("Windows only: running executables are only locked on Windows", file=sys.stderr)
+        print(
+            "Windows only: running executables are only locked on Windows",
+            file=sys.stderr,
+        )
         return 2
     source = args.exe.resolve()
     if not source.is_file():
@@ -63,25 +75,51 @@ def main() -> int:
         digest = hashlib.sha256(staged.read_bytes()).hexdigest()
         original = target.read_bytes()
 
-        env = dict(clean_frozen_environment(), X3_WEBSYNC_STORAGE_ROOT=str(root / "state"))
-        app = subprocess.Popen([str(target)], cwd=install, env=env,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        env = dict(
+            clean_frozen_environment(), X3_WEBSYNC_STORAGE_ROOT=str(root / "state")
+        )
+        app = subprocess.Popen(
+            [str(target)],
+            cwd=install,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         try:
             time.sleep(args.hold_seconds)
             if app.poll() is not None:
-                print(f"FAIL: installed app exited early ({app.returncode}); cannot hold the image", file=sys.stderr)
+                print(
+                    f"FAIL: installed app exited early ({app.returncode}); cannot hold the image",
+                    file=sys.stderr,
+                )
                 return 1
             # Leftover from an earlier failed attempt must not block this one.
             backup.write_bytes(b"stale backup from a failed attempt")
             started = time.monotonic()
             subprocess.Popen(
-                [str(helper), "--apply-update", "--update-target", str(target),
-                 "--update-staged", str(staged), "--update-backup", str(backup),
-                 "--update-parent-pid", "0", "--update-expected-sha256", digest,
-                 "--update-expected-size", str(staged.stat().st_size),
-                 "--update-result-file", str(result_file)],
-                cwd=staging, env=clean_frozen_environment(), stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL)
+                [
+                    str(helper),
+                    "--apply-update",
+                    "--update-target",
+                    str(target),
+                    "--update-staged",
+                    str(staged),
+                    "--update-backup",
+                    str(backup),
+                    "--update-parent-pid",
+                    "0",
+                    "--update-expected-sha256",
+                    digest,
+                    "--update-expected-size",
+                    str(staged.stat().st_size),
+                    "--update-result-file",
+                    str(result_file),
+                ],
+                cwd=staging,
+                env=clean_frozen_environment(),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             while not result_file.exists() and time.monotonic() - started < 120:
                 time.sleep(0.5)
             if not result_file.exists():
@@ -93,7 +131,9 @@ def main() -> int:
             if result.get("status") != "applied":
                 problems.append(f"helper status={result!r}")
             if not still_running:
-                problems.append("old app was not running during the swap (test did not exercise the lock)")
+                problems.append(
+                    "old app was not running during the swap (test did not exercise the lock)"
+                )
             if staged.exists():
                 problems.append("staged file was not consumed")
             if not backup.exists() or backup.read_bytes() != original:
@@ -103,8 +143,10 @@ def main() -> int:
             if problems:
                 print("FAIL: " + "; ".join(problems), file=sys.stderr)
                 return 1
-            print(f"Update swap verified in {time.monotonic() - started:.1f}s "
-                  "(old app still running during replacement)")
+            print(
+                f"Update swap verified in {time.monotonic() - started:.1f}s "
+                "(old app still running during replacement)"
+            )
             return 0
         finally:
             _kill_everything_under(root)

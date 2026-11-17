@@ -1,4 +1,5 @@
 """X3 기기 HTTP 업로드."""
+
 from __future__ import annotations
 
 import hashlib
@@ -44,7 +45,9 @@ class X3Uploader:
         # 원본 basename의 결정적 짧은 해시: 정리 후 같아지는 서로 다른 원본(가/ga)을 구분한다.
         # basename 자체가 같으면 결과도 같다. 실행 간 고유성은 EpubBuilder 파일명이 맡는다.
         h = hashlib.md5(base.encode("utf-8", errors="replace")).hexdigest()[:6]
-        safe_base = "".join([c if c.isalnum() or c in ("-", "_") else "_" for c in base])
+        safe_base = "".join(
+            [c if c.isalnum() or c in ("-", "_") else "_" for c in base]
+        )
         while "__" in safe_base:
             safe_base = safe_base.replace("__", "_")
         safe_base = safe_base.strip("_")
@@ -60,7 +63,14 @@ class X3Uploader:
         for path in paths:
             name = self._sanitize_filename(path).casefold()
             if name in seen:
-                raise ValueError(t("upload.batch_collision", first=seen[name], second=str(path), name=name))
+                raise ValueError(
+                    t(
+                        "upload.batch_collision",
+                        first=seen[name],
+                        second=str(path),
+                        name=name,
+                    )
+                )
             seen[name] = str(path)
 
     def _guess_mime(self, file_path: str) -> str:
@@ -156,7 +166,9 @@ class X3Uploader:
             print(t("upload.tip_address"))
         return result
 
-    def upload_to_all_devices(self, file_path: str, remote_dir: str | None = None) -> dict:
+    def upload_to_all_devices(
+        self, file_path: str, remote_dir: str | None = None
+    ) -> dict:
         """등록된 모든 기기에 병렬로 파일 전송. 결과를 {ip: bool} 로 반환."""
         return self.upload_to_targets(file_path, remote_dir=remote_dir)
 
@@ -176,11 +188,17 @@ class X3Uploader:
         self.last_errors = {}
         all_devices = self._build_target_list()
         if only_ips is not None:
-            allow = {normalize_device_host(ip) for ip in only_ips if normalize_device_host(ip)}
+            allow = {
+                normalize_device_host(ip)
+                for ip in only_ips
+                if normalize_device_host(ip)
+            }
             all_devices = [d for d in all_devices if d["ip"] in allow]
 
         if not all_devices:
-            print(t("upload.no_devices") if only_ips is None else t("upload.no_targets"))
+            print(
+                t("upload.no_devices") if only_ips is None else t("upload.no_targets")
+            )
             return {}
 
         safe_filename = self._sanitize_filename(file_path)

@@ -1,4 +1,5 @@
 """하위 호환: 매니페스트 API는 websync.core.update.manifest 로 이동."""
+
 from websync.core.update.manifest import (
     NoUpdateAvailableError,
     ReleaseManifest,

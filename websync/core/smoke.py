@@ -1,4 +1,5 @@
 """핵심 모듈 import 스모크 체크 (--smoke)."""
+
 from __future__ import annotations
 
 from websync import __version__

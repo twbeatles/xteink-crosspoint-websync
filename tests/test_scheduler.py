@@ -83,6 +83,7 @@ def test_macos_plist_escapes_special_chars_in_path():
 
     def fake_open(path, mode="r", *a, **k):
         from io import StringIO
+
         if "w" in mode:
             buf = StringIO()
             written["path"] = path
@@ -131,10 +132,14 @@ def test_crontab_unregister_removes_only_managed_block():
     mgr.project_dir = "/tmp"
     custom = "*/30 * * * * /usr/bin/uptime"
     existing = (
-        custom + "\n"
-        + SchedulerManager.CRON_BLOCK_BEGIN + "\n"
-        + mgr._build_cron_line(7, 30) + "\n"
-        + SchedulerManager.CRON_BLOCK_END + "\n"
+        custom
+        + "\n"
+        + SchedulerManager.CRON_BLOCK_BEGIN
+        + "\n"
+        + mgr._build_cron_line(7, 30)
+        + "\n"
+        + SchedulerManager.CRON_BLOCK_END
+        + "\n"
     )
     cleaned = mgr._merge_crontab(existing, None)
     assert custom in cleaned
@@ -182,13 +187,18 @@ def test_crontab_write_backs_up_existing(tmp_path):
     assert bak.read_text(encoding="utf-8") == existing
 
 
-
 def test_windows_register_rejects_overlong_tr_before_schtasks():
     """schtasks /TR 261자 제한: 등록 시도 전에 명확한 사유와 함께 실패한다."""
-    long_dir = "C:\\" + "\\".join(["very_long_folder_name_" + str(i) for i in range(10)])
+    long_dir = "C:\\" + "\\".join(
+        ["very_long_folder_name_" + str(i) for i in range(10)]
+    )
     mgr = SchedulerManager(script_path=long_dir + r"\x3_websync.py")
-    with patch("sys.platform", "win32"), patch.object(sys, "executable", _WIN_PYTHON), \
-         patch("os.path.exists", return_value=True), patch("subprocess.run") as mock_run:
+    with (
+        patch("sys.platform", "win32"),
+        patch.object(sys, "executable", _WIN_PYTHON),
+        patch("os.path.exists", return_value=True),
+        patch("subprocess.run") as mock_run,
+    ):
         assert mgr.register_daily_task("07", "00") is False
     mock_run.assert_not_called()
     assert str(SchedulerManager.WINDOWS_TR_MAX_LENGTH) in mgr.last_error
@@ -196,8 +206,12 @@ def test_windows_register_rejects_overlong_tr_before_schtasks():
 
 def test_windows_register_short_path_still_calls_schtasks():
     mgr = SchedulerManager(script_path=_WIN_SCRIPT)
-    with patch("sys.platform", "win32"), patch.object(sys, "executable", _WIN_PYTHON), \
-         patch("os.path.exists", return_value=True), patch("subprocess.run") as mock_run:
+    with (
+        patch("sys.platform", "win32"),
+        patch.object(sys, "executable", _WIN_PYTHON),
+        patch("os.path.exists", return_value=True),
+        patch("subprocess.run") as mock_run,
+    ):
         mock_run.return_value = MagicMock(returncode=0)
         assert mgr.register_daily_task("07", "00") is True
     assert mock_run.call_args.args[0][0] == "schtasks"
@@ -215,9 +229,14 @@ def _proc(returncode, stdout="", stderr=""):
 def test_windows_schtasks_failure_reason_is_reported():
     """2026-11-02 감사 ISSUE-002: schtasks 실패 출력이 last_error로 전달된다."""
     mgr = SchedulerManager(script_path=_WIN_SCRIPT)
-    with patch("sys.platform", "win32"), patch.object(sys, "executable", _WIN_PYTHON), \
-         patch("os.path.exists", return_value=True), \
-         patch("subprocess.run", return_value=_proc(1, stderr="ERROR: Access is denied.")):
+    with (
+        patch("sys.platform", "win32"),
+        patch.object(sys, "executable", _WIN_PYTHON),
+        patch("os.path.exists", return_value=True),
+        patch(
+            "subprocess.run", return_value=_proc(1, stderr="ERROR: Access is denied.")
+        ),
+    ):
         assert mgr.register_daily_task("07", "00") is False
     assert "Access is denied." in mgr.last_error
     assert "schtasks" in mgr.last_error
@@ -225,20 +244,29 @@ def test_windows_schtasks_failure_reason_is_reported():
 
 def test_windows_schtasks_exception_is_reported():
     mgr = SchedulerManager(script_path=_WIN_SCRIPT)
-    with patch("sys.platform", "win32"), patch.object(sys, "executable", _WIN_PYTHON), \
-         patch("os.path.exists", return_value=True), \
-         patch("subprocess.run", side_effect=FileNotFoundError("schtasks not found")):
+    with (
+        patch("sys.platform", "win32"),
+        patch.object(sys, "executable", _WIN_PYTHON),
+        patch("os.path.exists", return_value=True),
+        patch("subprocess.run", side_effect=FileNotFoundError("schtasks not found")),
+    ):
         assert mgr.register_daily_task("07", "00") is False
     assert "schtasks not found" in mgr.last_error
 
 
 def test_macos_launchctl_failure_reason_is_reported():
     mgr = SchedulerManager(script_path="/tmp/x3_websync.py")
-    with patch("sys.platform", "darwin"), \
-         patch("os.path.expanduser", return_value="/tmp/LaunchAgents"), \
-         patch("os.makedirs"), patch("os.path.exists", return_value=False), \
-         patch("builtins.open", MagicMock()), \
-         patch("subprocess.run", return_value=_proc(5, stderr=b"Load failed: 5: Input/output error")):
+    with (
+        patch("sys.platform", "darwin"),
+        patch("os.path.expanduser", return_value="/tmp/LaunchAgents"),
+        patch("os.makedirs"),
+        patch("os.path.exists", return_value=False),
+        patch("builtins.open", MagicMock()),
+        patch(
+            "subprocess.run",
+            return_value=_proc(5, stderr=b"Load failed: 5: Input/output error"),
+        ),
+    ):
         assert mgr.register_daily_task("08", "00") is False
     assert "Input/output error" in mgr.last_error
 

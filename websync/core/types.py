@@ -1,4 +1,5 @@
 """WebSync 공통 타입 정의"""
+
 from typing import Callable, TypedDict
 
 # 콜백 타입 정의
@@ -8,6 +9,7 @@ ProgressCallback = Callable[[int, int], None]
 
 class ArticleDict(TypedDict, total=False):
     """스크래퍼가 반환하는 기사 딕셔너리 타입"""
+
     title: str
     content: str
     url: str
@@ -16,6 +18,7 @@ class ArticleDict(TypedDict, total=False):
 
 class PipelineResult(TypedDict, total=False):
     """동기화 파이프라인 결과 타입"""
+
     status: str
     success: bool
     message: str
@@ -28,6 +31,7 @@ class PipelineResult(TypedDict, total=False):
 
 class SiteConfig(TypedDict, total=False):
     """사이트 설정 타입"""
+
     name: str
     type: str
     url: str

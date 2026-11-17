@@ -1,4 +1,5 @@
 """한국 기술 블로그 픽스처 기반 선택자 추천 회귀 테스트 (네트워크 없음)."""
+
 from pathlib import Path
 
 import pytest
@@ -57,12 +58,7 @@ def test_line_blog_item_quality():
     # post 관련 또는 h2 a / 링크 패턴
     top = items[0]["selector"]
     joined = " ".join(i["selector"] for i in items[:3])
-    assert (
-        "post" in joined
-        or "blog" in joined
-        or "h2" in top
-        or "href" in joined
-    )
+    assert "post" in joined or "blog" in joined or "h2" in top or "href" in joined
     r = evaluate_selector(soup, items[0]["selector"])
     assert r.count >= 3
 

@@ -1,4 +1,5 @@
 """요약·번역 루프 안에서의 취소, load_config 보강 저장의 revision (2026-11-02 감사 후속)."""
+
 from __future__ import annotations
 
 import json
@@ -26,14 +27,25 @@ def _service(root, host):
     cfg["output_dir"] = os.path.join(root, "output")
     cfg["epub_cover"] = False
     cfg["portable_data"] = {"enabled": False}
-    cfg["sites"] = [{"name": "S", "type": "rss", "url": "https://s.example/feed", "limit": 10, "enabled": True}]
+    cfg["sites"] = [
+        {
+            "name": "S",
+            "type": "rss",
+            "url": "https://s.example/feed",
+            "limit": 10,
+            "enabled": True,
+        }
+    ]
     cm.save_config(cfg)
     db = SyncHistoryDb(os.path.join(root, "sync_history.db"))
     return SyncService(cm, db=db, sidecar_root=root), db
 
 
 def _articles(n):
-    return [{"title": f"t{i}", "url": f"https://s.example/{i}", "content": "<p>x</p>"} for i in range(n)]
+    return [
+        {"title": f"t{i}", "url": f"https://s.example/{i}", "content": "<p>x</p>"}
+        for i in range(n)
+    ]
 
 
 class _CancellingSummarizer:
@@ -72,9 +84,11 @@ def test_full_sync_cancels_inside_summary_loop(tmp_path):
         scraper = MagicMock()
         scraper.fetch_articles.side_effect = lambda site: _articles(10)
         scraper.last_fetch_stats = {}
-        with patch.object(ScraperFactory, "get_scraper", return_value=scraper), \
-             patch("websync.pipeline.sync_pipeline.Summarizer", _CancellingSummarizer), \
-             patch("websync.integrations.notifier.ToastNotifier.show_toast"):
+        with (
+            patch.object(ScraperFactory, "get_scraper", return_value=scraper),
+            patch("websync.pipeline.sync_pipeline.Summarizer", _CancellingSummarizer),
+            patch("websync.integrations.notifier.ToastNotifier.show_toast"),
+        ):
             assert svc.run_sync_pipeline(log_callback=lambda _m: None) is False
         # 10개를 끝까지 요약하지 않고 다음 기사 직전에 멈춘다
         assert _CancellingSummarizer.calls == 2
@@ -94,7 +108,10 @@ def test_selected_sync_cancels_inside_summary_loop(tmp_path):
         _CancellingSummarizer.calls = 0
         selected = [dict(a, site_name="S") for a in _articles(5)]
         with patch("websync.pipeline.selected_sync.Summarizer", _CancellingSummarizer):
-            assert svc.sync_selected_articles(selected, log_callback=lambda _m: None) is False
+            assert (
+                svc.sync_selected_articles(selected, log_callback=lambda _m: None)
+                is False
+            )
         assert _CancellingSummarizer.calls == 2
         assert svc.get_last_pipeline_result()["status"] == "cancelled"
         assert len(srv.state.uploads) == 0
@@ -112,7 +129,9 @@ def test_load_config_normalize_save_bumps_revision(tmp_path):
     cm.save_config(cfg)
     raw = json.loads(path.read_text(encoding="utf-8"))
     stale_rev = raw["_config_revision"]
-    raw["x3_devices"][0]["id"] = ""  # ID 없는 장치가 디스크에 있는 상태(수동 편집·구버전)
+    raw["x3_devices"][0]["id"] = (
+        ""  # ID 없는 장치가 디스크에 있는 상태(수동 편집·구버전)
+    )
     path.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
 
     loaded = ConfigManager(str(path)).load_config()  # 다른 프로세스가 ID를 부여·저장

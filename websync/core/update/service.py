@@ -1,4 +1,5 @@
 """Xteink X3 WebSync 고수준 업데이트 서비스."""
+
 from __future__ import annotations
 
 import os

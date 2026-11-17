@@ -1,4 +1,5 @@
 """클라우드 폴더용 원자적 JSON 읽기/쓰기."""
+
 from __future__ import annotations
 
 import json

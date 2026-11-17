@@ -6,6 +6,7 @@
 
 과거 URL 형식: https://post.naver.com/my.naver?memberNo={id}
 """
+
 from __future__ import annotations
 
 from bs4 import BeautifulSoup
@@ -86,7 +87,11 @@ class NaverPostScraper(BaseScraper):
                 seen_urls.add(href)
 
                 title_el = link.select_one(".tit_feed, .ell, .tit")
-                title = title_el.get_text(strip=True) if title_el else link.get_text(strip=True)[:60]
+                title = (
+                    title_el.get_text(strip=True)
+                    if title_el
+                    else link.get_text(strip=True)[:60]
+                )
                 if not title:
                     continue
 
@@ -94,7 +99,9 @@ class NaverPostScraper(BaseScraper):
                 if content:
                     articles.append({"title": title, "content": content, "url": href})
                 else:
-                    self.last_fetch_stats["skipped"] = self.last_fetch_stats.get("skipped", 0) + 1
+                    self.last_fetch_stats["skipped"] = (
+                        self.last_fetch_stats.get("skipped", 0) + 1
+                    )
         except Exception as e:
             self.logger.warning(t("naver_post.legacy_failed", error=e))
         return articles

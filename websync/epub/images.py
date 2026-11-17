@@ -1,4 +1,5 @@
 """Bounded raster assets for offline EPUB reading (no optional dependency)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -55,8 +56,11 @@ class ImageAssets:
         if path not in self.added:
             if self.total_bytes + len(data) > self.MAX_BOOK_BYTES:
                 raise ValueError("Book image size limit exceeded")
-            self.book.add_item(epub.EpubItem(uid=f"image-{digest}", file_name=path,
-                                             media_type=mime, content=data))
+            self.book.add_item(
+                epub.EpubItem(
+                    uid=f"image-{digest}", file_name=path, media_type=mime, content=data
+                )
+            )
             self.added.add(path)
             self.total_bytes += len(data)
         return path
@@ -67,7 +71,10 @@ class ImageAssets:
             url = urljoin(source or "", image.get("src") or image.get("data-src") or "")
             if url not in self.cache:
                 self.cache[url] = None
-                if len(self.cache) <= self.MAX_IMAGES and time.monotonic() < self.deadline:
+                if (
+                    len(self.cache) <= self.MAX_IMAGES
+                    and time.monotonic() < self.deadline
+                ):
                     try:
                         self.cache[url] = self._download(url, source)
                     except Exception as error:

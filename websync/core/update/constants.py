@@ -1,4 +1,5 @@
 """Xteink X3 WebSync 자동 업데이트 관련 상수 정의."""
+
 from __future__ import annotations
 
 import os
@@ -19,10 +20,12 @@ UPDATE_PUBLIC_KEY_B64: str = os.environ.get(
 )
 
 # GitHub 릴리즈 페이지 URL
-UPDATE_RELEASES_URL: str = "https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest"
+UPDATE_RELEASES_URL: str = (
+    "https://github.com/twbeatles/xteink-crosspoint-websync/releases/latest"
+)
 
 # 안전 제한 상수
-UPDATE_MANIFEST_MAX_BYTES: int = 256 * 1024          # 256 KB
+UPDATE_MANIFEST_MAX_BYTES: int = 256 * 1024  # 256 KB
 UPDATE_ARTIFACT_MAX_BYTES: int = 500 * 1024 * 1024  # 500 MB
 UPDATE_REQUEST_TIMEOUT_SECONDS: float = 20.0
 UPDATE_BACKUP_KEEP_COUNT: int = 2

@@ -1,4 +1,5 @@
 """CLI --smoke, --version 플래그 단위 테스트."""
+
 from __future__ import annotations
 
 import subprocess
@@ -58,8 +59,10 @@ def test_handle_apply_update_parent_timeout(tmp_path):
     )
 
     # 부모 프로세스가 계속 살아있다고 모킹하고 time.sleep을 즉시 리턴하게 모킹
-    with patch("websync.cli.update_apply._is_process_running", return_value=True), \
-         patch("time.sleep", return_value=None):
+    with (
+        patch("websync.cli.update_apply._is_process_running", return_value=True),
+        patch("time.sleep", return_value=None),
+    ):
         ret = _handle_apply_update(args)
         assert ret == 1
         res = consume_update_result(res_file)
@@ -93,12 +96,10 @@ def test_staging_block_detects_helper_copy(tmp_path, monkeypatch):
 
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(helper), raising=False)
-    assert _staging_block_target(
-        argparse.Namespace(apply_update=False)
-    ) == str(target.resolve())
-    assert (
-        _staging_block_target(argparse.Namespace(apply_update=True)) is None
+    assert _staging_block_target(argparse.Namespace(apply_update=False)) == str(
+        target.resolve()
     )
+    assert _staging_block_target(argparse.Namespace(apply_update=True)) is None
 
 
 def test_staging_block_allows_normal_frozen_exe(tmp_path, monkeypatch):

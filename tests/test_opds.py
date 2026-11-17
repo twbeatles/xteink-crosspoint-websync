@@ -37,27 +37,35 @@ def _urlopen(request, timeout=3):
         try:
             with requests.Session() as session:
                 session.trust_env = False
-                response = session.request(method, url, data=data, headers=headers, timeout=timeout)
+                response = session.request(
+                    method, url, data=data, headers=headers, timeout=timeout
+                )
             break
         except requests.RequestException:
             if attempt == 5:
                 raise
     if response.status_code >= 400:
         raise urllib.error.HTTPError(
-            url, response.status_code, response.reason, response.headers, io.BytesIO(response.content)
+            url,
+            response.status_code,
+            response.reason,
+            response.headers,
+            io.BytesIO(response.content),
         )
     return _Response(response)
 
 
-
 def _free_port() -> int:
     import socket
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
-def _start_server(tmp_output: str, *, require_auth: bool = False, api_key: str = "secret-key") -> OPDSServer:
+def _start_server(
+    tmp_output: str, *, require_auth: bool = False, api_key: str = "secret-key"
+) -> OPDSServer:
     srv = OPDSServer(
         output_dir=tmp_output,
         port=0,
@@ -164,6 +172,7 @@ def test_opds_unicode_filename_download():
 
 
 # --- N6: ThreadingHTTPServer 동시 요청 처리 ---
+
 
 def test_opds_serves_concurrent_requests():
     """대용량 다운로드(느린 요청) 중 카탈로그(빠른 요청)가 동시 처리되는지."""

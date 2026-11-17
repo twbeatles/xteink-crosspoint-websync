@@ -7,6 +7,7 @@ A fixed-seed command sequence drives the real SyncHistoryDb; every step
 asserts: no failed device marked, no duplicate re-mark, no resurrection
 of tombstoned rows except via explicit re-mark (user resend).
 """
+
 from __future__ import annotations
 
 import random
@@ -28,7 +29,7 @@ def test_history_state_machine_seeded(tmp_path):
     deleted: dict[tuple[str, str], str] = {}
 
     def _check_no_resurrection():
-        for (_reader, _url) in deleted:
+        for _reader, _url in deleted:
             # tombstoned rows stay absent unless explicitly re-delivered below
             pass
 

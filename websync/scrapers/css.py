@@ -1,4 +1,5 @@
 """CssSelectorScraper"""
+
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -57,7 +58,9 @@ class CssSelectorScraper(BaseScraper):
         title_selector = site_config.get("title_selector", ".post-title")
         content_selector = site_config.get("content_selector", ".post-content")
         # 미지정 시 기존 동작 유지 (첫 a[href])
-        link_selector = (site_config.get("link_selector") or "a[href]").strip() or "a[href]"
+        link_selector = (
+            site_config.get("link_selector") or "a[href]"
+        ).strip() or "a[href]"
         remove_selectors = site_config.get("remove_selectors", "")
         limit = normalize_limit(site_config.get("limit", 5))
         fetch_detail = bool(site_config.get("fetch_detail_page", False))
@@ -101,7 +104,11 @@ class CssSelectorScraper(BaseScraper):
                 used_detail_fallback = False
                 if fetch_detail and art_url and art_url != url:
                     content_elem, used_detail_fallback = self._fetch_detail_content(
-                        art_url, content_selector, remove_selectors, site_config, headers
+                        art_url,
+                        content_selector,
+                        remove_selectors,
+                        site_config,
+                        headers,
                     )
                     if content_elem is None:
                         skipped += 1
@@ -185,7 +192,9 @@ class CssSelectorScraper(BaseScraper):
         if link_elem is None and getattr(post, "name", None) == "a":
             link_elem = post
         if link_elem is None:
-            link_elem = post.select_one("a[href]") if hasattr(post, "select_one") else None
+            link_elem = (
+                post.select_one("a[href]") if hasattr(post, "select_one") else None
+            )
         if not link_elem:
             return page_url
         href = link_elem.get("href", "") if hasattr(link_elem, "get") else ""
@@ -193,7 +202,9 @@ class CssSelectorScraper(BaseScraper):
             return page_url
         return href if href.startswith("http") else urljoin(page_url, href)
 
-    def _extract_list_content(self, post, content_selector, remove_selectors, site_config):
+    def _extract_list_content(
+        self, post, content_selector, remove_selectors, site_config
+    ):
         """목록 아이템에서 본문 추출.
 
         Returns:
@@ -280,7 +291,9 @@ class CssSelectorScraper(BaseScraper):
             if content_elem is None:
                 return None, False
             if remove_selectors:
-                selectors = [s.strip() for s in remove_selectors.split(",") if s.strip()]
+                selectors = [
+                    s.strip() for s in remove_selectors.split(",") if s.strip()
+                ]
                 for sel in selectors:
                     try:
                         for match in content_elem.select(sel):

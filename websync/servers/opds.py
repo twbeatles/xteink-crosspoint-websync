@@ -1,4 +1,5 @@
 """OPDS 카탈로그 HTTP 서버"""
+
 import os
 import secrets
 import sys
@@ -32,7 +33,9 @@ class _OPDSHTTPServer(ExclusiveBindMixin, ThreadingHTTPServer):
         super().__init__(server_address, OPDSHandler)
 
     def handle_error(self, request, client_address):
-        if isinstance(sys.exc_info()[1], (ConnectionResetError, BrokenPipeError, TimeoutError)):
+        if isinstance(
+            sys.exc_info()[1], (ConnectionResetError, BrokenPipeError, TimeoutError)
+        ):
             return
         super().handle_error(request, client_address)
 
@@ -82,7 +85,11 @@ class OPDSHandler(GracefulHTTPHandler):
             return True
         # 쿼리 api_key 는 로그 유출 위험으로 기본 비활성.
         # 환경변수 X3_OPDS_ALLOW_QUERY_API_KEY=1 일 때만 하위 호환 허용.
-        if os.environ.get("X3_OPDS_ALLOW_QUERY_API_KEY", "").strip() in ("1", "true", "yes"):
+        if os.environ.get("X3_OPDS_ALLOW_QUERY_API_KEY", "").strip() in (
+            "1",
+            "true",
+            "yes",
+        ):
             qs = parse_qs(urlparse(self.path).query)
             if self._token_ok(qs.get("api_key", [None])[0]):
                 return True
@@ -138,7 +145,9 @@ class OPDSHandler(GracefulHTTPHandler):
 </feed>"""
         body = xml.encode("utf-8")
         self.send_response(200)
-        self.send_header("Content-Type", "application/atom+xml;profile=opds-catalog; charset=utf-8")
+        self.send_header(
+            "Content-Type", "application/atom+xml;profile=opds-catalog; charset=utf-8"
+        )
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -146,7 +155,7 @@ class OPDSHandler(GracefulHTTPHandler):
 
     def _serve_file(self):
         path = self.path.split("?", 1)[0]
-        raw = path[len("/opds/download/"):]
+        raw = path[len("/opds/download/") :]
         fname = os.path.basename(unquote(raw))
         if not fname.lower().endswith(".epub"):
             self.send_error(403)
@@ -221,7 +230,9 @@ class OPDSServer:
                 self.require_auth,
             )
             self.port = self._server.server_port
-            self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+            self._thread = threading.Thread(
+                target=self._server.serve_forever, daemon=True
+            )
             self._thread.start()
             self._running = True
             return True
@@ -245,5 +256,9 @@ class OPDSServer:
         return self._running
 
     def get_url(self) -> str:
-        host = "localhost" if self.bind_host in ("127.0.0.1", "localhost") else self.bind_host
+        host = (
+            "localhost"
+            if self.bind_host in ("127.0.0.1", "localhost")
+            else self.bind_host
+        )
         return f"http://{host}:{self.port}/opds"

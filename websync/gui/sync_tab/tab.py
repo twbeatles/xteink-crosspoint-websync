@@ -1,4 +1,5 @@
 """뉴스 동기화 탭 (CustomTkinter 현대적 카드 UI 적용)."""
+
 from __future__ import annotations
 
 import customtkinter as ctk
@@ -39,6 +40,7 @@ class SyncTab(
     ctk.CTkFrame,
 ):
     """뉴스 동기화 및 일반 설정을 담당하는 탭 패널"""
+
     def __init__(self, parent, app):
         super().__init__(parent, fg_color="transparent")
         self.app = app
@@ -79,59 +81,129 @@ class SyncTab(
 
     def _build_getting_started(self, body):
         self.getting_started = CardFrame(
-            body, fg_color=COLOR_ACCENT_SOFT, border_color=COLOR_ACCENT, border_width=1,
+            body,
+            fg_color=COLOR_ACCENT_SOFT,
+            border_color=COLOR_ACCENT,
+            border_width=1,
         )
         inner = ctk.CTkFrame(self.getting_started, fg_color="transparent")
         inner.pack(fill="x", padx=14, pady=10)
         inner.columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            inner, text=t("gui.start.title"), font=get_font(15, "bold"), anchor="w",
+            inner,
+            text=t("gui.start.title"),
+            font=get_font(15, "bold"),
+            anchor="w",
         ).grid(row=0, column=0, sticky="w")
         make_button(
-            inner, t("gui.start.dismiss"), self._dismiss_getting_started,
-            kind="secondary", width=70, height=26,
+            inner,
+            t("gui.start.dismiss"),
+            self._dismiss_getting_started,
+            kind="secondary",
+            width=70,
+            height=26,
         ).grid(row=0, column=1, sticky="e")
 
         self._start_step_labels: list[ctk.CTkLabel] = []
         for i in range(3):
-            lbl = ctk.CTkLabel(inner, text="", font=get_font(12), anchor="w", justify="left")
+            lbl = ctk.CTkLabel(
+                inner, text="", font=get_font(12), anchor="w", justify="left"
+            )
             lbl.grid(row=i + 1, column=0, sticky="w", pady=(4 if i == 0 else 0, 0))
             self._start_step_labels.append(lbl)
 
         btns = ctk.CTkFrame(inner, fg_color="transparent")
         btns.grid(row=1, column=1, rowspan=3, sticky="e")
-        make_button(btns, t("gui.start.btn_test"), self._test_connection, kind="secondary", width=120).pack(fill="x", pady=2)
-        make_button(btns, t("gui.start.btn_add"), self._add_site_popup, width=120, bold=True).pack(fill="x", pady=2)
+        make_button(
+            btns,
+            t("gui.start.btn_test"),
+            self._test_connection,
+            kind="secondary",
+            width=120,
+        ).pack(fill="x", pady=2)
+        make_button(
+            btns, t("gui.start.btn_add"), self._add_site_popup, width=120, bold=True
+        ).pack(fill="x", pady=2)
         self._start_dismissed = False
 
     def _build_sites_card(self, body):
-        sites_card = CardFrame(body, title=t("gui.sync.card_sites_title"), subtitle=t("gui.sync.card_sites_sub"))
+        sites_card = CardFrame(
+            body,
+            title=t("gui.sync.card_sites_title"),
+            subtitle=t("gui.sync.card_sites_sub"),
+        )
         sites_card.pack(fill="x", padx=8, pady=6)
         self.sites_card = sites_card
 
         self.sites_summary_label = ctk.CTkLabel(
-            sites_card.header_right, text="", font=get_font(12, "bold"), text_color=COLOR_SECONDARY_FG,
+            sites_card.header_right,
+            text="",
+            font=get_font(12, "bold"),
+            text_color=COLOR_SECONDARY_FG,
         )
         self.sites_summary_label.pack(side="right")
 
         btn_frame = ctk.CTkFrame(sites_card, fg_color="transparent")
         btn_frame.pack(fill="x", padx=12, pady=(0, 2))
 
-        make_button(btn_frame, t("gui.sync.add_site"), self._add_site_popup, width=110, bold=True).pack(side="left", padx=(0, 4))
-        self.edit_site_btn = make_button(btn_frame, t("gui.sync.edit_site"), self._edit_site_popup, kind="secondary", width=80)
+        make_button(
+            btn_frame,
+            t("gui.sync.add_site"),
+            self._add_site_popup,
+            width=110,
+            bold=True,
+        ).pack(side="left", padx=(0, 4))
+        self.edit_site_btn = make_button(
+            btn_frame,
+            t("gui.sync.edit_site"),
+            self._edit_site_popup,
+            kind="secondary",
+            width=80,
+        )
         self.edit_site_btn.pack(side="left", padx=4)
-        self.toggle_site_btn = make_button(btn_frame, t("gui.sync.toggle_enabled"), self._toggle_site_enabled, kind="secondary", width=100)
+        self.toggle_site_btn = make_button(
+            btn_frame,
+            t("gui.sync.toggle_enabled"),
+            self._toggle_site_enabled,
+            kind="secondary",
+            width=100,
+        )
         self.toggle_site_btn.pack(side="left", padx=4)
-        self.duplicate_site_btn = make_button(btn_frame, t("gui.sync.duplicate_site"), self._duplicate_site, kind="secondary", width=70)
+        self.duplicate_site_btn = make_button(
+            btn_frame,
+            t("gui.sync.duplicate_site"),
+            self._duplicate_site,
+            kind="secondary",
+            width=70,
+        )
         self.duplicate_site_btn.pack(side="left", padx=4)
-        self.delete_site_btn = make_button(btn_frame, t("gui.sync.delete_selected"), self._delete_site, kind="secondary", width=70, text_color=COLOR_DANGER)
+        self.delete_site_btn = make_button(
+            btn_frame,
+            t("gui.sync.delete_selected"),
+            self._delete_site,
+            kind="secondary",
+            width=70,
+            text_color=COLOR_DANGER,
+        )
         self.delete_site_btn.pack(side="left", padx=4)
 
-        export_btn = make_button(btn_frame, t("gui.sync.export_settings"), self._export_sites_action, kind="secondary", width=90)
+        export_btn = make_button(
+            btn_frame,
+            t("gui.sync.export_settings"),
+            self._export_sites_action,
+            kind="secondary",
+            width=90,
+        )
         export_btn.pack(side="right", padx=(4, 0))
         Tooltip(export_btn, t("gui.sync.export_tip"))
-        import_btn = make_button(btn_frame, t("gui.sync.import_settings"), self._import_sites_action, kind="secondary", width=90)
+        import_btn = make_button(
+            btn_frame,
+            t("gui.sync.import_settings"),
+            self._import_sites_action,
+            kind="secondary",
+            width=90,
+        )
         import_btn.pack(side="right", padx=4)
 
         tree_host = ctk.CTkFrame(sites_card, fg_color="transparent")
@@ -143,7 +215,9 @@ class SyncTab(
         self.tree.heading("type", text=t("gui.sync.col_site_type"))
         self.tree.heading("limit", text=t("gui.sync.col_site_limit"))
         self.tree.heading("url", text="URL")
-        self.tree.column("enabled", width=70, minwidth=60, anchor="center", stretch=False)
+        self.tree.column(
+            "enabled", width=70, minwidth=60, anchor="center", stretch=False
+        )
         self.tree.column("name", width=170, minwidth=90, anchor="w")
         self.tree.column("type", width=120, minwidth=80, anchor="w")
         self.tree.column("limit", width=60, minwidth=50, anchor="center", stretch=False)
@@ -159,40 +233,89 @@ class SyncTab(
 
         # 목록이 비었을 때 안내 문구 (트리 위에 겹쳐 표시)
         self.sites_empty_label = ctk.CTkLabel(
-            tree_host, text=t("gui.sync.sites_empty"), font=get_font(13),
-            text_color=COLOR_SECONDARY_FG, fg_color="transparent",
+            tree_host,
+            text=t("gui.sync.sites_empty"),
+            font=get_font(13),
+            text_color=COLOR_SECONDARY_FG,
+            fg_color="transparent",
         )
 
         ctk.CTkLabel(
-            sites_card, text=t("gui.sync.sites_hint"), font=get_font(11),
-            text_color=COLOR_SECONDARY_FG, anchor="w",
+            sites_card,
+            text=t("gui.sync.sites_hint"),
+            font=get_font(11),
+            text_color=COLOR_SECONDARY_FG,
+            anchor="w",
         ).pack(fill="x", padx=14, pady=(0, 10))
 
     def _build_device_card(self, body):
-        settings_card = CardFrame(body, title=t("gui.sync.card_device_title"), subtitle=t("gui.sync.card_device_sub"))
+        settings_card = CardFrame(
+            body,
+            title=t("gui.sync.card_device_title"),
+            subtitle=t("gui.sync.card_device_sub"),
+        )
         settings_card.pack(fill="x", padx=8, pady=6)
 
         grid_frame = ctk.CTkFrame(settings_card, fg_color="transparent")
         grid_frame.pack(fill="x", padx=12, pady=(4, 10))
         grid_frame.columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(grid_frame, text=t("gui.sync.ip_label"), font=get_font(13), anchor="w").grid(row=0, column=0, padx=(0, 8), pady=6, sticky="w")
-        self.ip_entry = ctk.CTkEntry(grid_frame, placeholder_text=t("gui.sync.ip_placeholder"), font=get_font(12), height=34)
+        ctk.CTkLabel(
+            grid_frame, text=t("gui.sync.ip_label"), font=get_font(13), anchor="w"
+        ).grid(row=0, column=0, padx=(0, 8), pady=6, sticky="w")
+        self.ip_entry = ctk.CTkEntry(
+            grid_frame,
+            placeholder_text=t("gui.sync.ip_placeholder"),
+            font=get_font(12),
+            height=34,
+        )
         self.ip_entry.grid(row=0, column=1, padx=4, pady=6, sticky="we")
         Tooltip(self.ip_entry, t("gui.sync.ip_tip"))
 
-        self.test_conn_btn = make_button(grid_frame, t("gui.sync.test_conn"), self._test_connection, width=100, height=34, bold=True)
+        self.test_conn_btn = make_button(
+            grid_frame,
+            t("gui.sync.test_conn"),
+            self._test_connection,
+            width=100,
+            height=34,
+            bold=True,
+        )
         self.test_conn_btn.grid(row=0, column=2, padx=6, pady=6)
 
-        self.conn_status_label = ctk.CTkLabel(grid_frame, text=t("gui.sync.conn_unchecked"), text_color=COLOR_WARNING, font=get_font(13, "bold"), anchor="w")
+        self.conn_status_label = ctk.CTkLabel(
+            grid_frame,
+            text=t("gui.sync.conn_unchecked"),
+            text_color=COLOR_WARNING,
+            font=get_font(13, "bold"),
+            anchor="w",
+        )
         self.conn_status_label.grid(row=0, column=3, padx=8, pady=6, sticky="w")
 
-        ctk.CTkLabel(grid_frame, text=t("gui.sync.output_dir_label"), font=get_font(13), anchor="w").grid(row=1, column=0, padx=(0, 8), pady=6, sticky="w")
+        ctk.CTkLabel(
+            grid_frame,
+            text=t("gui.sync.output_dir_label"),
+            font=get_font(13),
+            anchor="w",
+        ).grid(row=1, column=0, padx=(0, 8), pady=6, sticky="w")
         self.dir_entry = ctk.CTkEntry(grid_frame, font=get_font(12), height=34)
         self.dir_entry.grid(row=1, column=1, padx=4, pady=6, sticky="we")
 
-        make_button(grid_frame, t("gui.sync.browse_folder"), self._browse_directory, kind="secondary", width=100, height=34).grid(row=1, column=2, padx=6, pady=6)
-        make_button(grid_frame, t("gui.sync.open_folder"), self._open_output_folder, kind="secondary", width=80, height=34).grid(row=1, column=3, padx=4, pady=6, sticky="w")
+        make_button(
+            grid_frame,
+            t("gui.sync.browse_folder"),
+            self._browse_directory,
+            kind="secondary",
+            width=100,
+            height=34,
+        ).grid(row=1, column=2, padx=6, pady=6)
+        make_button(
+            grid_frame,
+            t("gui.sync.open_folder"),
+            self._open_output_folder,
+            kind="secondary",
+            width=80,
+            height=34,
+        ).grid(row=1, column=3, padx=4, pady=6, sticky="w")
 
         self.app._bind_autosave(self.ip_entry)
         self.app._bind_autosave(self.dir_entry)
@@ -201,7 +324,11 @@ class SyncTab(
         self.ip_entry.bind("<KeyRelease>", self._on_ip_edited, add="+")
 
     def _build_devices_card(self, body):
-        devices_card = CardFrame(body, title=t("gui.sync.card_devices_title"), subtitle=t("gui.sync.card_devices_sub"))
+        devices_card = CardFrame(
+            body,
+            title=t("gui.sync.card_devices_title"),
+            subtitle=t("gui.sync.card_devices_sub"),
+        )
         devices_card.pack(fill="x", padx=8, pady=6)
 
         dev_inner = ctk.CTkFrame(devices_card, fg_color="transparent")
@@ -222,8 +349,17 @@ class SyncTab(
 
         dev_btn = ctk.CTkFrame(dev_inner, fg_color="transparent")
         dev_btn.grid(row=0, column=1, padx=(10, 0), sticky="n")
-        make_button(dev_btn, t("gui.sync.add_device"), self._add_device_popup, width=95).pack(fill="x", pady=2)
-        make_button(dev_btn, t("gui.sync.delete_selected"), self._remove_device, kind="secondary", width=95, text_color=COLOR_DANGER).pack(fill="x", pady=2)
+        make_button(
+            dev_btn, t("gui.sync.add_device"), self._add_device_popup, width=95
+        ).pack(fill="x", pady=2)
+        make_button(
+            dev_btn,
+            t("gui.sync.delete_selected"),
+            self._remove_device,
+            kind="secondary",
+            width=95,
+            text_color=COLOR_DANGER,
+        ).pack(fill="x", pady=2)
 
     def _build_upload_schedule_row(self, body):
         bottom_row = ctk.CTkFrame(body, fg_color="transparent")
@@ -238,10 +374,29 @@ class SyncTab(
         upload_inner.pack(fill="x", padx=10, pady=(4, 10))
         upload_inner.columnconfigure(0, weight=1)
 
-        self.file_entry = ctk.CTkEntry(upload_inner, placeholder_text=t("gui.sync.file_placeholder"), font=get_font(12), height=34)
+        self.file_entry = ctk.CTkEntry(
+            upload_inner,
+            placeholder_text=t("gui.sync.file_placeholder"),
+            font=get_font(12),
+            height=34,
+        )
         self.file_entry.grid(row=0, column=0, padx=4, pady=4, sticky="we")
-        make_button(upload_inner, "...", self._browse_file, kind="secondary", width=40, height=34).grid(row=0, column=1, padx=4, pady=4)
-        self.direct_upload_btn = make_button(upload_inner, t("gui.sync.upload"), self._direct_upload, width=70, height=34, bold=True)
+        make_button(
+            upload_inner,
+            "...",
+            self._browse_file,
+            kind="secondary",
+            width=40,
+            height=34,
+        ).grid(row=0, column=1, padx=4, pady=4)
+        self.direct_upload_btn = make_button(
+            upload_inner,
+            t("gui.sync.upload"),
+            self._direct_upload,
+            width=70,
+            height=34,
+            bold=True,
+        )
         self.direct_upload_btn.grid(row=0, column=2, padx=4, pady=4)
 
         scheduler_card = CardFrame(bottom_row, title=t("gui.schedule.card_title"))
@@ -250,17 +405,53 @@ class SyncTab(
         sched_inner = ctk.CTkFrame(scheduler_card, fg_color="transparent")
         sched_inner.pack(fill="x", padx=10, pady=(4, 4))
 
-        ctk.CTkLabel(sched_inner, text=t("gui.schedule.every_day"), font=get_font(13)).grid(row=0, column=0, padx=(0, 4), pady=4, sticky="w")
-        self.hour_cb = ctk.CTkOptionMenu(sched_inner, values=[f"{i:02d}" for i in range(24)], font=get_font(12), dropdown_font=get_font(12), width=65, height=32)
+        ctk.CTkLabel(
+            sched_inner, text=t("gui.schedule.every_day"), font=get_font(13)
+        ).grid(row=0, column=0, padx=(0, 4), pady=4, sticky="w")
+        self.hour_cb = ctk.CTkOptionMenu(
+            sched_inner,
+            values=[f"{i:02d}" for i in range(24)],
+            font=get_font(12),
+            dropdown_font=get_font(12),
+            width=65,
+            height=32,
+        )
         self.hour_cb.grid(row=0, column=1, padx=2, pady=4)
-        ctk.CTkLabel(sched_inner, text=":", font=get_font(13, "bold")).grid(row=0, column=2)
-        self.min_cb = ctk.CTkOptionMenu(sched_inner, values=[f"{i:02d}" for i in range(0, 60, 5)], font=get_font(12), dropdown_font=get_font(12), width=65, height=32)
+        ctk.CTkLabel(sched_inner, text=":", font=get_font(13, "bold")).grid(
+            row=0, column=2
+        )
+        self.min_cb = ctk.CTkOptionMenu(
+            sched_inner,
+            values=[f"{i:02d}" for i in range(0, 60, 5)],
+            font=get_font(12),
+            dropdown_font=get_font(12),
+            width=65,
+            height=32,
+        )
         self.min_cb.grid(row=0, column=3, padx=2, pady=4)
 
-        make_button(sched_inner, t("gui.schedule.register"), self._register_schedule, width=65, bold=True).grid(row=0, column=4, padx=(8, 2), pady=4)
-        make_button(sched_inner, t("gui.schedule.unregister"), self._unregister_schedule, kind="secondary", width=65).grid(row=0, column=5, padx=2, pady=4)
+        make_button(
+            sched_inner,
+            t("gui.schedule.register"),
+            self._register_schedule,
+            width=65,
+            bold=True,
+        ).grid(row=0, column=4, padx=(8, 2), pady=4)
+        make_button(
+            sched_inner,
+            t("gui.schedule.unregister"),
+            self._unregister_schedule,
+            kind="secondary",
+            width=65,
+        ).grid(row=0, column=5, padx=2, pady=4)
 
-        self.sched_status_label = ctk.CTkLabel(scheduler_card, text=t("gui.schedule.checking"), font=get_font(12), text_color=COLOR_SECONDARY_FG, anchor="w")
+        self.sched_status_label = ctk.CTkLabel(
+            scheduler_card,
+            text=t("gui.schedule.checking"),
+            font=get_font(12),
+            text_color=COLOR_SECONDARY_FG,
+            anchor="w",
+        )
         self.sched_status_label.pack(fill="x", padx=12, pady=(0, 10))
 
     # ------------------------------------------------------------------
@@ -274,7 +465,9 @@ class SyncTab(
     def _on_ip_edited(self, _event=None):
         if self._conn_ok is not None:
             self._conn_ok = None
-            self.conn_status_label.configure(text=t("gui.sync.conn_unchecked"), text_color=COLOR_WARNING)
+            self.conn_status_label.configure(
+                text=t("gui.sync.conn_unchecked"), text_color=COLOR_WARNING
+            )
             self._refresh_getting_started()
 
     def _refresh_getting_started(self):
@@ -296,6 +489,8 @@ class SyncTab(
             )
         should_show = not self._start_dismissed and not enabled
         if should_show and not self.getting_started.winfo_manager():
-            self.getting_started.pack(fill="x", padx=8, pady=(6, 2), before=self.sites_card)
+            self.getting_started.pack(
+                fill="x", padx=8, pady=(6, 2), before=self.sites_card
+            )
         elif not should_show and self.getting_started.winfo_manager():
             self.getting_started.pack_forget()

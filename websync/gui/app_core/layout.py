@@ -76,7 +76,7 @@ class AppLayoutMixin:
             self.main_container,
             corner_radius=10,
             segmented_button_selected_color=COLOR_ACCENT[0],
-            segmented_button_selected_hover_color=COLOR_ACCENT[1]
+            segmented_button_selected_hover_color=COLOR_ACCENT[1],
         )
         if hasattr(self.tabview, "_segmented_button"):
             self.tabview._segmented_button.configure(font=get_font(13, "bold"))
@@ -109,7 +109,9 @@ class AppLayoutMixin:
 
         # 하단 동기화 컨트롤 및 로그 바 (BottomBar)
         # 하단 바를 먼저 pack 해야 창이 작아져도 실행 버튼이 잘리지 않는다.
-        self.bottom_container = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        self.bottom_container = ctk.CTkFrame(
+            self.main_container, fg_color="transparent"
+        )
         self.bottom_container.pack(fill="x", side="bottom")
 
         self.bottom_bar = BottomBar(self.bottom_container, self)

@@ -1,4 +1,5 @@
 """OS UI 언어 감지 (ko / en)."""
+
 from __future__ import annotations
 
 import locale

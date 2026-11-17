@@ -1,4 +1,5 @@
 """기기 통신 관련 예외."""
+
 from __future__ import annotations
 
 

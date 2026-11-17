@@ -69,7 +69,10 @@ class SyncService:
             from websync.backup.local_import import import_local_sidecars
 
             result = import_local_sidecars(
-                self.config_manager, self.db, root=self._sidecar_root, logger=self.logger
+                self.config_manager,
+                self.db,
+                root=self._sidecar_root,
+                logger=self.logger,
             )
             if result.get("history_changed") or result.get("sites_changed"):
                 self._reload_config()
@@ -80,8 +83,11 @@ class SyncService:
 
     def _apply_config_to_components(self):
         self.epub_builder = EpubBuilder(
-            output_dir=(self._output_dir if self._output_dir is not None
-                        else self.config_manager.get_resolved_output_dir(self.config)),
+            output_dir=(
+                self._output_dir
+                if self._output_dir is not None
+                else self.config_manager.get_resolved_output_dir(self.config)
+            ),
             font_family=self.config.get("font_family", "serif"),
             font_size=self.config.get("font_size", 16),
             line_height=self.config.get("line_height", 1.7),
@@ -119,7 +125,11 @@ class SyncService:
         self.request_cancel()
         deadline = time.monotonic() + max(0.0, float(timeout))
         thread = self._pipeline_thread
-        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+        if (
+            thread is not None
+            and thread.is_alive()
+            and thread is not threading.current_thread()
+        ):
             thread.join(timeout=max(0.0, deadline - time.monotonic()))
         while self._job_active.is_set() and time.monotonic() < deadline:
             time.sleep(0.05)
@@ -158,10 +168,20 @@ class SyncService:
         """시작/파이프라인 전 공유 데이터 폴더 → 로컬 캐시 가져오기."""
         self._reload_config()
         bs = self._backup_cfg()
-        if not force and not (bs.get("enabled") and bs.get("auto_import_on_start", True)):
-            return {"ok": True, "skipped": True, "message": t("pipeline.backup.auto_import_off")}
+        if not force and not (
+            bs.get("enabled") and bs.get("auto_import_on_start", True)
+        ):
+            return {
+                "ok": True,
+                "skipped": True,
+                "message": t("pipeline.backup.auto_import_off"),
+            }
         if not self.backup_sync.is_configured() and not force:
-            return {"ok": True, "skipped": True, "message": t("pipeline.backup.folder_unset")}
+            return {
+                "ok": True,
+                "skipped": True,
+                "message": t("pipeline.backup.folder_unset"),
+            }
         result = self.backup_sync.pull(force=force)
         self._reload_config()
         msg = result.get("message") or ""
@@ -181,9 +201,17 @@ class SyncService:
         self._reload_config()
         bs = self._backup_cfg()
         if not force and not (bs.get("enabled") and bs.get("auto_export", True)):
-            return {"ok": True, "skipped": True, "message": t("pipeline.backup.auto_export_off")}
+            return {
+                "ok": True,
+                "skipped": True,
+                "message": t("pipeline.backup.auto_export_off"),
+            }
         if not self.backup_sync.is_configured() and not force:
-            return {"ok": True, "skipped": True, "message": t("pipeline.backup.folder_unset")}
+            return {
+                "ok": True,
+                "skipped": True,
+                "message": t("pipeline.backup.folder_unset"),
+            }
         result = self.backup_sync.push(force=force)
         self._reload_config()
         msg = result.get("message") or ""
@@ -303,7 +331,9 @@ class SyncService:
 
     def record_job_failure(self, error: Exception) -> None:
         self._last_pipeline_result = {
-            "status": "failed", "success": False, "message": str(error),
+            "status": "failed",
+            "success": False,
+            "message": str(error),
         }
 
     def _run_pipeline_body(
@@ -325,7 +355,9 @@ class SyncService:
         if push_result.get("ok") is False:
             self._last_pipeline_result = {
                 **self._last_pipeline_result,
-                "status": "backup_push_failed" if ok else self._last_pipeline_result.get("status", "failed"),
+                "status": "backup_push_failed"
+                if ok
+                else self._last_pipeline_result.get("status", "failed"),
                 "success": False,
                 "backup_push": push_result,
             }
@@ -372,7 +404,7 @@ class SyncService:
     def run_sync_pipeline(
         self,
         log_callback: Optional[Callable[[str], None]] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> bool:
         """
         동기화 파이프라인 실행 (호출 스레드에서 동기 실행).
@@ -393,14 +425,14 @@ class SyncService:
     def _run_sync_pipeline_locked(
         self,
         log_callback: Optional[Callable[[str], None]] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> bool:
         return run_sync_pipeline_locked(self, log_callback, progress_callback)
 
     def preview_articles(
         self,
         log_callback: Optional[Callable[[str], None]] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> list[dict]:
         return run_preview_articles(self, log_callback, progress_callback)
 
@@ -408,7 +440,7 @@ class SyncService:
         self,
         selected_articles: list[dict],
         log_callback: Optional[Callable[[str], None]] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> bool:
         return run_sync_selected_articles(
             self, selected_articles, log_callback, progress_callback
@@ -418,7 +450,7 @@ class SyncService:
         self,
         selected_articles: list[dict],
         log_callback: Optional[Callable[[str], None]] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> list[str]:
         """선택 기사로 EPUB 만 생성 (전송·이력 기록 없음)."""
         return run_build_selected_epubs(

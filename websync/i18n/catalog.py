@@ -1,4 +1,5 @@
 """JSON 카탈로그 로드 및 flatten."""
+
 from __future__ import annotations
 
 import json

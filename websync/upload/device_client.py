@@ -3,6 +3,7 @@
 File Transfer / Calibre Wireless 모드에서 동작하는 웹서버 API를 사용합니다.
 문서: https://github.com/crosspoint-reader/crosspoint-reader/blob/develop/docs/webserver-endpoints.md
 """
+
 from __future__ import annotations
 
 import json
@@ -121,7 +122,9 @@ class X3DeviceClient:
         self._clear_error(host)
         return data
 
-    def list_files(self, path: str = "/", ip: str | None = None) -> list[dict[str, Any]]:
+    def list_files(
+        self, path: str = "/", ip: str | None = None
+    ) -> list[dict[str, Any]]:
         """GET /api/files?path=... — 디렉터리 목록."""
         host = self._resolve_host(ip)
         remote = normalize_remote_path(path)
@@ -260,8 +263,12 @@ class X3DeviceClient:
         return True
 
     def download(
-        self, remote_path: str, local_path: str, ip: str | None = None,
-        *, overwrite: bool = False,
+        self,
+        remote_path: str,
+        local_path: str,
+        ip: str | None = None,
+        *,
+        overwrite: bool = False,
     ) -> bool:
         """Download completely before publishing; replacement requires explicit consent."""
         host = self._resolve_host(ip)
@@ -291,11 +298,14 @@ class X3DeviceClient:
             if response.status_code != 200:
                 msg = self._request_error_message(response)
                 self._record_error(host, msg)
-                raise DeviceClientError(msg, host=host, status_code=response.status_code)
+                raise DeviceClientError(
+                    msg, host=host, status_code=response.status_code
+                )
             parent_dir = os.path.dirname(os.path.abspath(local_path))
             os.makedirs(parent_dir, exist_ok=True)
             temp_path = os.path.join(
-                parent_dir, f".{os.path.basename(local_path)}.{uuid.uuid4().hex}.part",
+                parent_dir,
+                f".{os.path.basename(local_path)}.{uuid.uuid4().hex}.part",
             )
             with open(temp_path, "xb") as f:
                 for chunk in response.iter_content(chunk_size=64 * 1024):
@@ -399,9 +409,7 @@ class X3DeviceClient:
         if not name:
             return False
         items = self.list_files(remote_dir, ip=ip)
-        return any(
-            (i.get("name") == name) and not i.get("isDirectory") for i in items
-        )
+        return any((i.get("name") == name) and not i.get("isDirectory") for i in items)
 
     def upload_to_path(
         self,
@@ -414,7 +422,9 @@ class X3DeviceClient:
         """POST /upload?path=... — 지정 폴더로 파일 업로드."""
         host = self._resolve_host(ip)
         if not file_path or not os.path.isfile(file_path):
-            raise DeviceClientError(t("device.no_local_file", path=file_path), host=host)
+            raise DeviceClientError(
+                t("device.no_local_file", path=file_path), host=host
+            )
 
         dest = normalize_remote_path(remote_dir)
         if safe_filename is None:

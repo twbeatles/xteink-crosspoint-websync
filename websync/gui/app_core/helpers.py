@@ -13,7 +13,14 @@ from websync.upload.uploader import X3Uploader
 # GUI 저장은 watch_dir만 편집한다. 나머지는 Watch 토글·워커가 RMW로 저장한다.
 _WATCH_BACKGROUND_KEYS = ("enabled", "pending_files", "pending_jobs")
 # 공유 폴더 설정 중 GUI가 직접 편집하는 키 (settings_tab/backup_sync.py)
-_USER_PORTABLE_KEYS = ("enabled", "folder", "include_history", "auto_export", "auto_import_on_start", "history_mode")
+_USER_PORTABLE_KEYS = (
+    "enabled",
+    "folder",
+    "include_history",
+    "auto_export",
+    "auto_import_on_start",
+    "history_mode",
+)
 
 
 def _union_ids(*groups, exclude: str = "") -> list[str]:
@@ -29,7 +36,12 @@ def _union_ids(*groups, exclude: str = "") -> list[str]:
 def _merge_device_identities(disk_devices, mem_devices: list) -> list:
     """기기 구성(추가·삭제·이름·주소)은 메모리, 채택된 안정 ID와 alias는 디스크 기준."""
     import copy
-    disk_list = [d for d in disk_devices if isinstance(d, dict)] if isinstance(disk_devices, list) else []
+
+    disk_list = (
+        [d for d in disk_devices if isinstance(d, dict)]
+        if isinstance(disk_devices, list)
+        else []
+    )
     merged = []
     for dev in mem_devices:
         if not isinstance(dev, dict):
@@ -37,9 +49,15 @@ def _merge_device_identities(disk_devices, mem_devices: list) -> list:
         result = copy.deepcopy(dev)
         mem_id = (dev.get("id") or "").strip()
         match = next(
-            (d for d in disk_list if mem_id and (
-                (d.get("id") or "").strip() == mem_id or mem_id in _union_ids(d.get("alias_ids"))
-            )),
+            (
+                d
+                for d in disk_list
+                if mem_id
+                and (
+                    (d.get("id") or "").strip() == mem_id
+                    or mem_id in _union_ids(d.get("alias_ids"))
+                )
+            ),
             None,
         )
         if match is not None:
@@ -92,7 +110,11 @@ class AppHelpersMixin:
                 bar.set(min(1.0, max(0.0, current / total)))
                 if self._sync_busy and current < total:
                     self._set_status(
-                        t("gui.bottom.status_progress", current=current + 1, total=total),
+                        t(
+                            "gui.bottom.status_progress",
+                            current=current + 1,
+                            total=total,
+                        ),
                         "busy",
                     )
             else:
@@ -104,6 +126,7 @@ class AppHelpersMixin:
         if url:
             try:
                 import webbrowser
+
                 webbrowser.open(url)
             except Exception:
                 pass
@@ -112,7 +135,9 @@ class AppHelpersMixin:
         return lambda msg: self.root.after(0, lambda m=msg: self._log_message(m))
 
     def _make_progress_callback(self):
-        return lambda cur, tot: self.root.after(0, lambda c=cur, t=tot: self._update_progress(c, t))
+        return lambda cur, tot: self.root.after(
+            0, lambda c=cur, t=tot: self._update_progress(c, t)
+        )
 
     def _make_uploader(self) -> X3Uploader:
         config = self.service.config
@@ -134,8 +159,12 @@ class AppHelpersMixin:
     def _summarize_upload_results(self, results: dict) -> tuple[bool, bool, str]:
         if not results:
             return False, False, t("gui.app.no_devices")
-        ok_labels = [f"{self._ip_display_name(ip)}({ip})" for ip, ok in results.items() if ok]
-        fail_labels = [f"{self._ip_display_name(ip)}({ip})" for ip, ok in results.items() if not ok]
+        ok_labels = [
+            f"{self._ip_display_name(ip)}({ip})" for ip, ok in results.items() if ok
+        ]
+        fail_labels = [
+            f"{self._ip_display_name(ip)}({ip})" for ip, ok in results.items() if not ok
+        ]
         parts = []
         if ok_labels:
             parts.append(t("gui.app.upload_ok", labels=", ".join(ok_labels)))
@@ -143,7 +172,9 @@ class AppHelpersMixin:
             parts.append(t("gui.app.upload_fail", labels=", ".join(fail_labels)))
         return all(results.values()), bool(ok_labels), " | ".join(parts)
 
-    def _safe_save_config(self, config: dict, *, parent=None, reload: bool = False) -> bool:
+    def _safe_save_config(
+        self, config: dict, *, parent=None, reload: bool = False
+    ) -> bool:
         """설정을 저장합니다. revision CAS로 동시 갱신(백업 pull 등)과 충돌을 감지·재시도합니다."""
         if getattr(self, "_closing", False):
             return False
@@ -153,8 +184,13 @@ class AppHelpersMixin:
             errors = self.service.config_manager.get_validation_errors(config)
             fatal = [e for e in errors if self._is_fatal_config_error(e)]
             if fatal:
-                msg = t("gui.app.validation_fail_body", errors="\n".join(f"• {e}" for e in fatal[:8]))
-                messagebox.showerror(t("gui.app.validation_fail_title"), msg, parent=parent)
+                msg = t(
+                    "gui.app.validation_fail_body",
+                    errors="\n".join(f"• {e}" for e in fatal[:8]),
+                )
+                messagebox.showerror(
+                    t("gui.app.validation_fail_title"), msg, parent=parent
+                )
                 self._log_message(t("gui.app.log_validation_fail", error=fatal[0]))
                 return False
 
@@ -175,9 +211,7 @@ class AppHelpersMixin:
                         config.clear()
                         config.update(working)
                     if attempt > 0:
-                        self._log_message(
-                            t("gui.app.conflict_merged")
-                        )
+                        self._log_message(t("gui.app.conflict_merged"))
                     last_conflict = None
                     break
                 except ConfigConflictError as e:
@@ -240,9 +274,17 @@ class AppHelpersMixin:
         """저장을 막을 검증 오류 (경고성 제외)."""
         from websync.i18n.catalog import load_catalog
 
-        if any(m in err for m in (
-            "epub_merge_mode", "epub_theme", "limit:", "font_size:", "line_height:", "ui_language",
-        )):
+        if any(
+            m in err
+            for m in (
+                "epub_merge_mode",
+                "epub_theme",
+                "limit:",
+                "font_size:",
+                "line_height:",
+                "ui_language",
+            )
+        ):
             return True
         for catalog in (load_catalog("ko"), load_catalog("en")):
             for key in AppHelpersMixin._FATAL_VALIDATOR_KEYS:
@@ -271,12 +313,23 @@ class AppHelpersMixin:
 
         out = copy.deepcopy(disk)
         for key, val in memory.items():
-            if key in ("sites", "_config_revision", PORTABLE_KEY, LEGACY_KEY,
-                       "calibre_watch", "x3_primary_device_id", "x3_primary_device_alias_ids"):
+            if key in (
+                "sites",
+                "_config_revision",
+                PORTABLE_KEY,
+                LEGACY_KEY,
+                "calibre_watch",
+                "x3_primary_device_id",
+                "x3_primary_device_alias_ids",
+            ):
                 continue
             out[key] = copy.deepcopy(val)
 
-        disk_watch = disk.get("calibre_watch") if isinstance(disk.get("calibre_watch"), dict) else {}
+        disk_watch = (
+            disk.get("calibre_watch")
+            if isinstance(disk.get("calibre_watch"), dict)
+            else {}
+        )
         mem_watch = memory.get("calibre_watch")
         if isinstance(mem_watch, dict):
             watch = copy.deepcopy(mem_watch)
@@ -296,26 +349,34 @@ class AppHelpersMixin:
             exclude=out["x3_primary_device_id"],
         )
         if isinstance(memory.get("x3_devices"), list):
-            out["x3_devices"] = _merge_device_identities(disk.get("x3_devices"), memory["x3_devices"])
+            out["x3_devices"] = _merge_device_identities(
+                disk.get("x3_devices"), memory["x3_devices"]
+            )
 
         mem_sites = memory.get("sites") if isinstance(memory.get("sites"), list) else []
         disk_sites = out.get("sites") if isinstance(out.get("sites"), list) else []
         # memory wins same URL
-        out["sites"] = merge_sites(
-            disk_sites, mem_sites, remote_wins_same_url=True
-        )
+        out["sites"] = merge_sites(disk_sites, mem_sites, remote_wins_same_url=True)
 
         # 공유 폴더: 사용자가 편집하는 키만 메모리 값, 나머지(push 시각 등)는 디스크 값.
         mem_portable = get_portable_cfg(memory)
         disk_portable = get_portable_cfg(disk)
         tombstones = merge_site_tombstones(
-            disk_portable.get("deleted_sites", []), mem_portable.get("deleted_sites", [])
+            disk_portable.get("deleted_sites", []),
+            mem_portable.get("deleted_sites", []),
         )
         out["sites"], deleted = apply_site_tombstones(out["sites"], tombstones)
-        apply_portable_cfg(out, {
-            **{key: mem_portable[key] for key in _USER_PORTABLE_KEYS if key in mem_portable},
-            "deleted_sites": deleted,
-        })
+        apply_portable_cfg(
+            out,
+            {
+                **{
+                    key: mem_portable[key]
+                    for key in _USER_PORTABLE_KEYS
+                    if key in mem_portable
+                },
+                "deleted_sites": deleted,
+            },
+        )
         return out
 
     def _get_log_for_web(self) -> str:
@@ -331,7 +392,9 @@ class AppHelpersMixin:
             files = sorted(os.listdir(log_dir), reverse=True)
             if files:
                 try:
-                    with open(os.path.join(log_dir, files[0]), "r", encoding="utf-8") as f:
+                    with open(
+                        os.path.join(log_dir, files[0]), "r", encoding="utf-8"
+                    ) as f:
                         return "".join(f.readlines()[-100:])
                 except Exception:
                     pass
@@ -340,4 +403,3 @@ class AppHelpersMixin:
     # ------------------------------------------------------------------
     # 설정 동기화 및 윈도우 컨트롤
     # ------------------------------------------------------------------
-

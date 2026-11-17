@@ -1,4 +1,5 @@
 """Watch queue contracts use temporary settings and deterministic fake uploads."""
+
 import os
 import threading
 import time
@@ -27,24 +28,40 @@ class Harness:
         self.book.write_bytes(b"book")
         self.manager = ConfigManager(str(tmp_path / "config.json"))
         self.owner = SettingsWatchMixin()
-        self.owner.service = SimpleNamespace(config_manager=self.manager, config=self.manager.load_config())
-        self.targets = [{"ip": "a.local", "history_key": "reader-a"}, {"ip": "b.local", "history_key": "reader-b"}]
+        self.owner.service = SimpleNamespace(
+            config_manager=self.manager, config=self.manager.load_config()
+        )
+        self.targets = [
+            {"ip": "a.local", "history_key": "reader-a"},
+            {"ip": "b.local", "history_key": "reader-b"},
+        ]
         self.remote_dir = "/"
         self.calls = []
         self.threads = []
         self.queues = []
 
     def uploader(self):
-        return SimpleNamespace(remote_dir=self.remote_dir, _build_target_list=lambda: list(self.targets))
+        return SimpleNamespace(
+            remote_dir=self.remote_dir, _build_target_list=lambda: list(self.targets)
+        )
 
     def start(self, attempt, *, base=0.025, cap=0.05):
         watch = self.manager.load_config()["calibre_watch"]
+
         def send(path, uploader, ips, stop):
             self.calls.append(list(ips))
             return attempt(ips, stop)
-        queue = WatchRetryQueue(self.uploader, send, self.owner._save_watch_job,
-                               pending_files=watch["pending_files"], pending_jobs=watch["pending_jobs"],
-                               retry_base=base, retry_cap=cap, stability_interval=0.001)
+
+        queue = WatchRetryQueue(
+            self.uploader,
+            send,
+            self.owner._save_watch_job,
+            pending_files=watch["pending_files"],
+            pending_jobs=watch["pending_jobs"],
+            retry_base=base,
+            retry_cap=cap,
+            stability_interval=0.001,
+        )
         thread = threading.Thread(target=queue.run)
         self.queues.append(queue)
         self.threads.append(thread)
@@ -74,6 +91,7 @@ def harness(tmp_path):
 def test_connection_recovery_without_file_event(harness):
     def attempt(ips, stop):
         return {ip: len(harness.calls) > 1 for ip in ips}
+
     queue = harness.start(attempt)
     queue.enqueue(str(harness.book))
     eventually(lambda: len(harness.calls) == 2 and not harness.pending())
@@ -95,6 +113,7 @@ def test_diagnostics_preserve_acknowledged_dedup_state(harness):
 def test_partial_success_retries_only_pending_device(harness):
     def attempt(ips, stop):
         return {ip: ip == "a.local" or len(harness.calls) > 1 for ip in ips}
+
     queue = harness.start(attempt)
     queue.enqueue(str(harness.book))
     eventually(lambda: len(harness.calls) == 2 and not harness.pending())
@@ -103,10 +122,12 @@ def test_partial_success_retries_only_pending_device(harness):
 
 def test_duplicate_events_during_upload_and_after_acknowledgement(harness):
     entered, release = threading.Event(), threading.Event()
+
     def attempt(ips, stop):
         entered.set()
         assert release.wait(2)
         return dict.fromkeys(ips, True)
+
     queue = harness.start(attempt)
     queue.enqueue(str(harness.book))
     assert entered.wait(2)
@@ -120,9 +141,18 @@ def test_duplicate_events_during_upload_and_after_acknowledgement(harness):
 
 
 def test_stop_during_backoff_and_restart_preserves_successful_device(harness):
-    queue = harness.start(lambda ips, stop: {ip: ip == "a.local" for ip in ips}, base=60, cap=60)
+    queue = harness.start(
+        lambda ips, stop: {ip: ip == "a.local" for ip in ips}, base=60, cap=60
+    )
     queue.enqueue(str(harness.book))
-    eventually(lambda: any(state.get("completed") for state in harness.manager.load_config()["calibre_watch"]["pending_jobs"].values()))
+    eventually(
+        lambda: any(
+            state.get("completed")
+            for state in harness.manager.load_config()["calibre_watch"][
+                "pending_jobs"
+            ].values()
+        )
+    )
     started = time.monotonic()
     queue.stop()
     harness.threads[-1].join(0.5)
@@ -136,10 +166,12 @@ def test_stop_during_backoff_and_restart_preserves_successful_device(harness):
 
 def test_stop_active_upload_keeps_durable_pending(harness):
     entered, release = threading.Event(), threading.Event()
+
     def attempt(ips, stop):
         entered.set()
         assert release.wait(2)
         return dict.fromkeys(ips, False)
+
     queue = harness.start(attempt)
     queue.enqueue(str(harness.book))
     assert entered.wait(2)
@@ -155,9 +187,18 @@ def test_stop_active_upload_keeps_durable_pending(harness):
 
 
 def test_changed_content_even_same_size_mtime_invalidates_success(harness):
-    queue = harness.start(lambda ips, stop: {ip: ip == "a.local" for ip in ips}, base=60, cap=60)
+    queue = harness.start(
+        lambda ips, stop: {ip: ip == "a.local" for ip in ips}, base=60, cap=60
+    )
     queue.enqueue(str(harness.book))
-    eventually(lambda: any(state.get("completed") for state in harness.manager.load_config()["calibre_watch"]["pending_jobs"].values()))
+    eventually(
+        lambda: any(
+            state.get("completed")
+            for state in harness.manager.load_config()["calibre_watch"][
+                "pending_jobs"
+            ].values()
+        )
+    )
     queue.stop()
     harness.threads[-1].join(1)
     original = harness.book.stat()
@@ -169,24 +210,48 @@ def test_changed_content_even_same_size_mtime_invalidates_success(harness):
 
 
 def test_target_address_change_preserves_identity_but_new_target_is_sent(harness):
-    queue = harness.start(lambda ips, stop: {ip: ip == "a.local" for ip in ips}, base=60, cap=60)
+    queue = harness.start(
+        lambda ips, stop: {ip: ip == "a.local" for ip in ips}, base=60, cap=60
+    )
     queue.enqueue(str(harness.book))
-    eventually(lambda: any(state.get("completed") for state in harness.manager.load_config()["calibre_watch"]["pending_jobs"].values()))
+    eventually(
+        lambda: any(
+            state.get("completed")
+            for state in harness.manager.load_config()["calibre_watch"][
+                "pending_jobs"
+            ].values()
+        )
+    )
     queue.stop()
     harness.threads[-1].join(1)
-    harness.targets = [{"ip": "a-new.local", "history_key": "reader-a"},
-                       {"ip": "b.local", "history_key": "reader-b"},
-                       {"ip": "c.local", "history_key": "reader-c"}]
+    harness.targets = [
+        {"ip": "a-new.local", "history_key": "reader-a"},
+        {"ip": "b.local", "history_key": "reader-b"},
+        {"ip": "c.local", "history_key": "reader-c"},
+    ]
     harness.start(lambda ips, stop: dict.fromkeys(ips, True))
     eventually(lambda: not harness.pending())
     assert harness.calls[-1] == ["b.local", "c.local"]
 
 
-def test_legacy_pending_files_recovered_and_folder_change_invalidates_completion(harness):
+def test_legacy_pending_files_recovered_and_folder_change_invalidates_completion(
+    harness,
+):
     harness.owner._remember_watch_file(str(harness.book))
-    harness.manager.update_config(lambda cfg: cfg["calibre_watch"].pop("pending_jobs", None))
-    queue = harness.start(lambda ips, stop: {ip: ip == "a.local" for ip in ips}, base=60, cap=60)
-    eventually(lambda: any(state.get("completed") for state in harness.manager.load_config()["calibre_watch"]["pending_jobs"].values()))
+    harness.manager.update_config(
+        lambda cfg: cfg["calibre_watch"].pop("pending_jobs", None)
+    )
+    queue = harness.start(
+        lambda ips, stop: {ip: ip == "a.local" for ip in ips}, base=60, cap=60
+    )
+    eventually(
+        lambda: any(
+            state.get("completed")
+            for state in harness.manager.load_config()["calibre_watch"][
+                "pending_jobs"
+            ].values()
+        )
+    )
     queue.stop()
     harness.threads[-1].join(1)
     harness.remote_dir = "/Books"
@@ -200,6 +265,7 @@ def test_changed_during_inflight_upload_retries_new_bytes(harness):
         if len(harness.calls) == 1:
             harness.book.write_bytes(b"updated book")
         return dict.fromkeys(ips, True)
+
     queue = harness.start(attempt)
     queue.enqueue(str(harness.book))
     eventually(lambda: len(harness.calls) == 2 and not harness.pending())
@@ -215,11 +281,17 @@ def test_missing_pending_file_is_retained_until_library_returns(harness):
     eventually(lambda: bool(harness.calls) and not harness.pending())
 
 
-@pytest.mark.parametrize("state", [None, [], {"fingerprint": [1, "x", 2]},
-                                    {"targets": [42]}, {"completed": "a"}])
+@pytest.mark.parametrize(
+    "state",
+    [None, [], {"fingerprint": [1, "x", 2]}, {"targets": [42]}, {"completed": "a"}],
+)
 def test_persisted_job_shape_validation(harness, state):
     with pytest.raises(ConfigSaveError):
-        harness.manager.update_config(lambda cfg: cfg["calibre_watch"].update(pending_jobs={str(harness.book): state}))
+        harness.manager.update_config(
+            lambda cfg: cfg["calibre_watch"].update(
+                pending_jobs={str(harness.book): state}
+            )
+        )
 
 
 def test_watch_worker_uses_saved_settings_without_tk(harness):
@@ -231,8 +303,12 @@ def test_watch_worker_uses_saved_settings_without_tk(harness):
     # No app, Tk root or entries exist on this object.
     uploader = owner._make_watch_uploader()
     calls = []
-    uploader.upload_to_targets = lambda path, **kwargs: calls.append(kwargs) or {"a.local": True}
-    assert owner._attempt_watch_upload(str(harness.book), uploader, ["a.local"], threading.Event()) == {"a.local": True}
+    uploader.upload_to_targets = lambda path, **kwargs: (
+        calls.append(kwargs) or {"a.local": True}
+    )
+    assert owner._attempt_watch_upload(
+        str(harness.book), uploader, ["a.local"], threading.Event()
+    ) == {"a.local": True}
     assert calls == [{"only_ips": ["a.local"]}]
 
 
@@ -244,7 +320,11 @@ def test_stop_interrupts_pipeline_lock_wait(harness):
     owner.service._pipeline_lock.acquire()
     stop = threading.Event()
     result = []
-    worker = threading.Thread(target=lambda: result.append(owner._attempt_watch_upload(str(harness.book), object(), [], stop)))
+    worker = threading.Thread(
+        target=lambda: result.append(
+            owner._attempt_watch_upload(str(harness.book), object(), [], stop)
+        )
+    )
     worker.start()
     stop.set()
     worker.join(0.5)
@@ -258,24 +338,31 @@ def test_target_changed_during_upload_is_not_forgotten(harness):
         if len(harness.calls) == 1:
             harness.targets.append({"ip": "new.local", "history_key": "new-reader"})
         return dict.fromkeys(ips, True)
+
     queue = harness.start(attempt)
     queue.enqueue(str(harness.book))
     eventually(lambda: len(harness.calls) == 2 and not harness.pending())
     assert harness.calls[-1] == ["new.local"]
 
 
-def test_retries_are_capped_and_stop_does_not_start_later_attempts(harness, monkeypatch):
+def test_retries_are_capped_and_stop_does_not_start_later_attempts(
+    harness, monkeypatch
+):
     attempts = []
+
     def attempt(ips, stop):
         attempts.append(time.monotonic())
         return dict.fromkeys(ips, False)
+
     queue = harness.start(attempt, base=0.01, cap=0.02)
     requested_delays = []
     original_wait = queue._condition.wait
+
     def wait(timeout=None):
         if timeout is not None:
             requested_delays.append(timeout)
         return original_wait(timeout)
+
     monkeypatch.setattr(queue._condition, "wait", wait)
     queue.enqueue(str(harness.book))
     eventually(lambda: len(attempts) >= 7)
@@ -290,19 +377,25 @@ def test_retries_are_capped_and_stop_does_not_start_later_attempts(harness, monk
     assert harness.pending()
 
 
-def test_transient_initial_save_failure_keeps_event_and_retries_without_new_event(harness):
+def test_transient_initial_save_failure_keeps_event_and_retries_without_new_event(
+    harness,
+):
     errors = []
+
     def upload(ips, stop):
         assert harness.pending() == [str(harness.book)]
         return dict.fromkeys(ips, True)
+
     queue = harness.start(upload)
     original = queue.save
     writes = []
+
     def save(path, state):
         writes.append(state)
         if len(writes) == 1:
             raise ConfigSaveError("temporary configuration write failure")
         return original(path, state)
+
     queue.save = save
     queue.on_error = lambda path, error: errors.append(error)
     assert queue.enqueue(str(harness.book))
@@ -328,9 +421,15 @@ def test_watch_rechecks_file_stability_after_waiting_for_shared_locks(harness):
         return False
 
     stop = SimpleNamespace(is_set=lambda: False, wait=wait)
-    uploader = SimpleNamespace(upload_to_targets=lambda *args, **kwargs: pytest.fail(
-        "unstable source reached the device after acquiring shared locks"))
-    assert owner._attempt_watch_upload(str(harness.book), uploader, ["a.local"], stop) == {}
+    uploader = SimpleNamespace(
+        upload_to_targets=lambda *args, **kwargs: pytest.fail(
+            "unstable source reached the device after acquiring shared locks"
+        )
+    )
+    assert (
+        owner._attempt_watch_upload(str(harness.book), uploader, ["a.local"], stop)
+        == {}
+    )
     assert waits
     assert not pipeline.locked() and not process.locked()
 
@@ -352,7 +451,9 @@ def test_retained_shutdown_event_cannot_upload_until_restart(harness):
     eventually(lambda: len(harness.calls) == 2 and not harness.pending())
 
 
-def test_actual_observer_event_immediate_shutdown_restart_checks_source_stability(harness, monkeypatch):
+def test_actual_observer_event_immediate_shutdown_restart_checks_source_stability(
+    harness, monkeypatch
+):
     import sys
     from types import ModuleType
 
@@ -362,7 +463,9 @@ def test_actual_observer_event_immediate_shutdown_restart_checks_source_stabilit
     registered = []
     observer = SimpleNamespace(
         schedule=lambda handler, *args, **kwargs: registered.append(handler),
-        start=lambda: None, stop=lambda: None, join=lambda **kwargs: None,
+        start=lambda: None,
+        stop=lambda: None,
+        join=lambda **kwargs: None,
     )
     observers = ModuleType("watchdog.observers")
     observers.Observer = lambda: observer
@@ -372,11 +475,19 @@ def test_actual_observer_event_immediate_shutdown_restart_checks_source_stabilit
     monkeypatch.setitem(sys.modules, "watchdog.observers", observers)
     monkeypatch.setitem(sys.modules, "watchdog.events", events)
 
-    queue = harness.start(lambda ips, stop: pytest.fail("shutdown handoff uploaded an unstabilized file"))
-    watcher = CalibreWatcher(str(harness.book.parent), queue.enqueue, debounce_sec=60,
-                             on_pending_file=queue.retain)
+    queue = harness.start(
+        lambda ips, stop: pytest.fail("shutdown handoff uploaded an unstabilized file")
+    )
+    watcher = CalibreWatcher(
+        str(harness.book.parent),
+        queue.enqueue,
+        debounce_sec=60,
+        on_pending_file=queue.retain,
+    )
     assert watcher.start()
-    registered[0].on_created(SimpleNamespace(is_directory=False, src_path=str(harness.book)))
+    registered[0].on_created(
+        SimpleNamespace(is_directory=False, src_path=str(harness.book))
+    )
     watcher.stop()
     queue.stop()
     harness.threads[-1].join(1)
@@ -386,6 +497,7 @@ def test_actual_observer_event_immediate_shutdown_restart_checks_source_stabilit
 
     original = retry_module.file_fingerprint
     reads = []
+
     def changed_during_stability_check(path):
         signature = original(path)
         reads.append(signature)
@@ -394,10 +506,15 @@ def test_actual_observer_event_immediate_shutdown_restart_checks_source_stabilit
             # not reach the network before the changed file has stabilized.
             harness.book.write_bytes(b"finished copy")
         return signature
-    monkeypatch.setattr(retry_module, "file_fingerprint", changed_during_stability_check)
+
+    monkeypatch.setattr(
+        retry_module, "file_fingerprint", changed_during_stability_check
+    )
+
     def upload(ips, stop):
         assert len(reads) >= 2
         assert harness.book.read_bytes() == b"finished copy"
         return dict.fromkeys(ips, True)
+
     harness.start(upload)
     eventually(lambda: len(harness.calls) == 1 and not harness.pending())

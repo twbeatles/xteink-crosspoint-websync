@@ -4,6 +4,7 @@
 RssScraper + EpubBuilder 를 끝까지 돌려 EPUB 구조·본문 보존을 검증한다.
 라이브 테스트는 ``WEBSYNC_LIVE_CONTRACTS=1`` 일 때만 모든 RSS 프리셋의 실제 피드를 받아 확인한다.
 """
+
 from __future__ import annotations
 
 import os
@@ -37,8 +38,15 @@ def _resp(path: Path) -> MagicMock:
 
 
 def _scrape(name: str, **site) -> list[dict]:
-    cfg = {"url": f"https://feed.example/{name}", "limit": 5, "include_images": False, **site}
-    with patch("websync.scrapers.rss.fetch_url", return_value=_resp(FIXTURES / f"{name}.xml")):
+    cfg = {
+        "url": f"https://feed.example/{name}",
+        "limit": 5,
+        "include_images": False,
+        **site,
+    }
+    with patch(
+        "websync.scrapers.rss.fetch_url", return_value=_resp(FIXTURES / f"{name}.xml")
+    ):
         return RssScraper().fetch_articles(cfg)
 
 
@@ -67,14 +75,18 @@ def _xhtml_bodies(path: str) -> list[str]:
         ("atom_shape", ["1부: 데이터도 정답도 없다"], 400),
     ],
 )
-def test_full_text_feed_shapes_build_valid_epub(tmp_path, name, expected_titles, min_chars):
+def test_full_text_feed_shapes_build_valid_epub(
+    tmp_path, name, expected_titles, min_chars
+):
     arts = _scrape(name)
     assert [a["title"] for a in arts] == expected_titles
     for a in arts:
         text = re.sub(r"<[^>]+>", "", a["content"])
         assert len(text) >= min_chars, f"{name}: 본문이 요약 수준으로 짧음"
 
-    path = EpubBuilder(output_dir=str(tmp_path)).build(f"fixture_{name}", arts, generate_cover=False)
+    path = EpubBuilder(output_dir=str(tmp_path)).build(
+        f"fixture_{name}", arts, generate_cover=False
+    )
     bodies = _xhtml_bodies(path)
     joined = "\n".join(bodies)
     for title in expected_titles:
@@ -91,17 +103,25 @@ def test_medium_shape_drops_tracking_pixel_and_images_when_disabled(tmp_path):
     arts = _scrape("medium_shape")
     assert all("<img" not in a["content"] for a in arts)
     assert all("_/stat" not in a["content"] for a in arts)
-    path = EpubBuilder(output_dir=str(tmp_path)).build("medium", arts, generate_cover=False)
+    path = EpubBuilder(output_dir=str(tmp_path)).build(
+        "medium", arts, generate_cover=False
+    )
     with zipfile.ZipFile(path) as zf:
-        assert not [n for n in zf.namelist() if n.lower().endswith((".png", ".jpg", ".gif"))]
-        assert b"medium.com/_/stat" not in b"".join(zf.read(n) for n in zf.namelist() if n.endswith(".xhtml"))
+        assert not [
+            n for n in zf.namelist() if n.lower().endswith((".png", ".jpg", ".gif"))
+        ]
+        assert b"medium.com/_/stat" not in b"".join(
+            zf.read(n) for n in zf.namelist() if n.endswith(".xhtml")
+        )
 
 
 def test_code_blocks_and_entities_survive_epub_roundtrip(tmp_path):
     arts = _scrape("medium_shape")
-    path = EpubBuilder(output_dir=str(tmp_path)).build("code", arts, generate_cover=False)
+    path = EpubBuilder(output_dir=str(tmp_path)).build(
+        "code", arts, generate_cover=False
+    )
     joined = "\n".join(_xhtml_bodies(path))
-    assert 'def hello():' in joined
+    assert "def hello():" in joined
     assert 'return "안녕" & 1 < 2' in joined  # 이스케이프가 두 번 풀리거나 깨지지 않음
 
 
@@ -125,8 +145,13 @@ def test_atom_shape_uses_content_not_summary():
 def test_summary_only_shape_still_builds_readable_chapter(tmp_path):
     arts = _scrape("summary_only_shape")
     assert len(arts) == 1
-    assert "원문 링크" in arts[0]["content"] and "https://news.example/a/1" in arts[0]["content"]
-    path = EpubBuilder(output_dir=str(tmp_path)).build("summary", arts, generate_cover=False)
+    assert (
+        "원문 링크" in arts[0]["content"]
+        and "https://news.example/a/1" in arts[0]["content"]
+    )
+    path = EpubBuilder(output_dir=str(tmp_path)).build(
+        "summary", arts, generate_cover=False
+    )
     assert "요약만 오는 기사 제목" in "\n".join(_xhtml_bodies(path))
 
 
@@ -136,7 +161,9 @@ def test_digest_epub_merges_multiple_preset_shapes(tmp_path):
         "wordpress": _scrape("wordpress_shape"),
         "atom": _scrape("atom_shape"),
     }
-    path = EpubBuilder(output_dir=str(tmp_path)).build_digest(by_site, generate_cover=False)
+    path = EpubBuilder(output_dir=str(tmp_path)).build_digest(
+        by_site, generate_cover=False
+    )
     joined = "\n".join(_xhtml_bodies(path))
     for title in ("두 번째 글", "트레일 코스", "데이터도 정답도"):
         assert title in joined
@@ -164,8 +191,19 @@ def test_every_preset_is_wellformed_and_unique():
 
 
 def test_presets_exclude_political_news_outlets():
-    banned = ("hani.co.kr", "khan.co.kr", "chosun.com", "joins.com", "donga.com", "ohmynews", "pressian", "sisain")
-    assert not [p["label"] for p in _real_presets() if any(b in p["url"] for b in banned)]
+    banned = (
+        "hani.co.kr",
+        "khan.co.kr",
+        "chosun.com",
+        "joins.com",
+        "donga.com",
+        "ohmynews",
+        "pressian",
+        "sisain",
+    )
+    assert not [
+        p["label"] for p in _real_presets() if any(b in p["url"] for b in banned)
+    ]
 
 
 def test_english_presets_carry_translation_note():
@@ -183,7 +221,11 @@ live = pytest.mark.skipif(
 
 
 @live
-@pytest.mark.parametrize("preset", [p for p in _real_presets() if p.get("type") == "rss"], ids=lambda p: p["name"])
+@pytest.mark.parametrize(
+    "preset",
+    [p for p in _real_presets() if p.get("type") == "rss"],
+    ids=lambda p: p["name"],
+)
 def test_live_rss_preset_builds_epub(tmp_path, preset):
     from websync.scrapers.factory import ScraperFactory
 
@@ -191,7 +233,9 @@ def test_live_rss_preset_builds_epub(tmp_path, preset):
         {"url": preset["url"], "limit": 2, "include_images": False, "type": "rss"}
     )
     assert arts, f"{preset['name']}: 기사 0건"
-    path = EpubBuilder(output_dir=str(tmp_path)).build(preset["name"], arts, generate_cover=False)
+    path = EpubBuilder(output_dir=str(tmp_path)).build(
+        preset["name"], arts, generate_cover=False
+    )
     bodies = _xhtml_bodies(path)  # XML 파싱이 되면 구조는 유효
     text = max(len(re.sub(r"<[^>]+>", "", a["content"])) for a in arts)
     if preset.get("note_key") == SUMMARY_NOTE:

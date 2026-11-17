@@ -15,13 +15,20 @@ class SyncScheduleMixin:
             config = copy.deepcopy(self.service.config)
             config["schedule"]["enabled"] = True
             if self.app._safe_save_config(config):
-                messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.registered", hour=h, minute=m))
+                messagebox.showinfo(
+                    t("gui.schedule.title"),
+                    t("gui.schedule.registered", hour=h, minute=m),
+                )
             else:
-                messagebox.showwarning(t("gui.schedule.title"), t("gui.schedule.state_save_failed"))
+                messagebox.showwarning(
+                    t("gui.schedule.title"), t("gui.schedule.state_save_failed")
+                )
         else:
             detail = getattr(self.scheduler, "last_error", "")
             message = t("gui.schedule.register_failed")
-            messagebox.showerror(t("gui.schedule.title"), f"{message}\n\n{detail}" if detail else message)
+            messagebox.showerror(
+                t("gui.schedule.title"), f"{message}\n\n{detail}" if detail else message
+            )
         self._refresh_schedule_status()
 
     def _unregister_schedule(self):
@@ -29,13 +36,19 @@ class SyncScheduleMixin:
             config = copy.deepcopy(self.service.config)
             config["schedule"]["enabled"] = False
             if self.app._safe_save_config(config):
-                messagebox.showinfo(t("gui.schedule.title"), t("gui.schedule.unregistered"))
+                messagebox.showinfo(
+                    t("gui.schedule.title"), t("gui.schedule.unregistered")
+                )
             else:
-                messagebox.showwarning(t("gui.schedule.title"), t("gui.schedule.state_save_failed"))
+                messagebox.showwarning(
+                    t("gui.schedule.title"), t("gui.schedule.state_save_failed")
+                )
         else:
             detail = getattr(self.scheduler, "last_error", "")
             message = t("gui.schedule.unregister_failed")
-            messagebox.showwarning(t("gui.schedule.title"), f"{message}\n\n{detail}" if detail else message)
+            messagebox.showwarning(
+                t("gui.schedule.title"), f"{message}\n\n{detail}" if detail else message
+            )
         self._refresh_schedule_status()
 
     def _refresh_schedule_status(self):
@@ -45,4 +58,3 @@ class SyncScheduleMixin:
     # ------------------------------------------------------------------
     # 추가 기기 관리 팝업
     # ------------------------------------------------------------------
-

@@ -1,4 +1,5 @@
 """선택자 도우미 상수 (정규식·경로·감점 사전)."""
+
 from __future__ import annotations
 
 import re
@@ -12,7 +13,20 @@ _UNSTABLE_CLASS = re.compile(
     re.I,
 )
 _SKIP_TAGS = frozenset(
-    {"script", "style", "noscript", "svg", "path", "meta", "link", "br", "hr", "img", "input", "button"}
+    {
+        "script",
+        "style",
+        "noscript",
+        "svg",
+        "path",
+        "meta",
+        "link",
+        "br",
+        "hr",
+        "img",
+        "input",
+        "button",
+    }
 )
 _NOISE_ANCESTORS = frozenset({"nav", "footer", "aside", "header"})
 _FEED_TYPES = (
@@ -54,12 +68,47 @@ _DETAIL_CONTENT_CANDIDATES = [
 # 네비·UI 문구 (아이템 후보 감점)
 _NAV_WORDS = frozenset(
     {
-        "홈", "home", "menu", "메뉴", "서비스", "공지", "공지사항", "로그인", "로그아웃",
-        "sign up", "sign in", "signup", "signin", "채용", "구독", "구독하기", "blog",
-        "tags", "tag", "category", "카테고리", "검색", "search", "about", "소개",
-        "contact", "문의", "more", "더보기", "prev", "next", "이전", "다음",
-        "engineering", "design", "product", "culture", "tech", "개발자 채용",
-        "open in app", "sitemap",
+        "홈",
+        "home",
+        "menu",
+        "메뉴",
+        "서비스",
+        "공지",
+        "공지사항",
+        "로그인",
+        "로그아웃",
+        "sign up",
+        "sign in",
+        "signup",
+        "signin",
+        "채용",
+        "구독",
+        "구독하기",
+        "blog",
+        "tags",
+        "tag",
+        "category",
+        "카테고리",
+        "검색",
+        "search",
+        "about",
+        "소개",
+        "contact",
+        "문의",
+        "more",
+        "더보기",
+        "prev",
+        "next",
+        "이전",
+        "다음",
+        "engineering",
+        "design",
+        "product",
+        "culture",
+        "tech",
+        "개발자 채용",
+        "open in app",
+        "sitemap",
     }
 )
 

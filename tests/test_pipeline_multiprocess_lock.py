@@ -1,4 +1,5 @@
 """Pipeline lock contract: class-level lock serializes instances; GUI+CLI share path."""
+
 import threading
 import time
 from unittest.mock import patch
@@ -15,8 +16,10 @@ def _svc(tmp_path, name):
     cfg["portable_data"] = {"enabled": False}
     cm.save_config(cfg)
     db = SyncHistoryDb(str(tmp_path / f"{name}.db"))
-    with patch("websync.pipeline.service.SyncHistoryDb", return_value=db), \
-         patch("websync.backup.local_import.import_local_sidecars", return_value={}):
+    with (
+        patch("websync.pipeline.service.SyncHistoryDb", return_value=db),
+        patch("websync.backup.local_import.import_local_sidecars", return_value={}),
+    ):
         return SyncService(cm)
 
 

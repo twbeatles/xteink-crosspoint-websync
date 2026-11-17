@@ -69,11 +69,17 @@ def content_origin(monkeypatch):
         yield origin
 
 
-def test_real_http_retries_transient_failure_and_follows_relative_redirect(content_origin):
+def test_real_http_retries_transient_failure_and_follows_relative_redirect(
+    content_origin,
+):
     origin, routes, requests = content_origin
     routes["/start"] = (302, {"Location": "/feed"}, b"")
-    responses = iter([(503, {}, b"try again"),
-                      (200, {"Content-Type": "text/plain; charset=utf-8"}, "정상 본문")])
+    responses = iter(
+        [
+            (503, {}, b"try again"),
+            (200, {"Content-Type": "text/plain; charset=utf-8"}, "정상 본문"),
+        ]
+    )
     routes["/feed"] = lambda: next(responses)
     with fetch_url(origin + "/start", timeout=2) as response:
         assert response.status_code == 200
@@ -107,8 +113,12 @@ def test_real_http_redirect_loop_is_bounded_and_session_recovers(content_origin)
         assert response.content == b"recovered"
 
 
-@pytest.mark.parametrize("declared_length", [True, False], ids=["content-length", "stream-until-close"])
-def test_real_http_size_boundary_and_recovery(content_origin, monkeypatch, declared_length):
+@pytest.mark.parametrize(
+    "declared_length", [True, False], ids=["content-length", "stream-until-close"]
+)
+def test_real_http_size_boundary_and_recovery(
+    content_origin, monkeypatch, declared_length
+):
     import websync.scrapers.base as base
 
     origin, routes, requests = content_origin

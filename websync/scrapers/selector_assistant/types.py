@@ -1,4 +1,5 @@
 """선택자 도우미 데이터 클래스."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ class SelectorTestResult:
 @dataclass
 class DomNode:
     """DOM 아웃라인용 플랫/트리 노드 (부모 index로 연결)."""
+
     index: int
     parent_index: int  # -1 = root
     tag: str

@@ -33,8 +33,12 @@ class DeviceFilesSettingsMixin:
     def _save_device_files_settings(self) -> None:
         config = self.service.config
         df = dict(config.get("device_files") or {})
-        df["default_upload_path"] = normalize_upload_remote_dir(self.upload_path_var.get())
-        df["default_browse_path"] = normalize_remote_path(self.path_var.get() or self._current_path)
+        df["default_upload_path"] = normalize_upload_remote_dir(
+            self.upload_path_var.get()
+        )
+        df["default_browse_path"] = normalize_remote_path(
+            self.path_var.get() or self._current_path
+        )
         df["warn_overwrite"] = bool(self.warn_overwrite_var.get())
         try:
             df["cleanup_older_days"] = max(1, int(self.cleanup_days_var.get()))
@@ -54,4 +58,3 @@ class DeviceFilesSettingsMixin:
     # ------------------------------------------------------------------
     # 클라이언트 / 기기 선택
     # ------------------------------------------------------------------
-

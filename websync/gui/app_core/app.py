@@ -1,4 +1,5 @@
 """메인 GUI 컨트롤러 (조립)."""
+
 from __future__ import annotations
 
 import threading
@@ -24,11 +25,14 @@ class SyncAppGui(
     AppSyncControlMixin,
 ):
     """CustomTkinter 기반 현대적 GUI 컨트롤러"""
+
     def __init__(self, service: SyncService):
         self.service = service
         self.scheduler = SchedulerManager()
         self.calibre = CalibreManager(
-            self.service.config.get("calibre_path", "C:\\Program Files\\Calibre2\\calibredb.exe"),
+            self.service.config.get(
+                "calibre_path", "C:\\Program Files\\Calibre2\\calibredb.exe"
+            ),
             self.service.config.get("calibre_library_path", ""),
         )
 
@@ -54,19 +58,25 @@ class SyncAppGui(
         self.root.minsize(780, 640)
         self.root.resizable(True, True)
 
-
         self._sync_busy = False
         self._bottom_pane_adjusted = False
 
         # CustomTkinter 전역 기본 폰트를 맑은 고딕으로 오버라이드
         ctk.FontManager.init_font_manager()
-        if hasattr(ctk.FontManager, 'windows_default_font'):
+        if hasattr(ctk.FontManager, "windows_default_font"):
             ctk.FontManager.windows_default_font = FONT_FAMILY
-        if hasattr(ctk.FontManager, 'linux_default_font'):
+        if hasattr(ctk.FontManager, "linux_default_font"):
             ctk.FontManager.linux_default_font = FONT_FAMILY
         # tkinter 기본 폰트도 맑은 고딕으로 설정
         import tkinter.font as tkfont
-        for fname in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont", "TkFixedFont"):
+
+        for fname in (
+            "TkDefaultFont",
+            "TkTextFont",
+            "TkMenuFont",
+            "TkHeadingFont",
+            "TkFixedFont",
+        ):
             try:
                 f = tkfont.nametofont(fname)
                 f.configure(family=FONT_FAMILY)
@@ -88,6 +98,7 @@ class SyncAppGui(
 
     def _check_update_startup_state(self):
         """시작 시 스테이징 잔재 정리와 이전 업데이트 결과 1회 소비."""
+
         def task():
             try:
                 from websync import __version__
@@ -102,7 +113,9 @@ class SyncAppGui(
                     result = service.check_last_result()
                 except Exception:
                     result = None
-                self.root.after(0, lambda: self._on_update_startup_state(cleaned, result))
+                self.root.after(
+                    0, lambda: self._on_update_startup_state(cleaned, result)
+                )
             except Exception:
                 pass
 
@@ -121,7 +134,10 @@ class SyncAppGui(
         if status == "applied":
             try:
                 self._log_message(
-                    t("gui.app.update_applied_log", target=str(result.get("target", "")))
+                    t(
+                        "gui.app.update_applied_log",
+                        target=str(result.get("target", "")),
+                    )
                 )
             except Exception:
                 pass
@@ -153,13 +169,18 @@ class SyncAppGui(
                 service = UpdateService(current_version=__version__)
                 manifest = service.check_for_update()
                 if manifest:
+
                     def notify():
                         try:
                             self._log_message(
-                                t("gui.app.update_available_log", version=manifest.version)
+                                t(
+                                    "gui.app.update_available_log",
+                                    version=manifest.version,
+                                )
                             )
                         except Exception:
                             pass
+
                     self.root.after(0, notify)
             except Exception:
                 pass
@@ -194,8 +215,14 @@ class SyncAppGui(
         """시작 시 공유 데이터 폴더에서 사이트/이력을 백그라운드로 가져옵니다."""
         from websync.backup.portable_cfg import get_portable_cfg
 
-        bs = get_portable_cfg(self.service.config if isinstance(self.service.config, dict) else {})
-        if not (bs.get("enabled") and bs.get("auto_import_on_start", True) and (bs.get("folder") or "").strip()):
+        bs = get_portable_cfg(
+            self.service.config if isinstance(self.service.config, dict) else {}
+        )
+        if not (
+            bs.get("enabled")
+            and bs.get("auto_import_on_start", True)
+            and (bs.get("folder") or "").strip()
+        ):
             return
 
         def task():
@@ -213,12 +240,18 @@ class SyncAppGui(
                     except Exception:
                         pass
                     msg = result.get("message") or ""
-                    if msg and (result.get("sites_changed") or result.get("history_changed")):
+                    if msg and (
+                        result.get("sites_changed") or result.get("history_changed")
+                    ):
                         self._log_message(t("gui.app.backup_pull_log", msg=msg))
 
                 self.root.after(0, done)
             except Exception as e:
-                self.root.after(0, lambda e=e: self._log_message(t("gui.app.backup_pull_fail", error=e)))
+                self.root.after(
+                    0,
+                    lambda e=e: self._log_message(
+                        t("gui.app.backup_pull_fail", error=e)
+                    ),
+                )
 
         self._start_background_task(task, name="backup-pull")
-

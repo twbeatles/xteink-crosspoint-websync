@@ -3,6 +3,7 @@
 흐름: ① 주소·유형(프리셋/자동 감지) → ② 수집 옵션 → ③ CSS 선택자(웹페이지 유형만).
 전용 유형에서는 쓰지 않는 CSS 입력을 숨겨 화면을 단순하게 유지한다.
 """
+
 from __future__ import annotations
 
 import tkinter as tk
@@ -42,11 +43,24 @@ from websync.scrapers.types import SCRAPER_TYPES, SPECIALIZED_TYPES
 TRANSLATE_CHOICES: tuple[str, ...] = ("", "ko", "en", "ja", "zh-cn", "zh-tw")
 
 # 저장 시 폼이 관리하는 키. 그 밖의 키(향후 확장·다른 PC 가 쓴 키)는 수정 시 보존한다.
-_FORM_KEYS = frozenset({
-    "name", "type", "url", "limit", "enabled", "include_images", "translate_to",
-    "fetch_detail_page", "item_selector", "title_selector", "link_selector",
-    "content_selector", "remove_selectors", "_sync_updated_at",
-})
+_FORM_KEYS = frozenset(
+    {
+        "name",
+        "type",
+        "url",
+        "limit",
+        "enabled",
+        "include_images",
+        "translate_to",
+        "fetch_detail_page",
+        "item_selector",
+        "title_selector",
+        "link_selector",
+        "content_selector",
+        "remove_selectors",
+        "_sync_updated_at",
+    }
+)
 
 
 def normalize_site_url(raw: str) -> str:
@@ -67,7 +81,11 @@ def suggest_site_name(url: str) -> str:
     if not host:
         return ""
     first = next((p for p in parsed.path.split("/") if p), "")
-    if first and len(first) <= 30 and first.lower() not in ("rss", "feed", "index.html", "rss.xml", "feed.xml"):
+    if (
+        first
+        and len(first) <= 30
+        and first.lower() not in ("rss", "feed", "index.html", "rss.xml", "feed.xml")
+    ):
         return f"{host}/{first}"
     return host
 
@@ -77,7 +95,9 @@ def _translate_label(code: str) -> str:
 
 
 class SiteDialogMixin:
-    def _open_site_dialog(self, title: str, idx: int | None = None, site_data: dict | None = None):
+    def _open_site_dialog(
+        self, title: str, idx: int | None = None, site_data: dict | None = None
+    ):
         dialog = ctk.CTkToplevel(self.app.root)
         dialog.title(title)
         dialog.configure(fg_color=COLOR_BG)
@@ -94,13 +114,19 @@ class SiteDialogMixin:
         # ------------------------------------------------------------------
         # ① 주소와 유형
         # ------------------------------------------------------------------
-        src_card = CardFrame(body, title=t("gui.site_dialog.step_source"), subtitle=t("gui.site_dialog.step_source_sub"))
+        src_card = CardFrame(
+            body,
+            title=t("gui.site_dialog.step_source"),
+            subtitle=t("gui.site_dialog.step_source_sub"),
+        )
         src_card.pack(fill="x", padx=4, pady=(0, 8))
         src = ctk.CTkFrame(src_card, fg_color="transparent")
         src.pack(fill="x", padx=12, pady=(2, 10))
         src.columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(src, text=t("gui.sync.preset_label"), font=get_font(13)).grid(row=0, column=0, sticky="w", padx=(0, 8), pady=5)
+        ctk.CTkLabel(src, text=t("gui.sync.preset_label"), font=get_font(13)).grid(
+            row=0, column=0, sticky="w", padx=(0, 8), pady=5
+        )
         preset_by_label = {preset_display_label(p): p for p in KOREAN_SITE_PRESETS}
         category_all = category_display_label("")
         category_by_label = {category_display_label(k): k for k, _ in PRESET_CATEGORIES}
@@ -108,45 +134,85 @@ class SiteDialogMixin:
         preset_row.grid(row=0, column=1, columnspan=2, sticky="w", pady=5)
         # 프리셋이 많아져도 목록이 길어지지 않도록 카테고리로 먼저 좁힌다
         category_cb = ctk.CTkOptionMenu(
-            preset_row, values=[category_all, *category_by_label], font=get_font(12), dropdown_font=get_font(12),
-            dynamic_resizing=False, width=150,
+            preset_row,
+            values=[category_all, *category_by_label],
+            font=get_font(12),
+            dropdown_font=get_font(12),
+            dynamic_resizing=False,
+            width=150,
         )
         category_cb.pack(side="left", padx=(0, 6))
         category_cb.set(category_all)
         initial_labels = [preset_display_label(p) for p in presets_for_category("")]
         preset_cb = ctk.CTkOptionMenu(
-            preset_row, values=initial_labels, font=get_font(12), dropdown_font=get_font(12), dynamic_resizing=False, width=320,
+            preset_row,
+            values=initial_labels,
+            font=get_font(12),
+            dropdown_font=get_font(12),
+            dynamic_resizing=False,
+            width=320,
         )
         preset_cb.pack(side="left")
         preset_cb.set(initial_labels[0] if initial_labels else "")
         preset_note = ctk.CTkLabel(
-            src, text=t("gui.sync.preset_hint"), font=get_font(11), text_color=COLOR_SECONDARY_FG, anchor="w",
+            src,
+            text=t("gui.sync.preset_hint"),
+            font=get_font(11),
+            text_color=COLOR_SECONDARY_FG,
+            anchor="w",
         )
         preset_note.grid(row=1, column=1, columnspan=2, sticky="w")
 
-        ctk.CTkLabel(src, text=t("gui.sync.site_url_label"), font=get_font(13)).grid(row=2, column=0, sticky="w", padx=(0, 8), pady=5)
-        url_entry = ctk.CTkEntry(src, font=get_font(12), height=34, placeholder_text=t("gui.site_dialog.url_placeholder"))
+        ctk.CTkLabel(src, text=t("gui.sync.site_url_label"), font=get_font(13)).grid(
+            row=2, column=0, sticky="w", padx=(0, 8), pady=5
+        )
+        url_entry = ctk.CTkEntry(
+            src,
+            font=get_font(12),
+            height=34,
+            placeholder_text=t("gui.site_dialog.url_placeholder"),
+        )
         url_entry.grid(row=2, column=1, sticky="we", pady=5)
-        detect_btn = make_button(src, t("gui.site_dialog.detect"), None, width=110, height=34, bold=True)
+        detect_btn = make_button(
+            src, t("gui.site_dialog.detect"), None, width=110, height=34, bold=True
+        )
         detect_btn.grid(row=2, column=2, padx=(6, 0), pady=5)
         Tooltip(detect_btn, t("gui.site_dialog.detect_tip"))
 
-        ctk.CTkLabel(src, text=t("gui.sync.site_type_label"), font=get_font(13)).grid(row=3, column=0, sticky="w", padx=(0, 8), pady=5)
+        ctk.CTkLabel(src, text=t("gui.sync.site_type_label"), font=get_font(13)).grid(
+            row=3, column=0, sticky="w", padx=(0, 8), pady=5
+        )
         type_labels = {k: site_type_label(k) for k in SCRAPER_TYPES}
         label_to_type = {v: k for k, v in type_labels.items()}
         type_cb = ctk.CTkOptionMenu(
-            src, values=[type_labels[k] for k in SCRAPER_TYPES], font=get_font(12), dropdown_font=get_font(12), width=220,
+            src,
+            values=[type_labels[k] for k in SCRAPER_TYPES],
+            font=get_font(12),
+            dropdown_font=get_font(12),
+            width=220,
             dynamic_resizing=False,
         )
         type_cb.grid(row=3, column=1, sticky="w", pady=5)
         type_desc = ctk.CTkLabel(
-            src, text="", font=get_font(11), text_color=COLOR_SECONDARY_FG, anchor="w", justify="left",
+            src,
+            text="",
+            font=get_font(11),
+            text_color=COLOR_SECONDARY_FG,
+            anchor="w",
+            justify="left",
             wraplength=560,
         )
         type_desc.grid(row=4, column=1, columnspan=2, sticky="w")
 
-        ctk.CTkLabel(src, text=t("gui.sync.site_name_label"), font=get_font(13)).grid(row=5, column=0, sticky="w", padx=(0, 8), pady=5)
-        name_entry = ctk.CTkEntry(src, font=get_font(12), height=34, placeholder_text=t("gui.site_dialog.name_placeholder"))
+        ctk.CTkLabel(src, text=t("gui.sync.site_name_label"), font=get_font(13)).grid(
+            row=5, column=0, sticky="w", padx=(0, 8), pady=5
+        )
+        name_entry = ctk.CTkEntry(
+            src,
+            font=get_font(12),
+            height=34,
+            placeholder_text=t("gui.site_dialog.name_placeholder"),
+        )
         name_entry.grid(row=5, column=1, columnspan=2, sticky="we", pady=5)
 
         # ------------------------------------------------------------------
@@ -157,30 +223,47 @@ class SiteDialogMixin:
         opt = ctk.CTkFrame(opt_card, fg_color="transparent")
         opt.pack(fill="x", padx=12, pady=(2, 10))
 
-        ctk.CTkLabel(opt, text=t("gui.sync.max_count"), font=get_font(13)).grid(row=0, column=0, sticky="w", padx=(0, 8), pady=5)
+        ctk.CTkLabel(opt, text=t("gui.sync.max_count"), font=get_font(13)).grid(
+            row=0, column=0, sticky="w", padx=(0, 8), pady=5
+        )
         limit_entry = ctk.CTkEntry(opt, font=get_font(12), width=70, height=32)
         limit_entry.grid(row=0, column=1, sticky="w", pady=5)
         limit_entry.insert(0, "5")
-        ctk.CTkLabel(opt, text=t("gui.site_dialog.limit_hint"), font=get_font(11), text_color=COLOR_SECONDARY_FG).grid(
-            row=0, column=2, sticky="w", padx=8
-        )
+        ctk.CTkLabel(
+            opt,
+            text=t("gui.site_dialog.limit_hint"),
+            font=get_font(11),
+            text_color=COLOR_SECONDARY_FG,
+        ).grid(row=0, column=2, sticky="w", padx=8)
 
-        ctk.CTkLabel(opt, text=t("gui.sync.translate"), font=get_font(13)).grid(row=1, column=0, sticky="w", padx=(0, 8), pady=5)
+        ctk.CTkLabel(opt, text=t("gui.sync.translate"), font=get_font(13)).grid(
+            row=1, column=0, sticky="w", padx=(0, 8), pady=5
+        )
         trans_labels = {code: _translate_label(code) for code in TRANSLATE_CHOICES}
         trans_label_to_code = {v: k for k, v in trans_labels.items()}
         translate_cb = ctk.CTkOptionMenu(
-            opt, values=[trans_labels[c] for c in TRANSLATE_CHOICES], font=get_font(12), dropdown_font=get_font(12), width=140,
+            opt,
+            values=[trans_labels[c] for c in TRANSLATE_CHOICES],
+            font=get_font(12),
+            dropdown_font=get_font(12),
+            width=140,
         )
         translate_cb.grid(row=1, column=1, columnspan=2, sticky="w", pady=5)
         translate_cb.set(trans_labels[""])
 
         include_img_var = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(
-            opt, text=t("gui.sync.include_images"), font=get_font(12), variable=include_img_var,
+            opt,
+            text=t("gui.sync.include_images"),
+            font=get_font(12),
+            variable=include_img_var,
         ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(6, 2))
         fetch_detail_var = tk.BooleanVar(value=False)
         detail_cb = ctk.CTkCheckBox(
-            opt, text=t("gui.sync.fetch_detail"), font=get_font(12), variable=fetch_detail_var,
+            opt,
+            text=t("gui.sync.fetch_detail"),
+            font=get_font(12),
+            variable=fetch_detail_var,
         )
         detail_cb.grid(row=3, column=0, columnspan=3, sticky="w", pady=2)
         Tooltip(detail_cb, t("gui.site_dialog.fetch_detail_tip"))
@@ -188,14 +271,24 @@ class SiteDialogMixin:
         # ------------------------------------------------------------------
         # ③ CSS 선택자 (웹페이지 유형 전용)
         # ------------------------------------------------------------------
-        css_card = CardFrame(body, title=t("gui.site_dialog.step_css"), subtitle=t("gui.site_dialog.step_css_sub"))
+        css_card = CardFrame(
+            body,
+            title=t("gui.site_dialog.step_css"),
+            subtitle=t("gui.site_dialog.step_css_sub"),
+        )
         css = ctk.CTkFrame(css_card, fg_color="transparent")
         css.pack(fill="x", padx=12, pady=(2, 4))
         css.columnconfigure(1, weight=1)
 
-        def _selector_row(row: int, label: str, default: str, placeholder: str = "") -> ctk.CTkEntry:
-            ctk.CTkLabel(css, text=label, font=get_font(13)).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=4)
-            ent = ctk.CTkEntry(css, font=get_font(12), height=32, placeholder_text=placeholder)
+        def _selector_row(
+            row: int, label: str, default: str, placeholder: str = ""
+        ) -> ctk.CTkEntry:
+            ctk.CTkLabel(css, text=label, font=get_font(13)).grid(
+                row=row, column=0, sticky="w", padx=(0, 8), pady=4
+            )
+            ent = ctk.CTkEntry(
+                css, font=get_font(12), height=32, placeholder_text=placeholder
+            )
             ent.grid(row=row, column=1, sticky="we", pady=4)
             if default:
                 ent.insert(0, default)
@@ -204,19 +297,34 @@ class SiteDialogMixin:
         item_entry = _selector_row(0, t("gui.sync.item_container"), ".post-item")
         title_entry = _selector_row(1, t("gui.sync.title_selector"), ".post-title")
         link_entry = _selector_row(2, t("gui.sync.link_selector"), "a[href]")
-        content_entry = _selector_row(3, t("gui.sync.content_selector"), ".post-content")
+        content_entry = _selector_row(
+            3, t("gui.sync.content_selector"), ".post-content"
+        )
         remove_entry = _selector_row(4, t("gui.sync.remove_css"), "", ".ad, #comments")
         ctk.CTkLabel(
-            css, text=t("gui.sync.relative_hint"), font=get_font(11), text_color=COLOR_SECONDARY_FG, anchor="w",
+            css,
+            text=t("gui.sync.relative_hint"),
+            font=get_font(11),
+            text_color=COLOR_SECONDARY_FG,
+            anchor="w",
         ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(2, 0))
 
         # 선택자 도우미 (페이지 분석 / DOM 픽 / 테스트 / 미리보기) — 필요할 때만 펼친다
         helper_bar = ctk.CTkFrame(css_card, fg_color="transparent")
         helper_bar.pack(fill="x", padx=12, pady=(4, 10))
-        helper_toggle = make_button(helper_bar, t("gui.site_dialog.helper_show"), None, kind="secondary", width=180)
+        helper_toggle = make_button(
+            helper_bar,
+            t("gui.site_dialog.helper_show"),
+            None,
+            kind="secondary",
+            width=180,
+        )
         helper_toggle.pack(side="left")
         ctk.CTkLabel(
-            helper_bar, text=t("gui.site_dialog.helper_hint"), font=get_font(11), text_color=COLOR_SECONDARY_FG,
+            helper_bar,
+            text=t("gui.site_dialog.helper_hint"),
+            font=get_font(11),
+            text_color=COLOR_SECONDARY_FG,
         ).pack(side="left", padx=8)
 
         wizard_host = tk.Frame(body)
@@ -284,7 +392,13 @@ class SiteDialogMixin:
         def show_wizard(visible: bool) -> None:
             wizard_state["visible"] = visible
             if visible:
-                wizard_host.pack(fill="both", expand=True, padx=4, pady=(0, 8), after=css_card if css_card.winfo_manager() else opt_card)
+                wizard_host.pack(
+                    fill="both",
+                    expand=True,
+                    padx=4,
+                    pady=(0, 8),
+                    after=css_card if css_card.winfo_manager() else opt_card,
+                )
                 helper_toggle.configure(text=t("gui.site_dialog.helper_hide"))
             else:
                 wizard_host.pack_forget()
@@ -366,7 +480,10 @@ class SiteDialogMixin:
         type_cb.configure(command=on_type_change)
 
         def on_category_change(label: str) -> None:
-            labels = [preset_display_label(p) for p in presets_for_category(category_by_label.get(label, ""))]
+            labels = [
+                preset_display_label(p)
+                for p in presets_for_category(category_by_label.get(label, ""))
+            ]
             preset_cb.configure(values=labels)
             if preset_cb.get() not in labels:
                 preset_cb.set(labels[0] if labels else "")
@@ -404,7 +521,9 @@ class SiteDialogMixin:
             wizard._on_analyze()
 
         detect_btn.configure(command=on_detect)
-        helper_toggle.configure(command=lambda: show_wizard(not wizard_state["visible"]))
+        helper_toggle.configure(
+            command=lambda: show_wizard(not wizard_state["visible"])
+        )
 
         # ------------------------------------------------------------------
         # 기존 값 채우기 (수정 / 복제)
@@ -416,12 +535,19 @@ class SiteDialogMixin:
             _fill_entry(item_entry, site_data.get("item_selector", ".post-item"))
             _fill_entry(title_entry, site_data.get("title_selector", ".post-title"))
             _fill_entry(link_entry, site_data.get("link_selector", "a[href]"))
-            _fill_entry(content_entry, site_data.get("content_selector", ".post-content"))
+            _fill_entry(
+                content_entry, site_data.get("content_selector", ".post-content")
+            )
             _fill_entry(remove_entry, site_data.get("remove_selectors", ""))
             _fill_entry(limit_entry, str(site_data.get("limit", 5)))
             include_img_var.set(bool(site_data.get("include_images", False)))
             fetch_detail_var.set(bool(site_data.get("fetch_detail_page", False)))
-            translate_cb.set(trans_labels.get(site_data.get("translate_to", "") or "", site_data.get("translate_to", "") or trans_labels[""]))
+            translate_cb.set(
+                trans_labels.get(
+                    site_data.get("translate_to", "") or "",
+                    site_data.get("translate_to", "") or trans_labels[""],
+                )
+            )
         else:
             set_type_key("css")
         on_type_change()
@@ -465,7 +591,8 @@ class SiteDialogMixin:
             # 같은 URL 이 이미 있으면 알려준다 (중복 수집·중복 전송 방지)
             dup = next(
                 (
-                    s for i, s in enumerate(sites)
+                    s
+                    for i, s in enumerate(sites)
                     if i != idx and (s.get("url") or "").strip().lower() == url.lower()
                 ),
                 None,
@@ -480,15 +607,29 @@ class SiteDialogMixin:
             # 수정 시 폼이 모르는 키는 보존한다
             new_site: dict = {}
             if idx is not None and site_data:
-                new_site.update({k: v for k, v in site_data.items() if k not in _FORM_KEYS})
-            new_site.update({
-                "name": name, "type": site_type, "url": url, "limit": limit,
-                "enabled": site_data.get("enabled", True) if (site_data and idx is not None) else True,
-                "include_images": bool(include_img_var.get()),
-                "translate_to": trans_label_to_code.get(translate_cb.get(), translate_cb.get().strip()),
-                "fetch_detail_page": bool(fetch_detail_var.get()) if site_type == "css" else False,
-            })
+                new_site.update(
+                    {k: v for k, v in site_data.items() if k not in _FORM_KEYS}
+                )
+            new_site.update(
+                {
+                    "name": name,
+                    "type": site_type,
+                    "url": url,
+                    "limit": limit,
+                    "enabled": site_data.get("enabled", True)
+                    if (site_data and idx is not None)
+                    else True,
+                    "include_images": bool(include_img_var.get()),
+                    "translate_to": trans_label_to_code.get(
+                        translate_cb.get(), translate_cb.get().strip()
+                    ),
+                    "fetch_detail_page": bool(fetch_detail_var.get())
+                    if site_type == "css"
+                    else False,
+                }
+            )
             from websync.backup.format import merge_site_tombstones, now_iso
+
             updated_at = now_iso()
             new_site["_sync_updated_at"] = updated_at
             if site_type == "css":
@@ -516,7 +657,10 @@ class SiteDialogMixin:
                 for label, sel in (
                     (t("gui.selector.role.item"), item_sel),
                     (t("gui.selector.role.title"), title_sel),
-                    (t("gui.selector.role.link"), link_entry.get().strip() or "a[href]"),
+                    (
+                        t("gui.selector.role.link"),
+                        link_entry.get().strip() or "a[href]",
+                    ),
                     (t("gui.selector.role.content"), content_sel),
                 ):
                     if not sel:
@@ -531,13 +675,24 @@ class SiteDialogMixin:
                 new_site["content_selector"] = content_sel
                 new_site["remove_selectors"] = remove_entry.get().strip()
             from websync.config.validator import validate_site_issues
+
             issues = validate_site_issues(new_site)
             if issues:
-                messagebox.showerror(t("dialog.error"), "\n".join(issue.message for issue in issues), parent=dialog)
-                entries = {"name": name_entry, "url": url_entry, "limit": limit_entry,
-                           "item_selector": item_entry, "title_selector": title_entry,
-                           "content_selector": content_entry, "link_selector": link_entry,
-                           "remove_selectors": remove_entry}
+                messagebox.showerror(
+                    t("dialog.error"),
+                    "\n".join(issue.message for issue in issues),
+                    parent=dialog,
+                )
+                entries = {
+                    "name": name_entry,
+                    "url": url_entry,
+                    "limit": limit_entry,
+                    "item_selector": item_entry,
+                    "title_selector": title_entry,
+                    "content_selector": content_entry,
+                    "link_selector": link_entry,
+                    "remove_selectors": remove_entry,
+                }
                 entry = entries.get(issues[0].field)
                 if entry is not None:
                     entry.focus_set()
@@ -547,15 +702,21 @@ class SiteDialogMixin:
             else:
                 sites[idx] = new_site
             from websync.backup.portable_cfg import apply_portable_cfg, get_portable_cfg
+
             portable = get_portable_cfg(config)
-            old_url = (site_data.get("url") or "").strip().lower() if (site_data and idx is not None) else ""
+            old_url = (
+                (site_data.get("url") or "").strip().lower()
+                if (site_data and idx is not None)
+                else ""
+            )
             if old_url and old_url != url.lower():
                 portable["deleted_sites"] = merge_site_tombstones(
                     portable.get("deleted_sites", []),
                     [{"url": old_url, "deleted_at": updated_at}],
                 )
             portable["deleted_sites"] = [
-                item for item in portable.get("deleted_sites", [])
+                item
+                for item in portable.get("deleted_sites", [])
                 if (item.get("url") or "").strip().lower() != url.lower()
             ]
             apply_portable_cfg(config, portable)
@@ -571,10 +732,22 @@ class SiteDialogMixin:
             dialog.destroy()
 
         ctk.CTkLabel(
-            btn_bar, text=t("gui.site_dialog.footer_hint"), font=get_font(11), text_color=COLOR_SECONDARY_FG,
+            btn_bar,
+            text=t("gui.site_dialog.footer_hint"),
+            font=get_font(11),
+            text_color=COLOR_SECONDARY_FG,
         ).pack(side="left")
-        make_button(btn_bar, t("gui.sync.save"), save_site, width=100, height=36, bold=True).pack(side="right", padx=(6, 0))
-        make_button(btn_bar, t("gui.sync.cancel"), dialog.destroy, kind="secondary", width=90, height=36).pack(side="right")
+        make_button(
+            btn_bar, t("gui.sync.save"), save_site, width=100, height=36, bold=True
+        ).pack(side="right", padx=(6, 0))
+        make_button(
+            btn_bar,
+            t("gui.sync.cancel"),
+            dialog.destroy,
+            kind="secondary",
+            width=90,
+            height=36,
+        ).pack(side="right")
 
         dialog.bind("<Escape>", lambda _e: dialog.destroy())
         dialog.bind("<Control-s>", lambda _e: save_site())

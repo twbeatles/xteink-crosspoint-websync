@@ -1,4 +1,5 @@
 """AI 기사 요약 모듈 (OpenAI API 또는 Ollama 로컬 LLM 지원)"""
+
 import html
 import logging
 import re
@@ -58,16 +59,20 @@ class Summarizer:
     def _call_openai(self, prompt: str) -> str:
         import json
         import urllib.request
+
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 300
+            "max_tokens": 300,
         }
         req = urllib.request.Request(
             "https://api.openai.com/v1/chat/completions",
             data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"},
-            method="POST"
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+            },
+            method="POST",
         )
         with urllib.request.urlopen(req, timeout=20) as resp:
             result = json.loads(resp.read())
@@ -85,6 +90,7 @@ class Summarizer:
     def _call_ollama(self, prompt: str) -> str:
         import json
         import urllib.request
+
         host = (self.ollama_host or "").strip()
         if not (host.startswith("http://") or host.startswith("https://")):
             self._warn(t("pipeline.summarizer.bad_host", host=host[:80]))
@@ -94,7 +100,7 @@ class Summarizer:
             f"{host.rstrip('/')}/api/generate",
             data=json.dumps(payload).encode(),
             headers={"Content-Type": "application/json"},
-            method="POST"
+            method="POST",
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read())

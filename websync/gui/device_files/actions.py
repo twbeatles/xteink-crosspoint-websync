@@ -32,9 +32,12 @@ class DeviceFilesActionsMixin:
         ip = self._selected_ip()
         paths = [i["path"] for i in items]
         self._set_busy(True)
-        self.app._log_message(t("gui.device.log_delete_request", ip=ip, count=len(paths)))
+        self.app._log_message(
+            t("gui.device.log_delete_request", ip=ip, count=len(paths))
+        )
 
         delete_count = len(paths)
+
         def task():
             err: str | None = None
             try:
@@ -42,7 +45,10 @@ class DeviceFilesActionsMixin:
             except DeviceClientError as e:
                 err = str(e)
             self.app.root.after(
-                0, lambda ip=ip, count=delete_count, err=err: self._delete_finished(ip, count, err)
+                0,
+                lambda ip=ip, count=delete_count, err=err: self._delete_finished(
+                    ip, count, err
+                ),
             )
 
         self.app._start_background_task(task, name="device-delete")
@@ -66,7 +72,11 @@ class DeviceFilesActionsMixin:
         if not ip:
             messagebox.showwarning(t("dialog.warning"), t("gui.device.select_device"))
             return
-        name = simpledialog.askstring(t("gui.device.mkdir_title"), t("gui.device.mkdir_prompt"), parent=self.app.root)
+        name = simpledialog.askstring(
+            t("gui.device.mkdir_title"),
+            t("gui.device.mkdir_prompt"),
+            parent=self.app.root,
+        )
         if not name:
             return
         name = name.strip()
@@ -127,7 +137,9 @@ class DeviceFilesActionsMixin:
 
         ip = self._selected_ip()
         self._set_busy(True)
-        self.app._log_message(t("gui.device.log_rename", ip=ip, path=item["path"], name=new_name))
+        self.app._log_message(
+            t("gui.device.log_rename", ip=ip, path=item["path"], name=new_name)
+        )
 
         def task():
             err: str | None = None
@@ -136,7 +148,10 @@ class DeviceFilesActionsMixin:
             except DeviceClientError as e:
                 err = str(e)
             self.app.root.after(
-                0, lambda ip=ip, err=err: self._op_finished(ip, t("gui.device.op_rename"), err)
+                0,
+                lambda ip=ip, err=err: self._op_finished(
+                    ip, t("gui.device.op_rename"), err
+                ),
             )
 
         self.app._start_background_task(task, name="device-rename")
@@ -146,9 +161,7 @@ class DeviceFilesActionsMixin:
             return
         items = [i for i in self._selected_items() if not i.get("isDirectory")]
         if not items:
-            messagebox.showwarning(
-                t("dialog.warning"), t("gui.device.select_move")
-            )
+            messagebox.showwarning(t("dialog.warning"), t("gui.device.select_move"))
             return
         dest = simpledialog.askstring(
             t("gui.device.move_title"),
@@ -161,7 +174,9 @@ class DeviceFilesActionsMixin:
         dest = normalize_remote_path(dest)
         ip = self._selected_ip()
         self._set_busy(True)
-        self.app._log_message(t("gui.device.log_move", ip=ip, count=len(items), dest=dest))
+        self.app._log_message(
+            t("gui.device.log_move", ip=ip, count=len(items), dest=dest)
+        )
 
         def task():
             client = self._make_client()
@@ -185,7 +200,9 @@ class DeviceFilesActionsMixin:
     def _op_finished(self, ip: str, label: str, err: str | None) -> None:
         self._set_busy(False)
         if err:
-            self.app._log_message(t("gui.device.log_op_failed", ip=ip, label=label, err=err))
+            self.app._log_message(
+                t("gui.device.log_op_failed", ip=ip, label=label, err=err)
+            )
             messagebox.showerror(t("gui.device.op_failed_title", label=label), err)
             return
         self.app._log_message(t("gui.device.log_op_ok", ip=ip, label=label))
@@ -197,14 +214,27 @@ class DeviceFilesActionsMixin:
         self._set_busy(False)
         if errors:
             self.app._log_message(
-                t("gui.device.log_op_partial", ip=ip, label=label, ok=ok, fail=len(errors))
+                t(
+                    "gui.device.log_op_partial",
+                    ip=ip,
+                    label=label,
+                    ok=ok,
+                    fail=len(errors),
+                )
             )
             messagebox.showwarning(
                 t("gui.device.op_result_title", label=label),
-                t("gui.device.op_result_body", ok=ok, fail=len(errors), errors="\n".join(errors[:8])),
+                t(
+                    "gui.device.op_result_body",
+                    ok=ok,
+                    fail=len(errors),
+                    errors="\n".join(errors[:8]),
+                ),
             )
         else:
-            self.app._log_message(t("gui.device.log_op_ok_count", ip=ip, label=label, ok=ok))
+            self.app._log_message(
+                t("gui.device.log_op_ok_count", ip=ip, label=label, ok=ok)
+            )
         self.refresh()
 
     # ------------------------------------------------------------------
@@ -216,9 +246,7 @@ class DeviceFilesActionsMixin:
             return
         items = [i for i in self._selected_items() if not i.get("isDirectory")]
         if not items:
-            messagebox.showwarning(
-                t("dialog.warning"), t("gui.device.select_download")
-            )
+            messagebox.showwarning(t("dialog.warning"), t("gui.device.select_download"))
             return
 
         dest_dir = filedialog.askdirectory(title=t("gui.device.save_folder"))
@@ -246,9 +274,15 @@ class DeviceFilesActionsMixin:
 
         ip = self._selected_ip()
         self._set_busy(True)
-        self.app._log_message(t("gui.device.log_download_start", ip=ip, count=len(items), dest=dest_dir))
+        self.app._log_message(
+            t("gui.device.log_download_start", ip=ip, count=len(items), dest=dest_dir)
+        )
         if conflicts:
-            key = "gui.device.log_download_overwrite" if overwrite else "gui.device.log_download_renamed"
+            key = (
+                "gui.device.log_download_overwrite"
+                if overwrite
+                else "gui.device.log_download_renamed"
+            )
             self.app._log_message(t(key, count=len(conflicts)))
 
         def task():
@@ -257,13 +291,17 @@ class DeviceFilesActionsMixin:
             errors: list[str] = []
             for item, entry in zip(items, plan, strict=True):
                 try:
-                    client.download(item["path"], entry["path"], ip=ip, overwrite=overwrite)
+                    client.download(
+                        item["path"], entry["path"], ip=ip, overwrite=overwrite
+                    )
                     ok += 1
                 except DeviceClientError as e:
                     errors.append(f"{item['name']}: {e}")
             self.app.root.after(
                 0,
-                lambda ip=ip, ok=ok, errors=errors: self._download_finished(ip, ok, errors),
+                lambda ip=ip, ok=ok, errors=errors: self._download_finished(
+                    ip, ok, errors
+                ),
             )
 
         self.app._start_background_task(task, name="device-download")
@@ -276,11 +314,18 @@ class DeviceFilesActionsMixin:
             )
             messagebox.showwarning(
                 t("gui.device.download_result_title"),
-                t("gui.device.op_result_body", ok=ok, fail=len(errors), errors="\n".join(errors[:8])),
+                t(
+                    "gui.device.op_result_body",
+                    ok=ok,
+                    fail=len(errors),
+                    errors="\n".join(errors[:8]),
+                ),
             )
         else:
             self.app._log_message(t("gui.device.log_download_ok", ip=ip, ok=ok))
-            messagebox.showinfo(t("gui.device.download_ok_title"), t("gui.device.download_ok", ok=ok))
+            messagebox.showinfo(
+                t("gui.device.download_ok_title"), t("gui.device.download_ok", ok=ok)
+            )
 
     def _upload_to_current(self) -> None:
         if self._busy:

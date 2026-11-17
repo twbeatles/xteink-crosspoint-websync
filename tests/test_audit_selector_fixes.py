@@ -1,4 +1,5 @@
 """PROJECT_AUDIT 개선 항목 회귀 테스트."""
+
 from pathlib import Path
 
 import pytest

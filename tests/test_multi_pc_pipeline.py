@@ -3,6 +3,7 @@
 증상(v1.2.4 이전): PC마다 리더기 주소가 다르게 적혀(DHCP IP / crosspoint.local)
 기기 ID가 합쳐지지 않아, 다른 PC가 이미 보낸 글이 새 글과 섞여 다시 전송됐다.
 """
+
 import os
 import shutil
 import tempfile
@@ -19,7 +20,11 @@ from websync.upload.uploader import X3Uploader
 
 
 def _article(n: int) -> dict:
-    return {"title": f"글 {n}", "content": f"<p>{n}</p>", "url": f"https://blog.example/{n}"}
+    return {
+        "title": f"글 {n}",
+        "content": f"<p>{n}</p>",
+        "url": f"https://blog.example/{n}",
+    }
 
 
 def _make_pc(root: str, name: str, ip: str, device_id: str, cloud: str) -> SyncService:
@@ -31,7 +36,13 @@ def _make_pc(root: str, name: str, ip: str, device_id: str, cloud: str) -> SyncS
     cfg["output_dir"] = os.path.join(root, f"{name}_out")
     cfg["epub_cover"] = False
     cfg["sites"] = [
-        {"name": "Blog", "type": "rss", "url": "https://blog.example/feed", "limit": 10, "enabled": True}
+        {
+            "name": "Blog",
+            "type": "rss",
+            "url": "https://blog.example/feed",
+            "limit": 10,
+            "enabled": True,
+        }
     ]
     cfg["portable_data"] = {
         "enabled": True,
@@ -44,8 +55,10 @@ def _make_pc(root: str, name: str, ip: str, device_id: str, cloud: str) -> SyncS
     }
     cm.save_config(cfg)
     db = SyncHistoryDb(os.path.join(root, f"{name}.db"))
-    with patch("websync.pipeline.service.SyncHistoryDb", return_value=db), \
-         patch("websync.backup.local_import.import_local_sidecars", return_value={}):
+    with (
+        patch("websync.pipeline.service.SyncHistoryDb", return_value=db),
+        patch("websync.backup.local_import.import_local_sidecars", return_value={}),
+    ):
         return SyncService(cm)
 
 
@@ -71,11 +84,15 @@ def _run(svc: SyncService, articles: list[dict]) -> list[list[str]]:
     def upload(_self, _path, only_ips=None, remote_dir=None):
         return {ip: True for ip in (only_ips or [])}
 
-    with patch.object(ScraperFactory, "get_scraper") as get_scraper, \
-         patch.object(EpubBuilder, "build", build), \
-         patch.object(X3Uploader, "upload_to_targets", upload), \
-         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
-        get_scraper.return_value.fetch_articles.side_effect = lambda _site: [dict(a) for a in articles]
+    with (
+        patch.object(ScraperFactory, "get_scraper") as get_scraper,
+        patch.object(EpubBuilder, "build", build),
+        patch.object(X3Uploader, "upload_to_targets", upload),
+        patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"),
+    ):
+        get_scraper.return_value.fetch_articles.side_effect = lambda _site: [
+            dict(a) for a in articles
+        ]
         get_scraper.return_value.last_fetch_stats = {}
         assert svc.run_sync_pipeline(log_callback=lambda _m: None) is True
     return built
@@ -90,7 +107,9 @@ def test_second_pc_with_different_reader_address_sends_only_new_posts(cloud_env)
         ["https://blog.example/1", "https://blog.example/2"]
     ]
     # pc2 는 공유 폴더에서 pc1 이력을 받아 3번 글만 보낸다.
-    assert _run(pc2, [_article(1), _article(2), _article(3)]) == [["https://blog.example/3"]]
+    assert _run(pc2, [_article(1), _article(2), _article(3)]) == [
+        ["https://blog.example/3"]
+    ]
     # pc1 도 pc2 가 보낸 3번 글을 다시 보내지 않는다.
     assert _run(pc1, [_article(1), _article(2), _article(3), _article(4)]) == [
         ["https://blog.example/4"]
@@ -107,5 +126,7 @@ def test_pcs_that_both_already_published_ids_still_converge(cloud_env):
 
     assert _run(pc1, [_article(1)]) == [["https://blog.example/1"]]
     assert _run(pc2, [_article(1), _article(2)]) == [["https://blog.example/2"]]
-    assert _run(pc1, [_article(1), _article(2), _article(3)]) == [["https://blog.example/3"]]
+    assert _run(pc1, [_article(1), _article(2), _article(3)]) == [
+        ["https://blog.example/3"]
+    ]
     assert _run(pc2, [_article(1), _article(2), _article(3)]) == []

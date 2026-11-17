@@ -1,4 +1,5 @@
 """Xteink X3 WebSync 릴리즈 바이너리에 대한 Ed25519 서명된 매니페스트 빌드 스크립트."""
+
 from __future__ import annotations
 
 import argparse
@@ -30,7 +31,9 @@ def _load_private_key_from_env(name: str) -> Ed25519PrivateKey:
         raw_key = base64.b64decode(value, validate=True)
         return Ed25519PrivateKey.from_private_bytes(raw_key)
     except Exception as exc:
-        raise ValueError(f"{name} must contain a base64-encoded Ed25519 private key") from exc
+        raise ValueError(
+            f"{name} must contain a base64-encoded Ed25519 private key"
+        ) from exc
 
 
 def _sha256_and_size(path: Path) -> tuple[str, int]:
@@ -80,7 +83,9 @@ def build_manifest(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build a signed update manifest for X3 WebSync")
+    parser = argparse.ArgumentParser(
+        description="Build a signed update manifest for X3 WebSync"
+    )
     parser.add_argument("--version", required=True)
     parser.add_argument("--artifact", required=True, type=Path)
     parser.add_argument("--artifact-url", required=True)

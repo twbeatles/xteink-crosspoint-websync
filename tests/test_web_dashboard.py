@@ -33,11 +33,14 @@ def _urlopen(request, timeout=3):
         url, method, data, headers = request, "GET", None, {}
     headers.setdefault("Connection", "close")
     import time
+
     for attempt in range(6):
         try:
             with requests.Session() as session:
                 session.trust_env = False
-                response = session.request(method, url, data=data or b"", headers=headers, timeout=timeout)
+                response = session.request(
+                    method, url, data=data or b"", headers=headers, timeout=timeout
+                )
             break
         except requests.RequestException:
             if attempt == 5:
@@ -45,14 +48,18 @@ def _urlopen(request, timeout=3):
             time.sleep(0.1 * (attempt + 1))
     if response.status_code >= 400:
         raise urllib.error.HTTPError(
-            url, response.status_code, response.reason, response.headers, io.BytesIO(response.content)
+            url,
+            response.status_code,
+            response.reason,
+            response.headers,
+            io.BytesIO(response.content),
         )
     return _Response(response)
 
 
-
 def _free_port() -> int:
     import socket
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
@@ -102,7 +109,9 @@ def test_api_sync_requires_bearer():
             _urlopen(req, timeout=3)
         assert exc.value.code == 401
 
-        req = urllib.request.Request(url, method="POST", headers={"Authorization": "Bearer tok123"})
+        req = urllib.request.Request(
+            url, method="POST", headers={"Authorization": "Bearer tok123"}
+        )
         with _urlopen(req, timeout=3) as resp:
             assert resp.status in (200, 202)
             data = json.loads(resp.read())
@@ -118,7 +127,9 @@ def test_api_sync_busy_response():
     )
     try:
         url = f"http://127.0.0.1:{srv.port}/api/sync"
-        req = urllib.request.Request(url, method="POST", headers={"Authorization": "Bearer tok123"})
+        req = urllib.request.Request(
+            url, method="POST", headers={"Authorization": "Bearer tok123"}
+        )
         with pytest.raises(urllib.error.HTTPError) as exc:
             _urlopen(req, timeout=3)
         assert exc.value.code == 409
@@ -194,7 +205,10 @@ def test_login_sets_session_cookie():
             url,
             data=body,
             method="POST",
-            headers={"Content-Type": "application/json", "Authorization": "Bearer tok123"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer tok123",
+            },
         )
         with _urlopen(req, timeout=3) as resp:
             cookies = resp.headers.get("Set-Cookie", "")
@@ -207,6 +221,7 @@ def test_login_sets_session_cookie():
 
 
 # --- N6: ThreadingHTTPServer 동시 요청 처리 ---
+
 
 def test_dashboard_serves_concurrent_status_requests():
     """느린 sync_callback 실행 중에도 /api/status 요청이 블로킹되지 않는지."""
@@ -242,7 +257,9 @@ def test_dashboard_serves_concurrent_status_requests():
         def fetch_status():
             # sync_cb 가 블로킹 중일 때 status 가 바로 응답하는지
             with _urlopen(
-                urllib.request.Request(status_url, headers={"Authorization": "Bearer tok123"}),
+                urllib.request.Request(
+                    status_url, headers={"Authorization": "Bearer tok123"}
+                ),
                 timeout=5,
             ) as resp:
                 results["status"] = json.loads(resp.read())["last_result"]["status"]
@@ -276,9 +293,12 @@ def test_api_cancel_requires_auth_and_invokes_callback():
             _urlopen(urllib.request.Request(url, method="POST"), timeout=3)
         assert exc.value.code == 401
         import time
+
         time.sleep(0.1)
 
-        req = urllib.request.Request(url, method="POST", headers={"Authorization": "Bearer tok123"})
+        req = urllib.request.Request(
+            url, method="POST", headers={"Authorization": "Bearer tok123"}
+        )
         with _urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read())
         assert resp.status == 200

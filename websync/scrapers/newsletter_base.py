@@ -49,7 +49,9 @@ class BaseNewsletterScraper(BaseScraper):
     """
 
     # 하위 클래스에서 반드시 오버라이드
-    LINK_PATTERN: re.Pattern = re.compile(r"")  # 예: r"/newsletters/\d{4}/\d{4}(-[a-z]+)?\.html"  (raw string 추천)
+    LINK_PATTERN: re.Pattern = re.compile(
+        r""
+    )  # 예: r"/newsletters/\d{4}/\d{4}(-[a-z]+)?\.html"  (raw string 추천)
 
     # 상세 페이지 본문 후보 선택자 (크기 + 우선순위 순)
     CONTENT_CANDIDATES: list[str] = ["article", "main", "div.content", "body"]
@@ -73,11 +75,13 @@ class BaseNewsletterScraper(BaseScraper):
                 content, page_title = self._fetch_detail_page(url, site_config)
                 if content:
                     title = page_title or t("newsletter.fallback_title")
-                    articles.append({
-                        "title": title,
-                        "content": content,
-                        "url": ensure_article_url(url, url, title)
-                    })
+                    articles.append(
+                        {
+                            "title": title,
+                            "content": content,
+                            "url": ensure_article_url(url, url, title),
+                        }
+                    )
                 else:
                     skipped += 1
             else:
@@ -92,11 +96,13 @@ class BaseNewsletterScraper(BaseScraper):
                         skipped += 1
                         continue
                     title = page_title or link_text or t("newsletter.fallback_title")
-                    articles.append({
-                        "title": title,
-                        "content": content,
-                        "url": ensure_article_url(link_url, url, title)
-                    })
+                    articles.append(
+                        {
+                            "title": title,
+                            "content": content,
+                            "url": ensure_article_url(link_url, url, title),
+                        }
+                    )
 
             self.last_fetch_stats = {"skipped": skipped}
 
@@ -105,9 +111,14 @@ class BaseNewsletterScraper(BaseScraper):
 
         except Exception as e:
             msg = str(e)
-            if t("newsletter.no_content") in msg or t("newsletter.failed", name="", error="") in msg:
+            if (
+                t("newsletter.no_content") in msg
+                or t("newsletter.failed", name="", error="") in msg
+            ):
                 raise
-            raise Exception(t("newsletter.failed", name=self.__class__.__name__, error=e)) from e
+            raise Exception(
+                t("newsletter.failed", name=self.__class__.__name__, error=e)
+            ) from e
 
         return articles
 
@@ -117,12 +128,14 @@ class BaseNewsletterScraper(BaseScraper):
         """이 URL이 단일 뉴스레터 상세 페이지인지 판단. 기본은 LINK_PATTERN 매칭."""
         return bool(self.LINK_PATTERN.search(url))
 
-    def _extract_links(self, soup: BeautifulSoup, base_url: str) -> list[tuple[str, str]]:
+    def _extract_links(
+        self, soup: BeautifulSoup, base_url: str
+    ) -> list[tuple[str, str]]:
         """아카이브 페이지에서 뉴스레터 상세 링크들을 추출."""
         results: list[tuple[str, str]] = []
         seen = set()
 
-        for a in soup.select('a[href]'):
+        for a in soup.select("a[href]"):
             href = a.get("href", "").strip()
             if not href or not self.LINK_PATTERN.search(href):
                 continue
@@ -180,13 +193,26 @@ class BaseNewsletterScraper(BaseScraper):
 
     def _clean_content(self, container: BeautifulSoup, site_config: dict) -> None:
         """공통 불필요 요소 제거. 하위 클래스에서 추가로 override."""
-        for tag_name in ("nav", "header", "footer", "aside", "script", "style", "form", "noscript"):
+        for tag_name in (
+            "nav",
+            "header",
+            "footer",
+            "aside",
+            "script",
+            "style",
+            "form",
+            "noscript",
+        ):
             for el in container.find_all(tag_name):
                 el.decompose()
 
         # 기본 속성 정리 (필요한 것만)
         for tag in container.find_all(True):
-            kept = {k: v for k, v in tag.attrs.items() if k in ("href", "src", "alt", "title")}
+            kept = {
+                k: v
+                for k, v in tag.attrs.items()
+                if k in ("href", "src", "alt", "title")
+            }
             tag.attrs = kept
 
     def _get_title(self, url: str) -> str | None:

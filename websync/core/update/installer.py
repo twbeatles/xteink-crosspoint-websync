@@ -1,4 +1,5 @@
 """Xteink X3 WebSync 업데이트 파일 다운로드, 교체, 검증, 롤백 및 헬퍼 프로세스 런처."""
+
 from __future__ import annotations
 
 import hashlib
@@ -202,7 +203,10 @@ def prepare_staged_update(
     try:
         with open(staged, "xb") as handle:
             for chunk in chunks:
-                if cancel_event is not None and getattr(cancel_event, "is_set", lambda: False)():
+                if (
+                    cancel_event is not None
+                    and getattr(cancel_event, "is_set", lambda: False)()
+                ):
                     raise UpdateCancelledError(t("update.cancelled"))
                 if not isinstance(chunk, bytes):
                     raise TypeError("Update chunk must be bytes")
@@ -215,7 +219,10 @@ def prepare_staged_update(
                 handle.write(chunk)
             handle.flush()
             os.fsync(handle.fileno())
-        if cancel_event is not None and getattr(cancel_event, "is_set", lambda: False)():
+        if (
+            cancel_event is not None
+            and getattr(cancel_event, "is_set", lambda: False)()
+        ):
             raise UpdateCancelledError(t("update.cancelled"))
         if total != manifest.artifact_size:
             raise ValueError("Update artifact size mismatch")
@@ -250,7 +257,10 @@ def stream_update_artifact(
         if final_url.scheme.lower() != "https" or not final_url.hostname:
             raise ValueError("Update artifact redirect must remain HTTPS")
         while True:
-            if cancel_event is not None and getattr(cancel_event, "is_set", lambda: False)():
+            if (
+                cancel_event is not None
+                and getattr(cancel_event, "is_set", lambda: False)()
+            ):
                 raise UpdateCancelledError(t("update.cancelled"))
             chunk = response.read(1024 * 1024)
             if not chunk:
@@ -273,7 +283,9 @@ def _validate_apply_paths(target: Path, staged: Path, backup: Path) -> None:
     backup.parent.mkdir(parents=True, exist_ok=True)
 
 
-def cleanup_update_backups(target: str | Path, *, keep_count: int | None = None) -> None:
+def cleanup_update_backups(
+    target: str | Path, *, keep_count: int | None = None
+) -> None:
     """오래된 이전 버전 백업 파일(.bak)을 정리합니다."""
     target_path = Path(target).resolve()
     keep = max(0, int(UPDATE_BACKUP_KEEP_COUNT if keep_count is None else keep_count))

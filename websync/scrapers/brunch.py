@@ -4,6 +4,7 @@
 공식 JSON API(api.brunch.co.kr)로 목록을 가져온 뒤
 상세 HTML에서 본문을 추출합니다.
 """
+
 from __future__ import annotations
 
 import re
@@ -51,11 +52,13 @@ class BrunchScraper(BaseScraper):
                     title = self._fetch_title(post_url) or t(
                         "brunch.fallback_title", id=profile_id, no=no
                     )
-                    articles.append({
-                        "title": title,
-                        "content": content,
-                        "url": ensure_article_url(post_url, url, title),
-                    })
+                    articles.append(
+                        {
+                            "title": title,
+                            "content": content,
+                            "url": ensure_article_url(post_url, url, title),
+                        }
+                    )
                 else:
                     skipped += 1
                 self.last_fetch_stats = {"skipped": skipped}
@@ -79,7 +82,9 @@ class BrunchScraper(BaseScraper):
                 content = self._fetch_brunch_content(post_url, site_config)
                 if content:
                     post_url = ensure_article_url(post_url, url, title)
-                    articles.append({"title": title, "content": content, "url": post_url})
+                    articles.append(
+                        {"title": title, "content": content, "url": post_url}
+                    )
                 else:
                     skipped += 1
 
@@ -139,9 +144,9 @@ class BrunchScraper(BaseScraper):
             no = item.get("no")
             if no is None:
                 continue
-            title = (item.get("title") or item.get("contentSummary") or "").strip() or t(
-                "brunch.fallback_item", no=no
-            )
+            title = (
+                item.get("title") or item.get("contentSummary") or ""
+            ).strip() or t("brunch.fallback_item", no=no)
             post_url = f"https://brunch.co.kr/@{profile_id}/{no}"
             results.append((title, post_url))
         return results
@@ -162,7 +167,8 @@ class BrunchScraper(BaseScraper):
         if not links:
             # 매거진 등: /@id/숫자 링크
             links = [
-                a for a in soup.find_all("a", href=True)
+                a
+                for a in soup.find_all("a", href=True)
                 if re.search(r"/@[\w.-]+/\d+", a.get("href", ""))
             ]
 
@@ -182,7 +188,11 @@ class BrunchScraper(BaseScraper):
                 continue
             seen.add(href)
             title_tag = a_tag.find("strong") or a_tag.find("h3") or a_tag.find("h4")
-            title = title_tag.get_text(strip=True) if title_tag else a_tag.get_text(strip=True)
+            title = (
+                title_tag.get_text(strip=True)
+                if title_tag
+                else a_tag.get_text(strip=True)
+            )
             title = (title or "").strip() or href
             results.append((title, href))
         return results
@@ -219,11 +229,19 @@ class BrunchScraper(BaseScraper):
             if not content_tag:
                 return ""
             # 공유/댓글 영역 제거
-            for sel in (".wrap_btn_share", ".wrap_donation", ".wrap_author_desc", "script", "style"):
+            for sel in (
+                ".wrap_btn_share",
+                ".wrap_donation",
+                ".wrap_author_desc",
+                "script",
+                "style",
+            ):
                 for el in content_tag.select(sel):
                     el.decompose()
             for tag in content_tag.find_all(True):
-                tag.attrs = {k: v for k, v in tag.attrs.items() if k in ("href", "src", "alt")}
+                tag.attrs = {
+                    k: v for k, v in tag.attrs.items() if k in ("href", "src", "alt")
+                }
             maybe_strip_images(content_tag, site_config)
             text_len = len(content_tag.get_text(strip=True))
             if text_len < 20:

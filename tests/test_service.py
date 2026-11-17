@@ -96,9 +96,15 @@ def test_pipeline_does_not_deliver_when_shared_history_pull_fails():
     cm.load_config.return_value = _base_config()
     cm.get_resolved_output_dir.return_value = "./output"
     svc = SyncService(cm)
-    with patch.object(svc, "maybe_backup_pull", return_value={"ok": False, "message": "cloud unavailable"}), \
-         patch.object(svc, "_run_sync_pipeline_locked") as run, \
-         patch.object(svc, "maybe_backup_push") as push:
+    with (
+        patch.object(
+            svc,
+            "maybe_backup_pull",
+            return_value={"ok": False, "message": "cloud unavailable"},
+        ),
+        patch.object(svc, "_run_sync_pipeline_locked") as run,
+        patch.object(svc, "maybe_backup_push") as push,
+    ):
         assert svc.run_sync_pipeline() is False
     run.assert_not_called()
     push.assert_not_called()
@@ -110,9 +116,15 @@ def test_pipeline_reports_shared_history_push_failure_after_delivery():
     cm.load_config.return_value = _base_config()
     cm.get_resolved_output_dir.return_value = "./output"
     svc = SyncService(cm)
-    with patch.object(svc, "maybe_backup_pull", return_value={"ok": True}), \
-         patch.object(svc, "_run_sync_pipeline_locked", return_value=True), \
-         patch.object(svc, "maybe_backup_push", return_value={"ok": False, "message": "cloud full"}):
+    with (
+        patch.object(svc, "maybe_backup_pull", return_value={"ok": True}),
+        patch.object(svc, "_run_sync_pipeline_locked", return_value=True),
+        patch.object(
+            svc,
+            "maybe_backup_push",
+            return_value={"ok": False, "message": "cloud full"},
+        ),
+    ):
         assert svc.run_sync_pipeline() is False
     assert svc.get_last_pipeline_result()["status"] == "backup_push_failed"
     assert svc.get_last_pipeline_result()["backup_push"]["message"] == "cloud full"
@@ -120,9 +132,17 @@ def test_pipeline_reports_shared_history_push_failure_after_delivery():
 
 def test_pipeline_all_site_errors_returns_false():
     cm = MagicMock(spec=ConfigManager)
-    cm.load_config.return_value = _base_config([
-        {"name": "A", "type": "css", "url": "https://ex.com", "enabled": True, "limit": 1},
-    ])
+    cm.load_config.return_value = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "css",
+                "url": "https://ex.com",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cm.get_resolved_output_dir.return_value = "./output"
 
     svc = SyncService(cm)
@@ -136,9 +156,17 @@ def test_pipeline_all_site_errors_returns_false():
 
 def test_pipeline_no_new_articles_returns_true():
     cm = MagicMock(spec=ConfigManager)
-    cm.load_config.return_value = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
-    ])
+    cm.load_config.return_value = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cm.get_resolved_output_dir.return_value = "./output"
 
     svc = SyncService(cm)
@@ -155,9 +183,17 @@ def test_pipeline_no_new_articles_returns_true():
 
 def test_pipeline_partial_upload_marks_only_successful_devices():
     cm = MagicMock(spec=ConfigManager)
-    cfg = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
-    ])
+    cfg = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cfg["x3_devices"] = [{"name": "추가", "ip": "10.0.0.2"}]
     cm.load_config.return_value = cfg
     cm.get_resolved_output_dir.return_value = "./output"
@@ -171,15 +207,23 @@ def test_pipeline_partial_upload_marks_only_successful_devices():
             with patch.object(svc, "maybe_backup_push", return_value={"skipped": True}):
                 with patch.object(ScraperFactory, "get_scraper") as mock_get:
                     mock_get.return_value.fetch_articles.return_value = [
-                        {"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"},
+                        {
+                            "title": "t",
+                            "content": "<p>x</p>",
+                            "url": "https://ex.com/1",
+                        },
                     ]
-                    with patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub"):
+                    with patch.object(
+                        svc.epub_builder, "build", return_value="/tmp/test.epub"
+                    ):
                         with patch.object(
                             svc.uploader,
                             "upload_to_targets",
                             return_value={"127.0.0.1": True, "10.0.0.2": False},
                         ) as mock_upload:
-                            with patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+                            with patch(
+                                "websync.pipeline.sync_pipeline.ToastNotifier.show_toast"
+                            ):
                                 result = svc.run_sync_pipeline()
     assert result is False
     svc.db.mark_synced_many.assert_called_once()
@@ -192,9 +236,11 @@ def test_pipeline_partial_upload_marks_only_successful_devices():
 
 def test_pipeline_cancel_after_first_device_batch_skips_remaining_batch():
     cm = MagicMock(spec=ConfigManager)
-    cfg = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True},
-    ])
+    cfg = _base_config(
+        [
+            {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True},
+        ]
+    )
     cfg["x3_devices"] = [{"name": "B", "ip": "10.0.0.2"}]
     cm.load_config.return_value = cfg
     cm.get_resolved_output_dir.return_value = "./output"
@@ -207,16 +253,24 @@ def test_pipeline_cancel_after_first_device_batch_skips_remaining_batch():
         svc.request_cancel()
         return {only_ips[0]: True}
 
-    with patch.object(svc, "_reload_config"), \
-         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
-         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
-         patch.object(ScraperFactory, "get_scraper") as factory, \
-         patch("websync.pipeline.sync_pipeline.group_articles_by_pending_targets", return_value=[
-             (["127.0.0.1"], [article]), (["10.0.0.2"], [article]),
-         ]), \
-         patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub"), \
-         patch.object(svc.uploader, "upload_to_targets", side_effect=first_upload) as upload, \
-         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+    with (
+        patch.object(svc, "_reload_config"),
+        patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}),
+        patch.object(svc, "maybe_backup_push", return_value={"skipped": True}),
+        patch.object(ScraperFactory, "get_scraper") as factory,
+        patch(
+            "websync.pipeline.sync_pipeline.group_articles_by_pending_targets",
+            return_value=[
+                (["127.0.0.1"], [article]),
+                (["10.0.0.2"], [article]),
+            ],
+        ),
+        patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub"),
+        patch.object(
+            svc.uploader, "upload_to_targets", side_effect=first_upload
+        ) as upload,
+        patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"),
+    ):
         factory.return_value.fetch_articles.return_value = [dict(article)]
         assert svc.run_sync_pipeline() is False
 
@@ -226,9 +280,17 @@ def test_pipeline_cancel_after_first_device_batch_skips_remaining_batch():
 
 def test_pipeline_skips_already_synced_device_on_retry():
     cm = MagicMock(spec=ConfigManager)
-    cfg = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
-    ])
+    cfg = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cfg["x3_ip"] = "10.0.0.1"
     cfg["x3_devices"] = [{"name": "B", "ip": "10.0.0.2"}]
     cm.load_config.return_value = cfg
@@ -247,15 +309,23 @@ def test_pipeline_skips_already_synced_device_on_retry():
             with patch.object(svc, "maybe_backup_push", return_value={"skipped": True}):
                 with patch.object(ScraperFactory, "get_scraper") as mock_get:
                     mock_get.return_value.fetch_articles.return_value = [
-                        {"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"},
+                        {
+                            "title": "t",
+                            "content": "<p>x</p>",
+                            "url": "https://ex.com/1",
+                        },
                     ]
-                    with patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub"):
+                    with patch.object(
+                        svc.epub_builder, "build", return_value="/tmp/test.epub"
+                    ):
                         with patch.object(
                             svc.uploader,
                             "upload_to_targets",
                             return_value={"10.0.0.2": True},
                         ) as mock_upload:
-                            with patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+                            with patch(
+                                "websync.pipeline.sync_pipeline.ToastNotifier.show_toast"
+                            ):
                                 result = svc.run_sync_pipeline()
     assert result is True
     assert mock_upload.call_args.kwargs.get("only_ips") == ["10.0.0.2"]
@@ -265,9 +335,17 @@ def test_pipeline_skips_already_synced_device_on_retry():
 
 def test_pipeline_builds_separate_epubs_for_divergent_device_history():
     cm = MagicMock(spec=ConfigManager)
-    cfg = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 2},
-    ])
+    cfg = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 2,
+            },
+        ]
+    )
     cfg["x3_ip"] = "10.0.0.1"
     cfg["x3_devices"] = [{"name": "B", "ip": "10.0.0.2"}]
     cm.load_config.return_value = cfg
@@ -282,15 +360,21 @@ def test_pipeline_builds_separate_epubs_for_divergent_device_history():
     def upload(_path, *, only_ips):
         return {ip: True for ip in only_ips}
 
-    with patch.object(svc, "_reload_config"), \
-         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
-         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
-         patch.object(ScraperFactory, "get_scraper") as mock_get, \
-         patch.object(
-             svc.epub_builder, "build", side_effect=["/tmp/only-2.epub", "/tmp/both.epub"]
-         ) as mock_build, \
-         patch.object(svc.uploader, "upload_to_targets", side_effect=upload) as mock_upload, \
-         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+    with (
+        patch.object(svc, "_reload_config"),
+        patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}),
+        patch.object(svc, "maybe_backup_push", return_value={"skipped": True}),
+        patch.object(ScraperFactory, "get_scraper") as mock_get,
+        patch.object(
+            svc.epub_builder,
+            "build",
+            side_effect=["/tmp/only-2.epub", "/tmp/both.epub"],
+        ) as mock_build,
+        patch.object(
+            svc.uploader, "upload_to_targets", side_effect=upload
+        ) as mock_upload,
+        patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"),
+    ):
         mock_get.return_value.fetch_articles.return_value = [
             {"title": "one", "content": "<p>1</p>", "url": "https://ex.com/1"},
             {"title": "two", "content": "<p>2</p>", "url": "https://ex.com/2"},
@@ -301,16 +385,27 @@ def test_pipeline_builds_separate_epubs_for_divergent_device_history():
         [article["url"] for article in call.args[1]]
         for call in mock_build.call_args_list
     ]
-    assert built_url_sets == [["https://ex.com/2"], ["https://ex.com/1", "https://ex.com/2"]]
+    assert built_url_sets == [
+        ["https://ex.com/2"],
+        ["https://ex.com/1", "https://ex.com/2"],
+    ]
     uploaded_sets = [call.kwargs["only_ips"] for call in mock_upload.call_args_list]
     assert uploaded_sets == [["10.0.0.1"], ["10.0.0.2"]]
 
 
 def test_pipeline_uses_startup_snapshot_when_service_components_change_mid_run():
     cm = MagicMock(spec=ConfigManager)
-    cfg = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
-    ])
+    cfg = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cm.load_config.return_value = cfg
     cm.get_resolved_output_dir.return_value = "./output"
     svc = SyncService(cm)
@@ -325,13 +420,19 @@ def test_pipeline_uses_startup_snapshot_when_service_components_change_mid_run()
         svc.uploader = replacement_uploader
         return [{"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"}]
 
-    with patch.object(svc, "_reload_config"), \
-         patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}), \
-         patch.object(svc, "maybe_backup_push", return_value={"skipped": True}), \
-         patch.object(ScraperFactory, "get_scraper") as mock_get, \
-         patch.object(svc.epub_builder, "build", return_value="/tmp/test.epub") as mock_build, \
-         patch.object(original_uploader, "upload_to_targets", return_value={"127.0.0.1": True}) as mock_upload, \
-         patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+    with (
+        patch.object(svc, "_reload_config"),
+        patch.object(svc, "maybe_backup_pull", return_value={"skipped": True}),
+        patch.object(svc, "maybe_backup_push", return_value={"skipped": True}),
+        patch.object(ScraperFactory, "get_scraper") as mock_get,
+        patch.object(
+            svc.epub_builder, "build", return_value="/tmp/test.epub"
+        ) as mock_build,
+        patch.object(
+            original_uploader, "upload_to_targets", return_value={"127.0.0.1": True}
+        ) as mock_upload,
+        patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"),
+    ):
         mock_get.return_value.fetch_articles.side_effect = fetch
         assert svc.run_sync_pipeline() is True
 
@@ -343,10 +444,24 @@ def test_pipeline_uses_startup_snapshot_when_service_components_change_mid_run()
 
 def test_pipeline_all_empty_fetch_returns_false():
     cm = MagicMock(spec=ConfigManager)
-    cm.load_config.return_value = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
-        {"name": "B", "type": "youtube", "url": "https://ex.com/videos.xml", "enabled": True, "limit": 1},
-    ])
+    cm.load_config.return_value = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+            {
+                "name": "B",
+                "type": "youtube",
+                "url": "https://ex.com/videos.xml",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cm.get_resolved_output_dir.return_value = "./output"
 
     svc = SyncService(cm)
@@ -360,9 +475,17 @@ def test_pipeline_all_empty_fetch_returns_false():
 
 def test_pipeline_no_targets_returns_false():
     cm = MagicMock(spec=ConfigManager)
-    cfg = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
-    ])
+    cfg = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cfg["x3_ip"] = ""
     cfg["x3_devices"] = []
     cm.load_config.return_value = cfg
@@ -380,9 +503,17 @@ def test_pipeline_no_targets_returns_false():
 def test_daily_digest_already_synced_is_success():
     """digest 모드에서 전 기기 이미 전송이면 성공(no work)으로 집계."""
     cm = MagicMock(spec=ConfigManager)
-    cfg = _base_config([
-        {"name": "A", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
-    ])
+    cfg = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cfg["epub_merge_mode"] = "daily_digest"
     cm.load_config.return_value = cfg
     cm.get_resolved_output_dir.return_value = "./output"
@@ -395,11 +526,17 @@ def test_daily_digest_already_synced_is_success():
             with patch.object(svc, "maybe_backup_push", return_value={"skipped": True}):
                 with patch.object(ScraperFactory, "get_scraper") as mock_get:
                     mock_get.return_value.fetch_articles.return_value = [
-                        {"title": "t", "content": "<p>x</p>", "url": "https://ex.com/1"},
+                        {
+                            "title": "t",
+                            "content": "<p>x</p>",
+                            "url": "https://ex.com/1",
+                        },
                     ]
                     with patch.object(svc.epub_builder, "build_digest") as mock_digest:
                         with patch.object(svc.uploader, "upload_to_targets") as mock_up:
-                            with patch("websync.pipeline.sync_pipeline.ToastNotifier.show_toast"):
+                            with patch(
+                                "websync.pipeline.sync_pipeline.ToastNotifier.show_toast"
+                            ):
                                 result = svc.run_sync_pipeline()
     assert result is True
     mock_digest.assert_not_called()
@@ -455,16 +592,33 @@ def test_last_pipeline_result_is_instance_variable():
     cm2.get_resolved_output_dir.return_value = "./output"
     svc2 = SyncService(cm2)
 
-    assert svc2._last_pipeline_result == {} or svc2._last_pipeline_result.get("status") != "test_instance_1"
+    assert (
+        svc2._last_pipeline_result == {}
+        or svc2._last_pipeline_result.get("status") != "test_instance_1"
+    )
     assert svc1._last_pipeline_result["status"] == "test_instance_1"
 
 
 def test_pipeline_skips_non_http_site_url():
     cm = MagicMock(spec=ConfigManager)
-    cm.load_config.return_value = _base_config([
-        {"name": "Bad", "type": "css", "url": "file:///tmp/x", "enabled": True, "limit": 1},
-        {"name": "Good", "type": "rss", "url": "https://ex.com/feed", "enabled": True, "limit": 1},
-    ])
+    cm.load_config.return_value = _base_config(
+        [
+            {
+                "name": "Bad",
+                "type": "css",
+                "url": "file:///tmp/x",
+                "enabled": True,
+                "limit": 1,
+            },
+            {
+                "name": "Good",
+                "type": "rss",
+                "url": "https://ex.com/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cm.get_resolved_output_dir.return_value = "./output"
     svc = SyncService(cm)
     mock_scraper = MagicMock()
@@ -475,17 +629,34 @@ def test_pipeline_skips_non_http_site_url():
             svc.run_sync_pipeline()
     # file:// 사이트는 get_scraper 호출 없이 스킵
     # fetch_articles 인자인 site dict
-    urls = [c.kwargs.get("site") if False else c.args[0].get("url") for c in mock_scraper.fetch_articles.call_args_list]
+    urls = [
+        c.kwargs.get("site") if False else c.args[0].get("url")
+        for c in mock_scraper.fetch_articles.call_args_list
+    ]
     assert "file:///tmp/x" not in urls
     assert "https://ex.com/feed" in urls
 
 
 def test_pipeline_cancel_stops_between_sites():
     cm = MagicMock(spec=ConfigManager)
-    cm.load_config.return_value = _base_config([
-        {"name": "A", "type": "rss", "url": "https://a.example/feed", "enabled": True, "limit": 1},
-        {"name": "B", "type": "rss", "url": "https://b.example/feed", "enabled": True, "limit": 1},
-    ])
+    cm.load_config.return_value = _base_config(
+        [
+            {
+                "name": "A",
+                "type": "rss",
+                "url": "https://a.example/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+            {
+                "name": "B",
+                "type": "rss",
+                "url": "https://b.example/feed",
+                "enabled": True,
+                "limit": 1,
+            },
+        ]
+    )
     cm.get_resolved_output_dir.return_value = "./output"
     svc = SyncService(cm)
 

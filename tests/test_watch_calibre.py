@@ -1,4 +1,5 @@
 """Calibre Watch — on_moved 지원 및 콜백 계약."""
+
 import time
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -23,7 +24,9 @@ def test_calibre_watch_handles_moved_epub(tmp_path, monkeypatch):
     registered = []
     observer = SimpleNamespace(
         schedule=lambda handler, *args, **kwargs: registered.append(handler),
-        start=lambda: None, stop=lambda: None, join=lambda **kwargs: None,
+        start=lambda: None,
+        stop=lambda: None,
+        join=lambda **kwargs: None,
     )
     observers = ModuleType("watchdog.observers")
     observers.Observer = lambda: observer
@@ -37,10 +40,14 @@ def test_calibre_watch_handles_moved_epub(tmp_path, monkeypatch):
     assert watcher.start()
     dest = str(tmp_path / "book.epub")
     try:
-        registered[0].on_moved(SimpleNamespace(is_directory=False, src_path="book.tmp", dest_path=dest))
+        registered[0].on_moved(
+            SimpleNamespace(is_directory=False, src_path="book.tmp", dest_path=dest)
+        )
         assert dest in watcher._pending
         registered[0].on_moved(SimpleNamespace(is_directory=True, dest_path="dir.epub"))
-        registered[0].on_moved(SimpleNamespace(is_directory=False, dest_path="book.tmp"))
+        registered[0].on_moved(
+            SimpleNamespace(is_directory=False, dest_path="book.tmp")
+        )
         assert list(watcher._pending) == [dest]
     finally:
         watcher.stop()
@@ -56,8 +63,9 @@ def test_unstable_file_is_retried_until_stable(tmp_path):
     watcher._stability_retries[str(path)] = 0
 
     timer = SimpleNamespace(daemon=False, start=lambda: None, cancel=lambda: None)
-    with patch.object(watcher, "_is_file_stable", side_effect=[False, True]), patch(
-        "websync.watch.calibre.threading.Timer", return_value=timer
+    with (
+        patch.object(watcher, "_is_file_stable", side_effect=[False, True]),
+        patch("websync.watch.calibre.threading.Timer", return_value=timer),
     ):
         watcher._flush_pending()
         assert str(path) in watcher._pending
@@ -71,7 +79,9 @@ def test_unstable_file_is_retried_until_stable(tmp_path):
 def test_watch_pending_file_survives_config_reload(tmp_path):
     manager = ConfigManager(str(tmp_path / "config.json"))
     owner = SettingsWatchMixin()
-    owner.service = SimpleNamespace(config_manager=manager, config=manager.load_config())
+    owner.service = SimpleNamespace(
+        config_manager=manager, config=manager.load_config()
+    )
     book = tmp_path / "book.epub"
     book.write_bytes(b"epub")
 

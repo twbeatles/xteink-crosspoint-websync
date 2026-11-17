@@ -1,4 +1,5 @@
 """공통 CustomTkinter 위젯, 테마 색상 상수 및 헬퍼 함수."""
+
 from __future__ import annotations
 
 import tkinter as tk
@@ -13,11 +14,13 @@ try:
     from customtkinter.windows.widgets.theme.theme_manager import (
         ThemeManager as _ThemeManager,
     )
+
     _ThemeManager.theme["CTkFont"]["family"] = "Malgun Gothic"
 except Exception:
     pass
 
 FONT_FAMILY = "Malgun Gothic"
+
 
 def get_font(size: int = 12, weight: str = "normal") -> ctk.CTkFont:
     """맑은 고딕 기반 CustomTkinter 폰트 생성 헬퍼."""
@@ -29,14 +32,18 @@ def get_dropdown_font(size: int = 12) -> ctk.CTkFont:
     return ctk.CTkFont(family=FONT_FAMILY, size=size)
 
 
-def make_option_menu(master, *, font_size: int = 12, dropdown_size: int | None = None, **kwargs) -> ctk.CTkOptionMenu:
+def make_option_menu(
+    master, *, font_size: int = 12, dropdown_size: int | None = None, **kwargs
+) -> ctk.CTkOptionMenu:
     """맑은 고딕 고정 CTkOptionMenu (버튼·드롭다운 목록 모두 적용)."""
     kwargs.setdefault("font", get_font(font_size))
     kwargs.setdefault("dropdown_font", get_dropdown_font(dropdown_size or font_size))
     return ctk.CTkOptionMenu(master, **kwargs)
 
 
-def make_combobox(master, *, font_size: int = 12, dropdown_size: int | None = None, **kwargs) -> ctk.CTkComboBox:
+def make_combobox(
+    master, *, font_size: int = 12, dropdown_size: int | None = None, **kwargs
+) -> ctk.CTkComboBox:
     """맑은 고딕 고정 CTkComboBox (입력칸·드롭다운 목록 모두 적용)."""
     kwargs.setdefault("font", get_font(font_size))
     kwargs.setdefault("dropdown_font", get_dropdown_font(dropdown_size or font_size))
@@ -49,11 +56,23 @@ def apply_global_fonts(root: tk.Misc | None = None) -> None:
         from customtkinter.windows.widgets.theme.theme_manager import (
             ThemeManager as _TM,
         )
+
         _TM.theme["CTkFont"]["family"] = FONT_FAMILY
     except Exception:
         pass
     import tkinter.font as tkfont
-    for fname in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont", "TkCaptionFont", "TkSmallCaptionFont", "TkIconFont", "TkTooltipFont", "TkFixedFont"):
+
+    for fname in (
+        "TkDefaultFont",
+        "TkTextFont",
+        "TkMenuFont",
+        "TkHeadingFont",
+        "TkCaptionFont",
+        "TkSmallCaptionFont",
+        "TkIconFont",
+        "TkTooltipFont",
+        "TkFixedFont",
+    ):
         try:
             tkfont.nametofont(fname).configure(family=FONT_FAMILY)
         except Exception:
@@ -91,34 +110,37 @@ def apply_global_fonts(root: tk.Misc | None = None) -> None:
     except Exception:
         pass
 
+
 # 테마 색상 정의 (Light, Dark 튜플)
-COLOR_BG            = ("#f8f9fa", "#1a1d20")  # 메인 창 배경
-COLOR_CARD_BG       = ("#ffffff", "#24282d")  # 카드 및 서브 패널 배경
-COLOR_CARD_BORDER   = ("#e9ecef", "#343a40")  # 카드 테두리
-COLOR_FG            = ("#212529", "#f8f9fa")  # 주 텍스트
-COLOR_SECONDARY_FG  = ("#6c757d", "#adb5bd")  # 보조 텍스트
-COLOR_ACCENT        = ("#0d6efd", "#3d8bfd")  # 포인트 파랑
-COLOR_SUCCESS       = ("#198754", "#20c997")  # 성공/초록
-COLOR_DANGER        = ("#dc3545", "#ea868f")  # 에러/빨강
-COLOR_WARNING       = ("#fd7e14", "#ff922b")  # 경고/주황
-COLOR_NEUTRAL       = ("#e9ecef", "#343a40")  # 보조 버튼 배경
+COLOR_BG = ("#f8f9fa", "#1a1d20")  # 메인 창 배경
+COLOR_CARD_BG = ("#ffffff", "#24282d")  # 카드 및 서브 패널 배경
+COLOR_CARD_BORDER = ("#e9ecef", "#343a40")  # 카드 테두리
+COLOR_FG = ("#212529", "#f8f9fa")  # 주 텍스트
+COLOR_SECONDARY_FG = ("#6c757d", "#adb5bd")  # 보조 텍스트
+COLOR_ACCENT = ("#0d6efd", "#3d8bfd")  # 포인트 파랑
+COLOR_SUCCESS = ("#198754", "#20c997")  # 성공/초록
+COLOR_DANGER = ("#dc3545", "#ea868f")  # 에러/빨강
+COLOR_WARNING = ("#fd7e14", "#ff922b")  # 경고/주황
+COLOR_NEUTRAL = ("#e9ecef", "#343a40")  # 보조 버튼 배경
 COLOR_NEUTRAL_HOVER = ("#ced4da", "#495057")  # 보조 버튼 hover
-COLOR_DANGER_HOVER  = ("#bb2d3b", "#d16b74")
-COLOR_ACCENT_SOFT   = ("#e7f1ff", "#1f2d44")  # 안내 배너 배경
+COLOR_DANGER_HOVER = ("#bb2d3b", "#d16b74")
+COLOR_ACCENT_SOFT = ("#e7f1ff", "#1f2d44")  # 안내 배너 배경
 
 # 기존 호환성용 단일 값 상수
-BG_COLOR      = "#f8f9fa"
-FG_COLOR      = "#212529"
-ACCENT_COLOR  = "#0d6efd"
-SECONDARY_BG  = "#e9ecef"
-TEXT_BG       = "#ffffff"
-GREEN_COLOR   = "#198754"
-RED_COLOR     = "#dc3545"
-YELLOW_COLOR  = "#fd7e14"
-HINT_COLOR    = "#6c757d"
+BG_COLOR = "#f8f9fa"
+FG_COLOR = "#212529"
+ACCENT_COLOR = "#0d6efd"
+SECONDARY_BG = "#e9ecef"
+TEXT_BG = "#ffffff"
+GREEN_COLOR = "#198754"
+RED_COLOR = "#dc3545"
+YELLOW_COLOR = "#fd7e14"
+HINT_COLOR = "#6c757d"
 
 
-def center_window(window: tk.Misc, width: int | None = None, height: int | None = None) -> None:
+def center_window(
+    window: tk.Misc, width: int | None = None, height: int | None = None
+) -> None:
     """창을 화면 중앙에 배치합니다."""
     window.update_idletasks()
     w = width or window.winfo_width()
@@ -131,7 +153,14 @@ def center_window(window: tk.Misc, width: int | None = None, height: int | None 
         window.geometry(f"+{x}+{y}")
 
 
-def setup_dialog(dialog: tk.Toplevel | ctk.CTkToplevel, root: tk.Misc, width: int, height: int, *, resizable: bool = True) -> None:
+def setup_dialog(
+    dialog: tk.Toplevel | ctk.CTkToplevel,
+    root: tk.Misc,
+    width: int,
+    height: int,
+    *,
+    resizable: bool = True,
+) -> None:
     """모달 다이얼로그 초기 설정."""
     dialog.transient(root)
     if hasattr(dialog, "grab_set"):
@@ -145,22 +174,34 @@ def bind_widget_mousewheel(widget: tk.Misc, handler) -> None:
     """마우스휠 스크롤 이벤트 재귀 바인딩."""
     widget.bind("<MouseWheel>", handler, add="+")
     for child in widget.winfo_children():
-        if child.winfo_class() in ("Treeview", "Text", "TCombobox", "TSpinbox", "CTkTextbox", "CTkScrollableFrame"):
+        if child.winfo_class() in (
+            "Treeview",
+            "Text",
+            "TCombobox",
+            "TSpinbox",
+            "CTkTextbox",
+            "CTkScrollableFrame",
+        ):
             continue
         bind_widget_mousewheel(child, handler)
 
 
 def bind_text_mousewheel(text_widget: tk.Text | ctk.CTkTextbox) -> None:
     """텍스트 위젯 스크롤 바인딩."""
+
     def _on_mousewheel(event):
         text_widget.yview_scroll(int(-1 * (event.delta / 120)), "units")
         return "break"
+
     text_widget.bind("<MouseWheel>", _on_mousewheel)
 
 
 class CardFrame(ctk.CTkFrame):
     """현대적인 둥근 모서리와 가독성이 높은 카드 패널 컴포넌트."""
-    def __init__(self, master, title: str | None = None, subtitle: str | None = None, **kwargs):
+
+    def __init__(
+        self, master, title: str | None = None, subtitle: str | None = None, **kwargs
+    ):
         kwargs.setdefault("fg_color", COLOR_CARD_BG)
         kwargs.setdefault("border_color", COLOR_CARD_BORDER)
         kwargs.setdefault("border_width", 1)
@@ -171,16 +212,40 @@ class CardFrame(ctk.CTkFrame):
         if title:
             title_frame = ctk.CTkFrame(self, fg_color="transparent")
             title_frame.pack(fill="x", padx=14, pady=(12, 6))
-            title_lbl = ctk.CTkLabel(title_frame, text=title, font=get_font(16, "bold"), text_color=COLOR_FG, anchor="w")
+            title_lbl = ctk.CTkLabel(
+                title_frame,
+                text=title,
+                font=get_font(16, "bold"),
+                text_color=COLOR_FG,
+                anchor="w",
+            )
             title_lbl.pack(side="left")
             if subtitle:
-                sub_lbl = ctk.CTkLabel(title_frame, text=subtitle, font=get_font(12), text_color=COLOR_SECONDARY_FG, anchor="w")
+                sub_lbl = ctk.CTkLabel(
+                    title_frame,
+                    text=subtitle,
+                    font=get_font(12),
+                    text_color=COLOR_SECONDARY_FG,
+                    anchor="w",
+                )
                 sub_lbl.pack(side="left", padx=(10, 0))
-            self.header_right = ctk.CTkFrame(title_frame, fg_color="transparent", width=1, height=1)
+            self.header_right = ctk.CTkFrame(
+                title_frame, fg_color="transparent", width=1, height=1
+            )
             self.header_right.pack(side="right")
 
 
-def make_button(parent, text: str, command=None, *, kind: str = "primary", width: int = 100, height: int = 32, bold: bool = False, **kwargs) -> ctk.CTkButton:
+def make_button(
+    parent,
+    text: str,
+    command=None,
+    *,
+    kind: str = "primary",
+    width: int = 100,
+    height: int = 32,
+    bold: bool = False,
+    **kwargs,
+) -> ctk.CTkButton:
     """일관된 스타일의 버튼 (kind: primary / secondary / danger)."""
     if kind == "secondary":
         kwargs.setdefault("fg_color", COLOR_NEUTRAL)
@@ -191,7 +256,16 @@ def make_button(parent, text: str, command=None, *, kind: str = "primary", width
         kwargs.setdefault("hover_color", COLOR_DANGER_HOVER)
     else:
         kwargs.setdefault("fg_color", COLOR_ACCENT)
-    return ctk.CTkButton(parent, text=text, command=command, font=get_font(12, "bold" if bold else "normal"), width=width, height=height, corner_radius=kwargs.pop("corner_radius", 6), **kwargs)
+    return ctk.CTkButton(
+        parent,
+        text=text,
+        command=command,
+        font=get_font(12, "bold" if bold else "normal"),
+        width=width,
+        height=height,
+        corner_radius=kwargs.pop("corner_radius", 6),
+        **kwargs,
+    )
 
 
 class Tooltip:
@@ -232,7 +306,17 @@ class Tooltip:
             tip = tk.Toplevel(self.widget)
             tip.wm_overrideredirect(True)
             tip.wm_geometry(f"+{x}+{y}")
-            tk.Label(tip, text=self.text, justify="left", background="#333a40", foreground="#ffffff", padx=8, pady=5, wraplength=360, font=(FONT_FAMILY, 10)).pack()
+            tk.Label(
+                tip,
+                text=self.text,
+                justify="left",
+                background="#333a40",
+                foreground="#ffffff",
+                padx=8,
+                pady=5,
+                wraplength=360,
+                font=(FONT_FAMILY, 10),
+            ).pack()
             self._tip = tip
         except tk.TclError:
             self._tip = None
@@ -251,27 +335,79 @@ def apply_treeview_style(tree: ttk.Treeview | None = None) -> None:
     """ttk Treeview 맑은 고딕 스타일 적용 (기본/CTk 스타일 모두)."""
     style = ttk.Style()
     mode = ctk.get_appearance_mode()
-    is_dark = (mode == "Dark")
+    is_dark = mode == "Dark"
     bg = "#24282d" if is_dark else "#ffffff"
     fg = "#f8f9fa" if is_dark else "#212529"
     head_bg = "#1a1d20" if is_dark else "#e9ecef"
     select_bg = "#0d6efd"
     style.theme_use("clam")
-    style.configure("CTk.Treeview", background=bg, fieldbackground=bg, foreground=fg, rowheight=34, borderwidth=0, font=(FONT_FAMILY, 12))
-    style.map("CTk.Treeview", background=[("selected", select_bg)], foreground=[("selected", "#ffffff")])
-    style.configure("CTk.Treeview.Heading", background=head_bg, foreground=fg, relief="flat", font=(FONT_FAMILY, 12, "bold"))
-    style.configure("Treeview", background=bg, fieldbackground=bg, foreground=fg, rowheight=34, borderwidth=0, font=(FONT_FAMILY, 12))
-    style.map("Treeview", background=[("selected", select_bg)], foreground=[("selected", "#ffffff")])
-    style.configure("Treeview.Heading", background=head_bg, foreground=fg, relief="flat", font=(FONT_FAMILY, 12, "bold"))
+    style.configure(
+        "CTk.Treeview",
+        background=bg,
+        fieldbackground=bg,
+        foreground=fg,
+        rowheight=34,
+        borderwidth=0,
+        font=(FONT_FAMILY, 12),
+    )
+    style.map(
+        "CTk.Treeview",
+        background=[("selected", select_bg)],
+        foreground=[("selected", "#ffffff")],
+    )
+    style.configure(
+        "CTk.Treeview.Heading",
+        background=head_bg,
+        foreground=fg,
+        relief="flat",
+        font=(FONT_FAMILY, 12, "bold"),
+    )
+    style.configure(
+        "Treeview",
+        background=bg,
+        fieldbackground=bg,
+        foreground=fg,
+        rowheight=34,
+        borderwidth=0,
+        font=(FONT_FAMILY, 12),
+    )
+    style.map(
+        "Treeview",
+        background=[("selected", select_bg)],
+        foreground=[("selected", "#ffffff")],
+    )
+    style.configure(
+        "Treeview.Heading",
+        background=head_bg,
+        foreground=fg,
+        relief="flat",
+        font=(FONT_FAMILY, 12, "bold"),
+    )
 
 
-def create_scrolled_tree(parent, columns, show: str = "headings", height: int = 10, *, padx: int = 10, pady: int = 8, **tree_kwargs) -> ttk.Treeview:
+def create_scrolled_tree(
+    parent,
+    columns,
+    show: str = "headings",
+    height: int = 10,
+    *,
+    padx: int = 10,
+    pady: int = 8,
+    **tree_kwargs,
+) -> ttk.Treeview:
     """CustomTkinter 스타일의 스크롤 Treeview를 생성합니다."""
     wrapper = ctk.CTkFrame(parent, fg_color="transparent")
     wrapper.pack(fill="both", expand=True, padx=padx, pady=pady)
     wrapper.grid_rowconfigure(0, weight=1)
     wrapper.grid_columnconfigure(0, weight=1)
-    tree = ttk.Treeview(wrapper, columns=columns, show=show, height=height, style="CTk.Treeview", **tree_kwargs)
+    tree = ttk.Treeview(
+        wrapper,
+        columns=columns,
+        show=show,
+        height=height,
+        style="CTk.Treeview",
+        **tree_kwargs,
+    )
     apply_treeview_style(tree)
     vsb = ttk.Scrollbar(wrapper, orient="vertical", command=tree.yview)
     hsb = ttk.Scrollbar(wrapper, orient="horizontal", command=tree.xview)
@@ -284,6 +420,8 @@ def create_scrolled_tree(parent, columns, show: str = "headings", height: int = 
 
 def create_scrollable_frame(parent) -> ctk.CTkScrollableFrame:
     """CustomTkinter 세로 스크롤 가능 프레임을 생성합니다."""
-    scrollable_frame = ctk.CTkScrollableFrame(parent, fg_color="transparent", corner_radius=0)
+    scrollable_frame = ctk.CTkScrollableFrame(
+        parent, fg_color="transparent", corner_radius=0
+    )
     scrollable_frame.pack(fill="both", expand=True)
     return scrollable_frame

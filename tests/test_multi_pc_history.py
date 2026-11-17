@@ -1,4 +1,5 @@
 """여러 PC가 같은 리더기를 쓸 때 이미 보낸 글이 다시 전송되지 않아야 합니다."""
+
 import json
 import os
 import tempfile
@@ -78,6 +79,7 @@ def test_same_reader_on_another_pc_skips_posts_already_sent():
     finally:
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except OSError:
             pass
@@ -123,6 +125,7 @@ def test_owner_pull_publishes_device_for_legacy_history_file():
     finally:
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except OSError:
             pass
@@ -155,6 +158,7 @@ def test_same_reader_with_different_address_on_each_pc_skips_sent_posts():
     finally:
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except OSError:
             pass
@@ -189,6 +193,7 @@ def test_primary_devices_merge_even_when_both_pcs_already_published():
     finally:
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except OSError:
             pass
@@ -217,6 +222,7 @@ def test_other_pc_extra_reader_with_different_address_stays_pending():
     finally:
         try:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
         except OSError:
             pass
@@ -255,7 +261,9 @@ def test_primary_merge_never_collapses_this_pcs_two_readers():
         "x3_primary_device_id": "dev_mine",
         "x3_devices": [{"name": "서재", "ip": "192.168.0.20", "id": "dev_study"}],
     }
-    remote = [{"id": "dev_other", "hosts": ["192.168.0.20"], "alias_ids": [], "primary": True}]
+    remote = [
+        {"id": "dev_other", "hosts": ["192.168.0.20"], "alias_ids": [], "primary": True}
+    ]
     export, _changed = reconcile_config_devices(config, remote)
     assert config["x3_primary_device_id"] != config["x3_devices"][0]["id"]
     assert "dev_study" not in (config.get("x3_primary_device_alias_ids") or [])

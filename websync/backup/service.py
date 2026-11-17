@@ -4,6 +4,7 @@
 공유 폴더의 sites.json / synced_posts.json 이 정본입니다.
 SQLite 파일을 공유 폴더에 직접 두지 마세요.
 """
+
 from __future__ import annotations
 
 import logging
@@ -142,7 +143,9 @@ class BackupSyncService:
         import copy
 
         remote_devices = extract_devices(remote_payload)
-        export, _changed = reconcile_config_devices(copy.deepcopy(config), remote_devices)
+        export, _changed = reconcile_config_devices(
+            copy.deepcopy(config), remote_devices
+        )
         if not export or _same_device_registry(export, remote_devices):
             return
         posts, _exported_at = extract_posts(remote_payload)
@@ -288,9 +291,14 @@ class BackupSyncService:
             raw_sites = config.get("sites")
             local_sites: list[dict] = raw_sites if isinstance(raw_sites, list) else []
             last_sites_push = bs.get("last_sites_push_at")
-            remote_wins = is_remote_newer(remote_sites_at, last_sites_push if isinstance(last_sites_push, str) else None)
+            remote_wins = is_remote_newer(
+                remote_sites_at,
+                last_sites_push if isinstance(last_sites_push, str) else None,
+            )
             local_deleted_sites = bs.get("deleted_sites", [])
-            combined_deleted = merge_site_tombstones(local_deleted_sites, remote_deleted_sites)
+            combined_deleted = merge_site_tombstones(
+                local_deleted_sites, remote_deleted_sites
+            )
 
             if remote_sites or combined_deleted:
                 before_urls = {
@@ -303,7 +311,9 @@ class BackupSyncService:
                     remote_sites,
                     remote_wins_same_url=remote_wins,
                 )
-                merged, combined_deleted = apply_site_tombstones(merged, combined_deleted)
+                merged, combined_deleted = apply_site_tombstones(
+                    merged, combined_deleted
+                )
                 after_urls = {
                     (s.get("url") or "").strip().lower()
                     for s in merged
@@ -314,13 +324,19 @@ class BackupSyncService:
                 if merged != local_sites or combined_deleted != local_deleted_sites:
                     expected_rev = config.get("_config_revision")
                     try:
-                        expected_i = int(expected_rev) if expected_rev is not None else None
+                        expected_i = (
+                            int(expected_rev) if expected_rev is not None else None
+                        )
                     except (TypeError, ValueError):
                         expected_i = None
 
                     def _apply_sites(cfg: dict) -> None:
                         # RMW: 디스크 최신 사이트와 다시 병합
-                        cur = cfg.get("sites") if isinstance(cfg.get("sites"), list) else []
+                        cur = (
+                            cfg.get("sites")
+                            if isinstance(cfg.get("sites"), list)
+                            else []
+                        )
                         portable = get_portable_cfg(cfg)
                         deleted = merge_site_tombstones(
                             portable.get("deleted_sites", []), remote_deleted_sites
@@ -328,7 +344,9 @@ class BackupSyncService:
                         merged_current = merge_sites(
                             cur, remote_sites, remote_wins_same_url=remote_wins
                         )
-                        cfg["sites"], deleted = apply_site_tombstones(merged_current, deleted)
+                        cfg["sites"], deleted = apply_site_tombstones(
+                            merged_current, deleted
+                        )
                         apply_portable_cfg(cfg, {"deleted_sites": deleted})
 
                     try:
@@ -445,7 +463,10 @@ class BackupSyncService:
 
             # 공유 파일을 변경하기 전에 로컬 이력과 원격 정본의 합집합을 확정한다.
             remote_sites_payload, remote_history_payload = merge_replica_inputs(
-                folder, remote_sites_payload, remote_history_payload, bs.get("include_history", True)
+                folder,
+                remote_sites_payload,
+                remote_history_payload,
+                bs.get("include_history", True),
             )
             # DB 병합이 실패하면 기존 sites/history/manifest를 그대로 보존한다.
             include_history = bool(bs.get("include_history", True))
@@ -478,7 +499,9 @@ class BackupSyncService:
             # sites — config의 최신본을 잠근 transaction 안에서 원격 변경과 병합한다.
             remote_sites, _ = extract_sites(remote_sites_payload)
             remote_deleted_sites = extract_deleted_sites(remote_sites_payload)
-            remote_devices = extract_devices(remote_history_payload) if include_history else []
+            remote_devices = (
+                extract_devices(remote_history_payload) if include_history else []
+            )
             devices_export: list[dict] = []
 
             def _apply_site_merge(cfg: dict) -> None:
@@ -489,10 +512,14 @@ class BackupSyncService:
                     get_portable_cfg(cfg).get("deleted_sites", []), remote_deleted_sites
                 )
                 merged = merge_sites(current, remote_sites, remote_wins_same_url=False)
-                cfg["sites"], deleted_sites = apply_site_tombstones(merged, deleted_sites)
+                cfg["sites"], deleted_sites = apply_site_tombstones(
+                    merged, deleted_sites
+                )
                 apply_portable_cfg(cfg, {"deleted_sites": deleted_sites})
                 if include_history:
-                    devices_export, _changed = reconcile_config_devices(cfg, remote_devices)
+                    devices_export, _changed = reconcile_config_devices(
+                        cfg, remote_devices
+                    )
 
             config = self.config_manager.update_config(_apply_site_merge)
             bs = self._backup_cfg(config)
@@ -523,8 +550,12 @@ class BackupSyncService:
                 build_manifest(exported_at=exported_at, components=components),
             )
             result["manifest_written"] = True
-            publish_replica(folder, config["backup_replica_id"], sites_payload,
-                            hist_payload if include_history else None)
+            publish_replica(
+                folder,
+                config["backup_replica_id"],
+                sites_payload,
+                hist_payload if include_history else None,
+            )
             result["replica_written"] = True
 
             # 메타 기록 (LWW 기준) — RMW 로 다른 설정 덮어쓰기 방지
@@ -553,15 +584,18 @@ class BackupSyncService:
             return result
         except Exception as e:
             written = [
-                name for name, field in (
+                name
+                for name, field in (
                     ("sites.json", "sites_written"),
                     ("synced_posts.json", "history_written"),
                     ("manifest.json", "manifest_written"),
-                ) if result[field]
+                )
+                if result[field]
             ]
             result["message"] = (
                 t("backup.export_partial_failed", files=", ".join(written), error=e)
-                if written else t("backup.export_failed", error=e)
+                if written
+                else t("backup.export_failed", error=e)
             )
             self.logger.exception(result["message"])
             self.last_result = result

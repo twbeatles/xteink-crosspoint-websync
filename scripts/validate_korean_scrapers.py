@@ -13,6 +13,7 @@
   - 네트워크 필요. CI 기본 스위트에는 넣지 마세요.
   - 대량 수집용이 아니며 검증용 샘플만 사용합니다.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -185,11 +186,15 @@ def check_article(art: dict[str, Any], min_text: int = MIN_TEXT_LEN) -> ArticleC
     if not url:
         return ArticleCheck(title, url, tlen, has_ss, False, "URL 없음")
     if tlen < min_text:
-        return ArticleCheck(title, url, tlen, has_ss, False, f"본문 텍스트 {tlen}자 < {min_text}")
+        return ArticleCheck(
+            title, url, tlen, has_ss, False, f"본문 텍스트 {tlen}자 < {min_text}"
+        )
     return ArticleCheck(title, url, tlen, has_ss, True)
 
 
-def validate_sample(sample: dict[str, Any], min_text: int = MIN_TEXT_LEN) -> SampleResult:
+def validate_sample(
+    sample: dict[str, Any], min_text: int = MIN_TEXT_LEN
+) -> SampleResult:
     sid = sample["id"]
     optional = bool(sample.get("optional"))
     sample_min = int(sample.get("min_text", min_text) or min_text)
@@ -210,7 +215,13 @@ def validate_sample(sample: dict[str, Any], min_text: int = MIN_TEXT_LEN) -> Sam
         "enabled": True,
     }
     # css 타입 선택자 전달
-    for key in ("item_selector", "title_selector", "content_selector", "remove_selectors", "fetch_detail_page"):
+    for key in (
+        "item_selector",
+        "title_selector",
+        "content_selector",
+        "remove_selectors",
+        "fetch_detail_page",
+    ):
         if key in sample:
             site_config[key] = sample[key]
 
@@ -241,7 +252,9 @@ def validate_sample(sample: dict[str, Any], min_text: int = MIN_TEXT_LEN) -> Sam
         if ok_count >= 1:
             result.status = "pass"
             if ok_count < len(articles):
-                result.reasons.append(f"부분 통과: {ok_count}/{len(articles)}건 품질 기준 충족")
+                result.reasons.append(
+                    f"부분 통과: {ok_count}/{len(articles)}건 품질 기준 충족"
+                )
         else:
             result.status = "fail"
         return result
@@ -253,7 +266,9 @@ def validate_sample(sample: dict[str, Any], min_text: int = MIN_TEXT_LEN) -> Sam
         return result
 
 
-def _filter_samples(samples: list[dict], only: set[str] | None, include_optional: bool) -> list[dict]:
+def _filter_samples(
+    samples: list[dict], only: set[str] | None, include_optional: bool
+) -> list[dict]:
     out = []
     for s in samples:
         if only and s["id"] not in only and s["type"] not in only:
@@ -273,7 +288,9 @@ def print_report(results: list[SampleResult]) -> None:
         flag = r.status.upper()
         if r.optional and r.status != "pass":
             flag = f"{flag}*"
-        print(f"{r.id:<14} {r.type:<12} {flag:<8} {r.article_count:>3} {r.elapsed_sec:>6.2f}  {r.name}")
+        print(
+            f"{r.id:<14} {r.type:<12} {flag:<8} {r.article_count:>3} {r.elapsed_sec:>6.2f}  {r.name}"
+        )
         if r.articles:
             for a in r.articles:
                 mark = "OK" if a.get("ok") else "NG"
@@ -290,7 +307,9 @@ def print_report(results: list[SampleResult]) -> None:
     opt = [r for r in results if r.optional]
     hard_pass = sum(1 for r in hard if r.status == "pass")
     opt_pass = sum(1 for r in opt if r.status == "pass")
-    print(f"필수: {hard_pass}/{len(hard)} 통과  |  선택: {opt_pass}/{len(opt)} 통과  (* = optional 실패는 exit code 무시)")
+    print(
+        f"필수: {hard_pass}/{len(hard)} 통과  |  선택: {opt_pass}/{len(opt)} 통과  (* = optional 실패는 exit code 무시)"
+    )
     print()
 
 
@@ -329,7 +348,10 @@ def main(argv: list[str] | None = None) -> int:
     only = {x.strip() for x in args.only.split(",") if x.strip()} or None
     samples = _filter_samples(DEFAULT_SAMPLES, only, args.include_optional)
     if not samples:
-        print("검증할 샘플이 없습니다. --only / --include-optional 을 확인하세요.", file=sys.stderr)
+        print(
+            "검증할 샘플이 없습니다. --only / --include-optional 을 확인하세요.",
+            file=sys.stderr,
+        )
         return 2
 
     print(f"검증 시작: {len(samples)}개 샘플 (min_text={args.min_text})")
@@ -352,7 +374,9 @@ def main(argv: list[str] | None = None) -> int:
             "min_text": args.min_text,
             "results": [asdict(r) for r in results],
         }
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         print(f"JSON 저장: {path}")
 
     # optional 실패는 전체 실패로 치지 않음

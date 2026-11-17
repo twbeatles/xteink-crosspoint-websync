@@ -1,4 +1,5 @@
 """SoonsalScraper — 아카이브 스토리 앵커(#story-N) 중복 수집 방지."""
+
 from bs4 import BeautifulSoup
 
 from websync.scrapers.soonsal import SoonsalScraper
@@ -69,13 +70,19 @@ def test_newsletter_extracts_title_from_same_detail_fetch():
         LINK_PATTERN = re.compile(r"/n/\d+")
         CONTENT_CANDIDATES = ["article"]
 
-    html = """<html><head><title>상세 제목</title></head>
-    <body><article>본문 텍스트가 충분히 길어야 컨테이너로 인정됩니다. """ + ("가" * 80) + """</article></body></html>"""
+    html = (
+        """<html><head><title>상세 제목</title></head>
+    <body><article>본문 텍스트가 충분히 길어야 컨테이너로 인정됩니다. """
+        + ("가" * 80)
+        + """</article></body></html>"""
+    )
     resp = MagicMock()
     resp.raise_for_status = MagicMock()
     resp.text = html
     sc = _Dummy()
-    with patch("websync.scrapers.newsletter_base.fetch_url", return_value=resp) as mocked:
+    with patch(
+        "websync.scrapers.newsletter_base.fetch_url", return_value=resp
+    ) as mocked:
         content, title = sc._fetch_detail_page("https://ex.com/n/1", {})
     assert mocked.call_count == 1
     assert "본문 텍스트" in content

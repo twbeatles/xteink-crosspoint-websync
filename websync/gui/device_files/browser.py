@@ -29,7 +29,9 @@ class DeviceFilesBrowserMixin:
         """설정에 등록된 기기 콤보 갱신."""
         client = self._make_client()
         targets = client._build_target_list()
-        self._device_choices = [(f"{tgt['name']} ({tgt['ip']})", tgt["ip"]) for tgt in targets]
+        self._device_choices = [
+            (f"{tgt['name']} ({tgt['ip']})", tgt["ip"]) for tgt in targets
+        ]
         labels = [label for label, _ in self._device_choices]
         prev_ip = self._selected_ip()
         if hasattr(self.device_cb, "configure"):
@@ -39,7 +41,9 @@ class DeviceFilesBrowserMixin:
 
         if not labels:
             self.device_cb.set("")
-            self.status_label.configure(text=t("gui.device.no_devices"), text_color=COLOR_DANGER[0])
+            self.status_label.configure(
+                text=t("gui.device.no_devices"), text_color=COLOR_DANGER[0]
+            )
             return
         idx = 0
         if prev_ip:
@@ -83,16 +87,16 @@ class DeviceFilesBrowserMixin:
         self.refresh_device_list()
         ip = self._selected_ip()
         if not ip:
-            messagebox.showwarning(
-                t("dialog.warning"), t("gui.device.no_devices_warn")
-            )
+            messagebox.showwarning(t("dialog.warning"), t("gui.device.no_devices_warn"))
             return
 
         path = normalize_remote_path(self.path_var.get() or self._current_path)
         self._current_path = path
         self.path_var.set(path)
         self._set_busy(True)
-        self.status_label.configure(text=t("gui.device.loading"), text_color=COLOR_WARNING[0])
+        self.status_label.configure(
+            text=t("gui.device.loading"), text_color=COLOR_WARNING[0]
+        )
         self.app._log_message(t("gui.device.log_list_request", ip=ip, path=path))
 
         def task():
@@ -113,8 +117,8 @@ class DeviceFilesBrowserMixin:
                 err = str(e)
             self.app.root.after(
                 0,
-                lambda ip=ip, path=path, items=items, status_text=status_text, status_ok=status_ok, err=err: self._refresh_finished(
-                    ip, path, items, status_text, status_ok, err
+                lambda ip=ip, path=path, items=items, status_text=status_text, status_ok=status_ok, err=err: (
+                    self._refresh_finished(ip, path, items, status_text, status_ok, err)
                 ),
             )
 
@@ -131,7 +135,9 @@ class DeviceFilesBrowserMixin:
     ) -> None:
         self._set_busy(False)
         if err:
-            self.status_label.configure(text=t("gui.device.connect_fail"), text_color=COLOR_DANGER[0])
+            self.status_label.configure(
+                text=t("gui.device.connect_fail"), text_color=COLOR_DANGER[0]
+            )
             self._all_items = []
             self._fill_tree([])
             self.summary_label.configure(text="")
@@ -150,9 +156,12 @@ class DeviceFilesBrowserMixin:
             self.status_label.configure(text=status_text, text_color=COLOR_SUCCESS[0])
         else:
             self.status_label.configure(
-                text=status_text or t("gui.device.connected_no_status"), text_color=COLOR_WARNING[0]
+                text=status_text or t("gui.device.connected_no_status"),
+                text_color=COLOR_WARNING[0],
             )
-        self.app._log_message(t("gui.device.log_list_ok", ip=ip, path=path, count=len(items)))
+        self.app._log_message(
+            t("gui.device.log_list_ok", ip=ip, path=path, count=len(items))
+        )
 
     def _apply_filter_to_tree(self) -> None:
         q = (self.filter_var.get() or "").strip().lower()
@@ -168,9 +177,16 @@ class DeviceFilesBrowserMixin:
 
         file_count = sum(1 for i in filtered if not i.get("isDirectory"))
         dir_count = sum(1 for i in filtered if i.get("isDirectory"))
-        total_size = sum(int(i.get("size") or 0) for i in filtered if not i.get("isDirectory"))
+        total_size = sum(
+            int(i.get("size") or 0) for i in filtered if not i.get("isDirectory")
+        )
         self.summary_label.configure(
-            text=t("gui.device.summary", dirs=dir_count, files=file_count, size=format_file_size(total_size))
+            text=t(
+                "gui.device.summary",
+                dirs=dir_count,
+                files=file_count,
+                size=format_file_size(total_size),
+            )
         )
 
     def _fill_tree(self, items: list[dict]) -> None:

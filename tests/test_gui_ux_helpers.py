@@ -1,4 +1,5 @@
 """GUI 리팩토링에서 분리한 순수 헬퍼 (tk 창 없이 검증)."""
+
 from __future__ import annotations
 
 from websync.gui.sync_tab.epub_options import parse_font_size, parse_line_height

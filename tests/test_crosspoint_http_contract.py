@@ -3,6 +3,7 @@
 INV-01/02/08/09: success only on real 200+stored bytes; download failure
 preserves local bytes and cleans .part; destructive paths are refused.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -76,8 +77,10 @@ def test_uploader_real_multipart_and_sha256(server, tmp_path):
     uploader = X3Uploader(server.host, remote_dir="/Books")
 
     ok = uploader._upload_to_ip(
-        str(local), server.host,
-        uploader._sanitize_filename(str(local)), 30,
+        str(local),
+        server.host,
+        uploader._sanitize_filename(str(local)),
+        30,
     )
     assert ok is True
     assert len(server.state.uploads) == 1
@@ -97,7 +100,9 @@ def test_device_client_upload_uses_params_path_style(server, tmp_path):
     local.write_bytes(payload)
     client = X3DeviceClient(server.host)
     assert client.upload_to_path(str(local), "/Books") is True
-    queries = [r.get("query", "") for r in server.state.requests if r.get("path") == "/upload"]
+    queries = [
+        r.get("query", "") for r in server.state.requests if r.get("path") == "/upload"
+    ]
     assert any("path=" in q and "Books" in q for q in queries)
 
 
@@ -124,7 +129,9 @@ def test_upload_root_omits_path_query(server, tmp_path):
     local.write_bytes(b"0123456789")
     uploader = X3Uploader(server.host, remote_dir="/")
     assert uploader._upload_to_ip(str(local), server.host, "r.epub", 30) is True
-    queries = [r.get("query", "") for r in server.state.requests if r.get("path") == "/upload"]
+    queries = [
+        r.get("query", "") for r in server.state.requests if r.get("path") == "/upload"
+    ]
     assert queries and all(q == "" for q in queries)
 
 
@@ -166,7 +173,9 @@ def test_download_ok_and_interrupted_preserves_local(server, tmp_path):
     with pytest.raises(DeviceClientError):
         client.download("/Books/book.epub", str(dest))
     assert dest.read_bytes() == b"ORIGINAL-KEPT"
-    leftovers = [p for p in tmp_path.iterdir() if p.suffix == ".part" or ".part" in p.name]
+    leftovers = [
+        p for p in tmp_path.iterdir() if p.suffix == ".part" or ".part" in p.name
+    ]
     assert leftovers == []
 
 

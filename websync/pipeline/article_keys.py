@@ -1,4 +1,5 @@
 """기사 동기화 키(URL) 유틸."""
+
 from __future__ import annotations
 
 from websync.core.article import ensure_article_url

@@ -43,18 +43,18 @@ class AppSyncControlMixin:
         """Run a pipeline worker and always restore the GUI after it finishes."""
         if getattr(self, "_closing", False):
             return None
+
         def run():
             error = None
             try:
                 task()
             except Exception as exc:
                 error = str(exc)
-                self.service.logger.exception(
-                    t("pipeline.bg_sync_fail_log", error=exc)
-                )
+                self.service.logger.exception(t("pipeline.bg_sync_fail_log", error=exc))
             finally:
                 callback = (
-                    on_success if error is None
+                    on_success
+                    if error is None
                     else lambda message=error: self._pipeline_failed_ui(message)
                 )
                 try:
@@ -87,7 +87,8 @@ class AppSyncControlMixin:
         while True:
             with self._background_threads_lock:
                 workers = [
-                    worker for worker in self._background_threads
+                    worker
+                    for worker in self._background_threads
                     if worker is not current and worker.is_alive()
                 ]
             if not workers:
@@ -188,7 +189,14 @@ class AppSyncControlMixin:
             return t("gui.bottom.result_no_targets"), "error"
         if status == "no_sites":
             return t("gui.bottom.result_no_sites"), "warn"
-        if status in ("errors", "empty_fetch", "db_error", "backup_pull_failed", "backup_push_failed", "failed"):
+        if status in (
+            "errors",
+            "empty_fetch",
+            "db_error",
+            "backup_pull_failed",
+            "backup_push_failed",
+            "failed",
+        ):
             return t("gui.bottom.result_error", time=stamp), "error"
         return t("gui.bottom.result_done", time=stamp), "ok"
 
@@ -226,7 +234,9 @@ class AppSyncControlMixin:
                         try:
                             component.stop()
                         except Exception:
-                            self.service.logger.exception("Shutdown component failed: %s", attr)
+                            self.service.logger.exception(
+                                "Shutdown component failed: %s", attr
+                            )
                 try:
                     self.tab_settings._stop_watch_worker(wait_timeout=0)
                 except Exception:
@@ -259,10 +269,11 @@ class AppSyncControlMixin:
                 self._set_status(t("gui.app.shutdown_waiting"), "warn")
                 self.root.after(50, poll)
 
-        self._close_thread = threading.Thread(target=drain, name="app-shutdown", daemon=False)
+        self._close_thread = threading.Thread(
+            target=drain, name="app-shutdown", daemon=False
+        )
         self._close_thread.start()
         self.root.after(50, poll)
 
     def run(self):
         self.root.mainloop()
-

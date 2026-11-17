@@ -1,4 +1,5 @@
 """RssScraper — RSS/Atom 피드 수집."""
+
 from __future__ import annotations
 
 import html as html_lib
@@ -89,10 +90,14 @@ class RssScraper(BaseScraper):
                 if content_elem is not None:
                     # CDATA HTML 은 string/get_text 가 원문에 가깝고,
                     # decode_contents 는 엔티티 이스케이프될 수 있음
-                    raw_content = (content_elem.string or content_elem.get_text() or "").strip()
+                    raw_content = (
+                        content_elem.string or content_elem.get_text() or ""
+                    ).strip()
                     if not raw_content and hasattr(content_elem, "decode_contents"):
                         raw_content = (content_elem.decode_contents() or "").strip()
-                    if raw_content.startswith("&lt;") or raw_content.startswith("&amp;lt;"):
+                    if raw_content.startswith("&lt;") or raw_content.startswith(
+                        "&amp;lt;"
+                    ):
                         raw_content = html_lib.unescape(raw_content)
 
                 art_url = extract_rss_link(item, url)
@@ -117,7 +122,9 @@ class RssScraper(BaseScraper):
                     content_html = str(content_soup)
 
                 art_url = ensure_article_url(art_url, url, title)
-                articles.append({"title": title, "content": content_html, "url": art_url})
+                articles.append(
+                    {"title": title, "content": content_html, "url": art_url}
+                )
             except Exception as e:
                 print(t("rss.item_error", error=e))
                 continue

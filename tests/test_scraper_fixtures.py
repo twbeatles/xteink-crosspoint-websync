@@ -1,4 +1,5 @@
 """픽스처 기반 스크래퍼 회귀 테스트 (네트워크 불필요)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -27,7 +28,9 @@ def _resp(text: str = "", content: bytes | None = None, json_data=None):
 def test_brunch_fixture_api_and_html():
     import json
 
-    api = json.loads((FIXTURES / "brunch" / "list_api.json").read_text(encoding="utf-8"))
+    api = json.loads(
+        (FIXTURES / "brunch" / "list_api.json").read_text(encoding="utf-8")
+    )
     html = (FIXTURES / "brunch" / "article_101.html").read_text(encoding="utf-8")
 
     def fake_fetch(url, **kwargs):
@@ -97,6 +100,7 @@ def test_rss_hani_fixture_encoding_and_image_only_fallback():
     body = arts[0]["content"]
     assert "원문 링크" in body or "RSS 피드" in body
     from bs4 import BeautifulSoup as BS
+
     assert len(BS(body, "lxml").get_text(" ", strip=True)) >= 80
 
 

@@ -1,4 +1,5 @@
 """포터블 백업 JSON 스키마 및 병합 유틸."""
+
 from __future__ import annotations
 
 import copy
@@ -17,7 +18,11 @@ LOCK_FILENAME = ".backup_sync.lock"
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -28,7 +33,9 @@ def parse_iso(value: str | None) -> datetime | None:
         return None
     # "2026-07-20T12:34:56" 또는 공백 구분
     try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00").replace(" ", "T", 1))
+        parsed = datetime.fromisoformat(
+            text.replace("Z", "+00:00").replace(" ", "T", 1)
+        )
         if parsed.tzinfo is None:
             # SQLite CURRENT_TIMESTAMP values use a space and are UTC.  Older
             # application-generated ISO values used T and local wall time.
@@ -141,7 +148,9 @@ def extract_posts(payload: Any) -> tuple[list[dict], str | None]:
 
 
 def extract_deleted_sites(payload: Any) -> list[dict]:
-    if not isinstance(payload, dict) or not isinstance(payload.get("deleted_sites"), list):
+    if not isinstance(payload, dict) or not isinstance(
+        payload.get("deleted_sites"), list
+    ):
         return []
     return [item for item in payload["deleted_sites"] if isinstance(item, dict)]
 

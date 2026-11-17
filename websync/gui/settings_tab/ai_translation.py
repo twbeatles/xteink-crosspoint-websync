@@ -16,7 +16,9 @@ class SettingsAiTranslationMixin:
             "provider": self.ai_provider_cb.get(),
             "api_key": self.ai_key_entry.get().strip(),
             "model": config.get("ai_summary", {}).get("model", "gpt-4o-mini"),
-            "ollama_host": config.get("ai_summary", {}).get("ollama_host", "http://localhost:11434"),
+            "ollama_host": config.get("ai_summary", {}).get(
+                "ollama_host", "http://localhost:11434"
+            ),
         }
         if not self.app._safe_save_config(config):
             return
@@ -32,12 +34,16 @@ class SettingsAiTranslationMixin:
         config["translation"] = {
             "enabled": self.trans_enabled_var.get(),
             "provider": self.trans_provider_cb.get(),
-            "libretranslate_host": config.get("translation", {}).get("libretranslate_host", "http://localhost:5000"),
+            "libretranslate_host": config.get("translation", {}).get(
+                "libretranslate_host", "http://localhost:5000"
+            ),
             "libretranslate_api_key": api_key,
         }
         if not self.app._safe_save_config(config):
             return
-        messagebox.showinfo(t("gui.settings.saved_title"), t("gui.settings.trans.saved"))
+        messagebox.showinfo(
+            t("gui.settings.saved_title"), t("gui.settings.trans.saved")
+        )
 
     # ------------------------------------------------------------------
     # N5: 시크릿 입력 보기/숨기기 토글
@@ -46,7 +52,9 @@ class SettingsAiTranslationMixin:
         self.ai_key_entry.configure(show="" if self.ai_key_show_var.get() else "*")
 
     def _toggle_trans_key_visibility(self) -> None:
-        self.trans_key_entry.configure(show="" if self.trans_key_show_var.get() else "*")
+        self.trans_key_entry.configure(
+            show="" if self.trans_key_show_var.get() else "*"
+        )
 
     def _update_trans_key_state(self) -> None:
         """provider=libretranslate 일 때만 API Key Entry 활성."""
@@ -62,7 +70,11 @@ class SettingsAiTranslationMixin:
             self.opds_api_key_label.configure(text=t("gui.settings.auto_generated"))
             return
         shown = key if self.opds_key_show_var.get() else mask_secret(key)
-        label = t("gui.settings.api_key_shown", key=shown) if self.opds_key_show_var.get() else t("gui.settings.api_key_masked", key=shown)
+        label = (
+            t("gui.settings.api_key_shown", key=shown)
+            if self.opds_key_show_var.get()
+            else t("gui.settings.api_key_masked", key=shown)
+        )
         self.opds_api_key_label.configure(text=label)
 
     def _refresh_web_token_display(self) -> None:
@@ -73,7 +85,11 @@ class SettingsAiTranslationMixin:
             self.web_token_label.configure(text=t("gui.settings.auto_generated"))
             return
         shown = token if self.web_token_show_var.get() else mask_secret(token)
-        label = t("gui.settings.token_shown", token=shown) if self.web_token_show_var.get() else t("gui.settings.token_masked", token=shown)
+        label = (
+            t("gui.settings.token_shown", token=shown)
+            if self.web_token_show_var.get()
+            else t("gui.settings.token_masked", token=shown)
+        )
         self.web_token_label.configure(text=label)
 
     def _open_log_folder(self):
@@ -84,10 +100,13 @@ class SettingsAiTranslationMixin:
                 os.startfile(folder)
             elif os.sys.platform == "darwin":
                 import subprocess
+
                 subprocess.Popen(["open", folder])
             else:
                 import subprocess
+
                 subprocess.Popen(["xdg-open", folder])
         except Exception as e:
-            messagebox.showerror(t("dialog.error"), t("gui.settings.log.open_fail", error=e))
-
+            messagebox.showerror(
+                t("dialog.error"), t("gui.settings.log.open_fail", error=e)
+            )

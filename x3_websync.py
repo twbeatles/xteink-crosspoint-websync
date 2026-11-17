@@ -8,8 +8,10 @@ from datetime import datetime
 class NullWriter:
     def write(self, s):
         pass
+
     def flush(self):
         pass
+
 
 if sys.stdout is None:
     sys.stdout = NullWriter()
@@ -17,12 +19,12 @@ if sys.stderr is None:
     sys.stderr = NullWriter()
 
 # 윈도우 콘솔 UnicodeEncodeError 방지를 위한 UTF-8 설정
-if sys.platform == 'win32':
+if sys.platform == "win32":
     try:
-        if hasattr(sys.stdout, 'reconfigure'):
-            sys.stdout.reconfigure(encoding='utf-8')
-        if hasattr(sys.stderr, 'reconfigure'):
-            sys.stderr.reconfigure(encoding='utf-8')
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
     except AttributeError:
         pass
 
@@ -80,7 +82,8 @@ def main():
         help=t("cli.help.smoke"),
     )
     parser.add_argument(
-        "-v", "--version",
+        "-v",
+        "--version",
         action="version",
         version=f"Xteink X3 WebSync v{__version__}",
     )
@@ -90,12 +93,16 @@ def main():
         help=t("cli.help.check_update"),
     )
     # 업데이터 헬퍼 전용 인자
-    parser.add_argument("--recover-config", metavar="JSON", help=t("cli.help.recover_config"))
+    parser.add_argument(
+        "--recover-config", metavar="JSON", help=t("cli.help.recover_config")
+    )
     parser.add_argument("--apply-update", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--update-target", help=argparse.SUPPRESS)
     parser.add_argument("--update-staged", help=argparse.SUPPRESS)
     parser.add_argument("--update-backup", help=argparse.SUPPRESS)
-    parser.add_argument("--update-parent-pid", type=int, default=0, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--update-parent-pid", type=int, default=0, help=argparse.SUPPRESS
+    )
     parser.add_argument("--update-expected-sha256", help=argparse.SUPPRESS)
     parser.add_argument("--update-expected-size", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--update-result-file", help=argparse.SUPPRESS)
@@ -132,11 +139,18 @@ def main():
     # 3. 업데이트 확인 CLI
     if args.check_update:
         from websync.core.update_service import UpdateService
+
         service = UpdateService()
         try:
             manifest = service.check_for_update()
             if manifest:
-                print(t("cli.update_available", version=manifest.version, current=__version__))
+                print(
+                    t(
+                        "cli.update_available",
+                        version=manifest.version,
+                        current=__version__,
+                    )
+                )
                 print(t("cli.update_url", url=manifest.artifact_url))
                 sys.exit(0)
             else:
@@ -157,7 +171,9 @@ def main():
     try:
         logger = get_logger()
         logger.info("=" * 60)
-        logger.info(f"X3 WebSync 시작 (PID: {os.getpid()}, mode={'sync' if args.sync else 'gui'})")
+        logger.info(
+            f"X3 WebSync 시작 (PID: {os.getpid()}, mode={'sync' if args.sync else 'gui'})"
+        )
 
         try:
             config_manager = ConfigManager()
@@ -171,6 +187,7 @@ def main():
                 if args.sync:
                     raise
                 from websync.gui.config_recovery import offer_config_recovery
+
                 if not offer_config_recovery(config_manager, error):
                     sys.exit(1)
                 loaded_config = config_manager.load_config()

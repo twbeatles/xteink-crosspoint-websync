@@ -11,6 +11,7 @@
 - 추가 기기(x3_devices)는 설정 주소가 같을 때만 묶습니다.
 - 같은 ID·별칭을 공유하면 묶습니다.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -135,7 +136,9 @@ def reconcile_config_devices(
     for index, node in enumerate(nodes):
         for host in node["hosts"]:
             by_host.setdefault(host, []).append(index)
-        identities = [node["id"], *node["alias_ids"]] if node["id"] else list(node["alias_ids"])
+        identities = (
+            [node["id"], *node["alias_ids"]] if node["id"] else list(node["alias_ids"])
+        )
         for identity in identities:
             if identity:
                 by_id.setdefault(identity, []).append(index)
@@ -146,7 +149,9 @@ def reconcile_config_devices(
 
     # 기본 기기끼리 묶는다. 이 PC의 서로 다른 두 기기(기본·추가)는 다른 리더기이므로
     # 기본 기기 묶음이 이 PC의 다른 기기 묶음을 삼키지 않게 한다.
-    local_slots = [index for index, node in enumerate(nodes) if node["slot"] is not None]
+    local_slots = [
+        index for index, node in enumerate(nodes) if node["slot"] is not None
+    ]
 
     def local_slot_count(root: int) -> int:
         return sum(1 for index in local_slots if find(index) == root)
@@ -238,5 +243,7 @@ def reconcile_config_devices(
                     dev["alias_ids"] = list(aliases)
                     changed = True
 
-    export.sort(key=lambda item: (item["hosts"][0] if item["hosts"] else "", item["id"]))
+    export.sort(
+        key=lambda item: (item["hosts"][0] if item["hosts"] else "", item["id"])
+    )
     return export, changed

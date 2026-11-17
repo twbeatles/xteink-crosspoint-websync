@@ -1,4 +1,5 @@
 """하위 호환: 설치 API는 websync.core.update.installer 로 이동."""
+
 from websync.core.update.installer import (
     UpdateApplyError,
     UpdateCancelledError,

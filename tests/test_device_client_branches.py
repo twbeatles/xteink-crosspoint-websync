@@ -4,6 +4,7 @@ Covers the error/edge branches that core coverage flagged: bad names,
 root guards, multi-delete, malformed listings, non-200 on every mutating
 route, missing local file, exists-check, and the connection fallback.
 """
+
 import os as _os
 import sys as _sys
 
@@ -133,7 +134,9 @@ def test_remote_file_exists(server):
 
 def test_upload_missing_local_file(server):
     with pytest.raises(DeviceClientError):
-        X3DeviceClient(server.host).upload_to_path(str(server.host) + "_nope.epub", "/Books")
+        X3DeviceClient(server.host).upload_to_path(
+            str(server.host) + "_nope.epub", "/Books"
+        )
 
 
 def test_upload_server_rejection_and_timeout_state(server, tmp_path):

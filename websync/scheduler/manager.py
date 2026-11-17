@@ -34,6 +34,7 @@ def _process_output(result) -> str:
 
 class SchedulerManager:
     """작업 스케줄러 등록 및 제어를 전담하는 클래스 (Windows/macOS/Linux 크로스플랫폼 지원)"""
+
     TASK_NAME = "XteinkX3WebSyncTask"
     # schtasks /TR 인자의 최대 길이. 초과 시 schtasks가 등록을 거부한다.
     WINDOWS_TR_MAX_LENGTH = 261
@@ -111,23 +112,34 @@ class SchedulerManager:
         cmd_target = self.build_windows_tr_command()
         if len(cmd_target) > self.WINDOWS_TR_MAX_LENGTH:
             self.last_error = t(
-                "scheduler.tr_too_long", length=len(cmd_target), limit=self.WINDOWS_TR_MAX_LENGTH
+                "scheduler.tr_too_long",
+                length=len(cmd_target),
+                limit=self.WINDOWS_TR_MAX_LENGTH,
             )
             print(self.last_error)
             return False
 
         cmd = [
-            "schtasks", "/create",
-            "/tn", self.TASK_NAME,
-            "/tr", cmd_target,
-            "/sc", "daily",
-            "/st", f"{h_val:02d}:{m_val:02d}",
-            "/f"
+            "schtasks",
+            "/create",
+            "/tn",
+            self.TASK_NAME,
+            "/tr",
+            cmd_target,
+            "/sc",
+            "daily",
+            "/st",
+            f"{h_val:02d}:{m_val:02d}",
+            "/f",
         ]
         try:
             result = subprocess.run(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                encoding=_windows_console_encoding(), errors="replace",
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding=_windows_console_encoding(),
+                errors="replace",
             )
             if result.returncode == 0:
                 return True
@@ -158,7 +170,7 @@ class SchedulerManager:
         proj_x = self._xml_escape(self.project_dir)
         py_x = self._xml_escape(python_exe)
 
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, "frozen", False):
             args_xml = f"""        <string>{script_x}</string>
         <string>--sync</string>"""
         else:
@@ -194,12 +206,16 @@ class SchedulerManager:
         try:
             # Do not destroy the existing schedule when unloading it failed.
             if os.path.exists(plist_path):
-                result = subprocess.run(["launchctl", "unload", plist_path], capture_output=True, timeout=15)
+                result = subprocess.run(
+                    ["launchctl", "unload", plist_path], capture_output=True, timeout=15
+                )
                 if result.returncode != 0 and self._macos_job_loaded() is not False:
                     return self._fail("launchctl unload", result)
             with open(plist_path, "w", encoding="utf-8") as f:
                 f.write(plist_content)
-            result = subprocess.run(["launchctl", "load", plist_path], capture_output=True, timeout=15)
+            result = subprocess.run(
+                ["launchctl", "load", plist_path], capture_output=True, timeout=15
+            )
             if result.returncode == 0:
                 return True
             return self._fail("launchctl", result)
@@ -293,7 +309,9 @@ class SchedulerManager:
                 return False
             self._backup_crontab(existing)
             new_crontab = self._merge_crontab(existing, cron_cmd)
-            proc = subprocess.run(["crontab", "-"], input=new_crontab, text=True, capture_output=True)
+            proc = subprocess.run(
+                ["crontab", "-"], input=new_crontab, text=True, capture_output=True
+            )
             if proc.returncode == 0:
                 return True
             return self._fail("crontab", proc)
@@ -331,17 +349,20 @@ class SchedulerManager:
             pass
         return False
 
-
     def _macos_job_loaded(self) -> bool | None:
         """True/False for a known job state; command/permission errors stay unknown."""
         result = subprocess.run(
             ["launchctl", "list", f"com.x3websync.{self.TASK_NAME}"],
-            capture_output=True, timeout=15,
+            capture_output=True,
+            timeout=15,
         )
         if result.returncode == 0:
             return True
         detail = _process_output(result).lower()
-        if "could not find service" in detail or "could not find specified service" in detail:
+        if (
+            "could not find service" in detail
+            or "could not find specified service" in detail
+        ):
             return False
         return None
 
@@ -351,8 +372,12 @@ class SchedulerManager:
             cmd = ["schtasks", "/delete", "/tn", self.TASK_NAME, "/f"]
             try:
                 result = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                    encoding=_windows_console_encoding(), errors="replace",
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding=_windows_console_encoding(),
+                    errors="replace",
                 )
                 if result.returncode == 0:
                     return True
@@ -361,9 +386,13 @@ class SchedulerManager:
                 print(t("scheduler.unregister_failed", error=e))
                 return self._fail("schtasks", error=e)
         elif sys.platform == "darwin":
-            plist_path = os.path.expanduser(f"~/Library/LaunchAgents/com.x3websync.{self.TASK_NAME}.plist")
+            plist_path = os.path.expanduser(
+                f"~/Library/LaunchAgents/com.x3websync.{self.TASK_NAME}.plist"
+            )
             try:
-                result = subprocess.run(["launchctl", "unload", plist_path], capture_output=True, timeout=15)
+                result = subprocess.run(
+                    ["launchctl", "unload", plist_path], capture_output=True, timeout=15
+                )
                 if result.returncode != 0 and self._macos_job_loaded() is not False:
                     return self._fail("launchctl unload", result)
                 if os.path.exists(plist_path):
@@ -379,7 +408,9 @@ class SchedulerManager:
                     return False
                 self._backup_crontab(existing)
                 new_crontab = self._merge_crontab(existing, None)
-                proc = subprocess.run(["crontab", "-"], input=new_crontab, text=True, capture_output=True)
+                proc = subprocess.run(
+                    ["crontab", "-"], input=new_crontab, text=True, capture_output=True
+                )
                 if proc.returncode == 0:
                     return True
                 return self._fail("crontab", proc)
@@ -393,10 +424,18 @@ class SchedulerManager:
             cmd = ["schtasks", "/query", "/tn", self.TASK_NAME, "/fo", "csv"]
             try:
                 result = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                    encoding=_windows_console_encoding(), errors="replace",
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding=_windows_console_encoding(),
+                    errors="replace",
                 )
-                return t("scheduler.registered_waiting") if result.returncode == 0 else t("scheduler.not_registered")
+                return (
+                    t("scheduler.registered_waiting")
+                    if result.returncode == 0
+                    else t("scheduler.not_registered")
+                )
             except Exception:
                 return t("scheduler.status_unknown")
         elif sys.platform == "darwin":
@@ -404,12 +443,22 @@ class SchedulerManager:
                 loaded = self._macos_job_loaded()
                 if loaded is None:
                     return t("scheduler.status_unknown")
-                return t("scheduler.registered_launchd") if loaded else t("scheduler.not_registered")
+                return (
+                    t("scheduler.registered_launchd")
+                    if loaded
+                    else t("scheduler.not_registered")
+                )
             except Exception:
                 return t("scheduler.status_unknown")
         else:
             try:
-                result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-                return t("scheduler.registered_crontab") if self.TASK_NAME in result.stdout else t("scheduler.not_registered")
+                result = subprocess.run(
+                    ["crontab", "-l"], capture_output=True, text=True
+                )
+                return (
+                    t("scheduler.registered_crontab")
+                    if self.TASK_NAME in result.stdout
+                    else t("scheduler.not_registered")
+                )
             except Exception:
                 return t("scheduler.status_unknown")

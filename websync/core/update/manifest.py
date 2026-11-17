@@ -1,4 +1,5 @@
 """Xteink X3 WebSync 릴리즈 매니페스트 다운로드 및 Ed25519 서명 검증 모듈."""
+
 from __future__ import annotations
 
 import base64
@@ -31,6 +32,7 @@ class NoUpdateAvailableError(ValueError):
 @dataclass(frozen=True, slots=True)
 class ReleaseManifest:
     """검증 완료된 릴리즈 매니페스트 데이터."""
+
     version: str
     artifact_url: str
     artifact_sha256: str
@@ -167,7 +169,6 @@ def verify_release_manifest(
         expires_at=expires_at,
         signature=signature_text,
     )
-
 
 
 def download_release_manifest(url: str) -> bytes:

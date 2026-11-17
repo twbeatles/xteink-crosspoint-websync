@@ -1,4 +1,5 @@
 """ISSUE-005: limit clamp 회귀 테스트."""
+
 from unittest.mock import MagicMock, patch
 
 from websync.scrapers.base import LIMIT_MAX, LIMIT_MIN, normalize_limit
@@ -20,14 +21,18 @@ def test_normalize_limit_clamps_and_defaults():
 
 
 def _css_resp(items=3):
-    html = "<html><body>" + "".join(
-        '<div class="post-item">'
-        f'<h2 class="post-title">제목{i}</h2>'
-        f'<a href="https://ex.com/{i}">link</a>'
-        f'<div class="post-content"><p>본문{i}</p></div>'
-        "</div>"
-        for i in range(items)
-    ) + "</body></html>"
+    html = (
+        "<html><body>"
+        + "".join(
+            '<div class="post-item">'
+            f'<h2 class="post-title">제목{i}</h2>'
+            f'<a href="https://ex.com/{i}">link</a>'
+            f'<div class="post-content"><p>본문{i}</p></div>'
+            "</div>"
+            for i in range(items)
+        )
+        + "</body></html>"
+    )
     resp = MagicMock()
     resp.text = html
     resp.encoding = "utf-8"
@@ -50,17 +55,13 @@ def _css_config(limit):
 
 
 def test_css_clamps_negative_limit_to_minimum():
-    with patch(
-        "websync.scrapers.css.fetch_url", return_value=_css_resp()
-    ):
+    with patch("websync.scrapers.css.fetch_url", return_value=_css_resp()):
         arts = CssSelectorScraper().fetch_articles(_css_config(-1))
     assert len(arts) == LIMIT_MIN
 
 
 def test_css_falls_back_to_default_on_garbage_limit():
-    with patch(
-        "websync.scrapers.css.fetch_url", return_value=_css_resp()
-    ):
+    with patch("websync.scrapers.css.fetch_url", return_value=_css_resp()):
         arts = CssSelectorScraper().fetch_articles(_css_config("abc"))
     assert len(arts) == 3
 

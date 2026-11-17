@@ -1,4 +1,5 @@
 """웹 대시보드 HTTPServer 래퍼."""
+
 from __future__ import annotations
 
 import sys
@@ -35,7 +36,9 @@ class DashboardHTTPServer(ExclusiveBindMixin, ThreadingHTTPServer):
         super().__init__(server_address, DashboardHandler)
 
     def handle_error(self, request, client_address):
-        if isinstance(sys.exc_info()[1], (ConnectionResetError, BrokenPipeError, TimeoutError)):
+        if isinstance(
+            sys.exc_info()[1], (ConnectionResetError, BrokenPipeError, TimeoutError)
+        ):
             return
         super().handle_error(request, client_address)
 

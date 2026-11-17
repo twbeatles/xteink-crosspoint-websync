@@ -5,6 +5,7 @@
 - OPDS: unauth denied, traversal/symlink denied, log/response carry no secrets
 - lifecycle: port=0 start/stop, burst of concurrent GETs without reset storm
 """
+
 import os
 import tempfile
 import threading
@@ -54,8 +55,9 @@ def test_dashboard_sync_requires_auth_and_reports_states():
         calls["n"] += 1
         return True
 
-    srv = WebDashboard(port=0, bind_host="127.0.0.1", api_token="tok123",
-                       sync_callback=_sync)
+    srv = WebDashboard(
+        port=0, bind_host="127.0.0.1", api_token="tok123", sync_callback=_sync
+    )
     assert srv.start() is True
     try:
         base = f"http://127.0.0.1:{srv.port}"
@@ -71,9 +73,13 @@ def test_dashboard_sync_requires_auth_and_reports_states():
 
 
 def test_dashboard_busy_maps_to_409_and_cancel_needs_auth():
-    srv = WebDashboard(port=0, bind_host="127.0.0.1", api_token="tok123",
-                       sync_callback=lambda: True,
-                       pipeline_busy_callback=lambda: True)
+    srv = WebDashboard(
+        port=0,
+        bind_host="127.0.0.1",
+        api_token="tok123",
+        sync_callback=lambda: True,
+        pipeline_busy_callback=lambda: True,
+    )
     assert srv.start() is True
     try:
         base = f"http://127.0.0.1:{srv.port}"
@@ -87,8 +93,12 @@ def test_dashboard_busy_maps_to_409_and_cancel_needs_auth():
 
 
 def test_dashboard_burst_lifecycle(tmp_path):
-    srv = WebDashboard(port=0, bind_host="127.0.0.1", api_token="tok123",
-                       get_status_callback=lambda: {"ok": True})
+    srv = WebDashboard(
+        port=0,
+        bind_host="127.0.0.1",
+        api_token="tok123",
+        get_status_callback=lambda: {"ok": True},
+    )
     assert srv.start() is True
     try:
         base = f"http://127.0.0.1:{srv.port}"
@@ -124,8 +134,13 @@ def test_opds_security_contract(tmp_path):
     except (OSError, NotImplementedError):
         has_symlink = False
 
-    srv = OPDSServer(output_dir=outdir, port=0, bind_host="127.0.0.1",
-                     api_key="secret-key-xyz-123", require_auth=True)
+    srv = OPDSServer(
+        output_dir=outdir,
+        port=0,
+        bind_host="127.0.0.1",
+        api_key="secret-key-xyz-123",
+        require_auth=True,
+    )
     assert srv.start() is True
     try:
         base = f"http://127.0.0.1:{srv.port}"
@@ -134,9 +149,11 @@ def test_opds_security_contract(tmp_path):
         assert r.status_code == 200
         assert "SECRET-BYTES" not in r.text
         # traversal attempt must not expose outside files (real routes)
-        for evil in ("/opds/download/..%2Fsecret.epub",
-                     "/opds/download/%2E%2E%5Csecret.epub",
-                     "/opds/download/%2Fetc%2Fpasswd"):
+        for evil in (
+            "/opds/download/..%2Fsecret.epub",
+            "/opds/download/%2E%2E%5Csecret.epub",
+            "/opds/download/%2Fetc%2Fpasswd",
+        ):
             rr = _get(base + evil, Authorization="Bearer secret-key-xyz-123")
             assert rr.status_code in (400, 403, 404)
             assert "SECRET-BYTES" not in getattr(rr, "text", "")
@@ -145,8 +162,13 @@ def test_opds_security_contract(tmp_path):
         assert rr.status_code == 200
         assert "SECRET-BYTES" not in rr.text
         if has_symlink:
-            rr = _get(base + "/opds/download/evil.epub", Authorization="Bearer secret-key-xyz-123")
-            assert rr.status_code in (400, 403, 404) or "SECRET-BYTES" not in getattr(rr, "text", "")
+            rr = _get(
+                base + "/opds/download/evil.epub",
+                Authorization="Bearer secret-key-xyz-123",
+            )
+            assert rr.status_code in (400, 403, 404) or "SECRET-BYTES" not in getattr(
+                rr, "text", ""
+            )
         # no secret leakage into body/headers on 401
         denied = _get(base + "/opds")
         assert "secret-key-xyz-123" not in denied.text

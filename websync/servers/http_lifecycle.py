@@ -1,4 +1,5 @@
 """HTTP response framing and bounded graceful connection shutdown."""
+
 import socket
 import time
 from http.server import BaseHTTPRequestHandler
