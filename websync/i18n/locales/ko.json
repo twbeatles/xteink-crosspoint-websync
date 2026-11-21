@@ -10,7 +10,8 @@
       "untitled": "기사 {n}"
     },
     "css_custom_failed": "커스텀 CSS 파일 로드 실패 ({path}): {error}",
-    "css_theme_failed": "프리셋 테마 CSS 파일 로드 실패 ({path}): {error}"
+    "css_theme_failed": "프리셋 테마 CSS 파일 로드 실패 ({path}): {error}",
+    "write_failed": "EPUB 파일 쓰기 실패 (깨진 책 방지를 위해 전송하지 않음): {path}"
   },
   "cli": {
     "description": "Xteink X3 WebSync CLI / GUI 매니저",

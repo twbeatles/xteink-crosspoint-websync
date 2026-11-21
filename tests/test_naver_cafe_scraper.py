@@ -63,3 +63,71 @@ def test_fetch_articles_api_path():
     assert arts[0]["title"] == "카페 테스트 글 제목"
     assert "본문이 충분히" in arts[0]["content"]
     assert arts[0]["url"].endswith("/mycafe/99")
+
+
+def test_cafe_chain_with_setext_comments_builds_valid_epub(tmp_path):
+    """네이버 카페 실제 체인(수집→정제→빌드)에서 nav.xhtml이 있어야 한다.
+
+    contentHtml의 SE-TEXT 주석이 ebooklib nav 생성을 깨뜨리던
+    '잘못된 책' 회귀를 막는다.
+    """
+    import zipfile
+    from xml.etree import ElementTree as ET
+
+    from websync.epub.builder import EpubBuilder
+    from websync.epub.sanitize import sanitize_body_html
+
+    sc = NaverCafeScraper()
+    home_resp = MagicMock()
+    home_resp.raise_for_status = MagicMock()
+    home_resp.text = "g_sClubId = 12345;"
+
+    list_resp = MagicMock()
+    list_resp.raise_for_status = MagicMock()
+    list_resp.json.return_value = {
+        "message": {
+            "result": {
+                "articleList": [
+                    {"articleId": 7, "subject": "카페 주석 글"},
+                ]
+            }
+        }
+    }
+
+    article_resp = MagicMock()
+    article_resp.raise_for_status = MagicMock()
+    article_resp.json.return_value = {
+        "result": {
+            "article": {
+                "contentHtml": (
+                    "<div class='se-main-container'>"
+                    "<!-- SE-TEXT { -->"
+                    "<p>카페 본문이 충분히 길게 이어집니다. 전자책으로 읽을 내용입니다.</p>"
+                    "<!-- } SE-TEXT -->"
+                    "</div>"
+                ),
+            }
+        }
+    }
+
+    def fake_fetch(url, **kwargs):
+        if "ArticleListV2" in url:
+            return list_resp
+        if "cafe-articleapi" in url:
+            return article_resp
+        return home_resp
+
+    with patch("websync.scrapers.naver_cafe.fetch_url", side_effect=fake_fetch):
+        arts = sc.fetch_articles({"url": "https://cafe.naver.com/mycafe", "limit": 1})
+    assert len(arts) == 1
+    assert "SE-TEXT" in arts[0]["content"]
+    assert "SE-TEXT" not in sanitize_body_html(arts[0]["content"])
+    path = EpubBuilder(output_dir=str(tmp_path)).build(
+        "카페", arts, generate_cover=False
+    )
+    with zipfile.ZipFile(path) as zf:
+        names = zf.namelist()
+        assert "EPUB/nav.xhtml" in names
+        for name in names:
+            if name.endswith(".xhtml"):
+                ET.fromstring(zf.read(name))

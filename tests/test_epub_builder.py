@@ -35,6 +35,53 @@ def test_build_creates_epub_with_escaped_title():
             assert "evil()" not in data
 
 
+def test_build_with_html_comments_keeps_nav():
+    """주석이 많은 네이버 본문으로 빌드해도 nav.xhtml이 있어야 한다.
+
+    주석이 남으면 ebooklib 0.21 _get_nav가 터지고 write_epub이 예외를
+    삼킨 채 nav 없는 부분 zip을 남겨 기기에서 '잘못된 책'이 된다.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        builder = EpubBuilder(output_dir=tmp)
+        path = builder.build(
+            "사이트",
+            [
+                {
+                    "title": "댓글 많은 글",
+                    "content": (
+                        "<p>본문</p><!-- SE-TEXT { -->"
+                        "<p>계속</p><!-- } SE-TEXT -->"
+                    ),
+                    "url": "https://example.com/1",
+                }
+            ],
+            generate_cover=False,
+        )
+        with zipfile.ZipFile(path, "r") as zf:
+            names = zf.namelist()
+        assert "EPUB/nav.xhtml" in names
+        assert "EPUB/toc.ncx" in names
+
+
+def test_build_raises_when_write_epub_fails(monkeypatch):
+    """write_epub이 False를 반환하면 깨진 책을 넘기지 않고 즉시 실패한다."""
+    import pytest
+
+    import websync.epub.builder as builder_module
+
+    monkeypatch.setattr(
+        builder_module.epub, "write_epub", lambda *a, **k: False
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        builder = EpubBuilder(output_dir=tmp)
+        with pytest.raises(RuntimeError):
+            builder.build(
+                "사이트",
+                [{"title": "t", "content": "<p>x</p>", "url": "u1"}],
+                generate_cover=False,
+            )
+
+
 def test_build_avoids_overwrite_with_suffix():
     with tempfile.TemporaryDirectory() as tmp:
         builder = EpubBuilder(output_dir=tmp)

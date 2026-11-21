@@ -42,3 +42,31 @@ def test_namespaced_markup_and_inline_widgets_become_valid_xhtml():
         )
     )
     assert not re.search(r"<[a-z]+:[a-z]+", clean)
+
+
+def test_sanitize_removes_html_comments():
+    """네이버 스마트에디터의 <!-- SE-TEXT --> 주석은 책에 불필요하고,
+    ebooklib 0.21의 nav 생성(_get_nav → get_pages)을 TypeError로 깨뜨려
+    nav.xhtml 없는 '잘못된 책'을 만든다."""
+    dirty = "<p>본문</p><!-- SE-TEXT { --><p>더보기</p><!-- } SE-TEXT -->"
+    clean = sanitize_body_html(dirty)
+    assert "SE-TEXT" not in clean
+    assert "<!--" not in clean
+    assert "본문" in clean
+    assert "더보기" in clean
+
+
+def test_body_and_html_wrappers_unwrapped_for_chapter_embedding():
+    """NaverCafe API 경로가 str(soup.body)를 반환하면 <body> 래퍼가 그대로 오는데,
+    빌더가 챕터 <body> 안에 삽입하므로 중첩 <body>의 잘못된 XHTML이 된다."""
+    import xml.etree.ElementTree as ET
+
+    dirty = "<html><body><p>카페 본문</p></body></html>"
+    clean = sanitize_body_html(dirty)
+    assert "<body" not in clean.lower()
+    assert "<html" not in clean.lower()
+    assert "카페 본문" in clean
+    # 챕터에 삽입해도 <body>는 정확히 1개여야 한다
+    chapter = f"<body><h1>T</h1>{clean}</body>"
+    root = ET.fromstring(f"<div>{chapter}</div>")
+    assert sum(1 for el in root.iter() if el.tag == "body") == 1

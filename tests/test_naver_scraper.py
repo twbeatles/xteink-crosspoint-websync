@@ -109,6 +109,57 @@ def test_fetch_post_detail_legacy_postviewarea():
     assert "구버전 본문" in art["content"]
 
 
+def test_blog_chain_with_setext_comments_builds_valid_epub(tmp_path):
+    """네이버 실제 체인(수집→정제→빌드)에서 nav.xhtml이 있어야 한다.
+
+    스마트에디터 SE-TEXT 주석이 ebooklib nav 생성을 깨뜨리던
+    '잘못된 책' 회귀를 막는다.
+    """
+    import zipfile
+    from xml.etree import ElementTree as ET
+
+    from websync.epub.builder import EpubBuilder
+    from websync.epub.sanitize import sanitize_body_html
+
+    postview = (
+        "<html><body><div class='se-main-container'>"
+        "<!-- SE-TEXT { -->"
+        "<div class='se-component se-text'><p>네이버 본문 첫 문단입니다. 충분히 깁니다.</p></div>"
+        "<!-- } SE-TEXT -->"
+        "<!-- SE-TEXT { -->"
+        "<div class='se-component se-text'><p>두 번째 문단입니다. 역시 충분한 길이입니다.</p></div>"
+        "<!-- } SE-TEXT -->"
+        "</div></body></html>"
+    )
+    rss_one = RSS_TWO_ITEMS.replace(
+        "<link>https://blog.naver.com/abc/1002</link>", "<link></link>"
+    )
+
+    def fake_fetch(url, **kwargs):
+        if "rss.blog.naver.com" in url:
+            return _fake_response(rss_one)
+        return _fake_response(postview)
+
+    scraper = NaverBlogScraper()
+    with patch("websync.scrapers.naver.fetch_url", side_effect=fake_fetch):
+        articles = scraper.fetch_articles(
+            {"url": "https://blog.naver.com/abc", "limit": 2}
+        )
+    assert len(articles) == 1
+    # 스크래퍼는 주석을 그대로 두지만 정제기가 제거해야 한다
+    assert "SE-TEXT" in articles[0]["content"]
+    assert "SE-TEXT" not in sanitize_body_html(articles[0]["content"])
+    path = EpubBuilder(output_dir=str(tmp_path)).build(
+        "네이버", articles, generate_cover=False
+    )
+    with zipfile.ZipFile(path) as zf:
+        names = zf.namelist()
+        assert "EPUB/nav.xhtml" in names
+        for name in names:
+            if name.endswith(".xhtml"):
+                ET.fromstring(zf.read(name))
+
+
 def test_fetch_post_detail_returns_none_on_missing_container():
     scraper = NaverBlogScraper()
     empty_body = "<html><body><p>본문 컨테이너 없음</p></body></html>"

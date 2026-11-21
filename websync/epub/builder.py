@@ -160,7 +160,10 @@ class EpubBuilder:
         book.add_item(epub.EpubNav())
         book.spine = spine
 
-        epub.write_epub(file_path, book)
+        # write_epub은 내부 예외를 삼키고 False를 반환하는데 부분 zip을
+        # 남긴다. 깨진 책이 전송되지 않도록 실패를 즉시 알린다.
+        if not epub.write_epub(file_path, book):
+            raise RuntimeError(t("epub.write_failed", path=file_path))
         return file_path
 
     def build_digest(
@@ -275,5 +278,8 @@ class EpubBuilder:
         book.add_item(epub.EpubNav())
         book.spine = ["nav"] + chapters
 
-        epub.write_epub(epub_path, book)
+        # write_epub은 내부 예외를 삼키고 False를 반환하는데 부분 zip을
+        # 남긴다. 깨진 책이 전송되지 않도록 실패를 즉시 알린다.
+        if not epub.write_epub(epub_path, book):
+            raise RuntimeError(t("epub.write_failed", path=epub_path))
         return epub_path

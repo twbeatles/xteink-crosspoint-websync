@@ -10,7 +10,8 @@
       "untitled": "Article {n}"
     },
     "css_custom_failed": "Failed to load custom CSS ({path}): {error}",
-    "css_theme_failed": "Failed to load preset theme CSS ({path}): {error}"
+    "css_theme_failed": "Failed to load preset theme CSS ({path}): {error}",
+    "write_failed": "Failed to write EPUB file (not sent to avoid a broken book): {path}"
   },
   "cli": {
     "description": "Xteink X3 WebSync CLI / GUI manager",
