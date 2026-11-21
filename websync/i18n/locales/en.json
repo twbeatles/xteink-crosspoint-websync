@@ -1053,7 +1053,8 @@
     "history_applied": "Local {name}: applied {n} of {total} history row(s)",
     "history_failed": "Failed to import local {name}: {error}",
     "sites_merged": "Merged local site file: {name} ({n})",
-    "sidecar_merged": "Merged local site sidecars: +{n} URL(s) ({files} file(s))"
+    "sidecar_merged": "Merged local site sidecars: +{n} URL(s) ({files} file(s))",
+    "sites_save_failed": "Could not save merged local sites (concurrent-change guard): {error}"
   },
   "scheduler": {
     "hour_not_int": "❌ Error: scheduler time arguments must be numbers.",

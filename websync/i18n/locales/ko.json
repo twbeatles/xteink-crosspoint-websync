@@ -1053,7 +1053,8 @@
     "history_applied": "로컬 {name}: 이력 {total}건 중 {n}건 반영",
     "history_failed": "로컬 {name} 가져오기 실패: {error}",
     "sites_merged": "로컬 사이트 파일 병합: {name} ({n}개)",
-    "sidecar_merged": "로컬 사이트 사이드카 병합: +{n} URL (파일 {files}개)"
+    "sidecar_merged": "로컬 사이트 사이드카 병합: +{n} URL (파일 {files}개)",
+    "sites_save_failed": "로컬 사이트 병합을 저장하지 못했습니다 (동시 변경 보호): {error}"
   },
   "scheduler": {
     "hour_not_int": "❌ 오류: 스케줄러 시간 인자는 숫자여야 합니다.",

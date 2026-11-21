@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import threading
+import uuid
 from typing import Any
 
 
@@ -13,10 +15,16 @@ class JsonReadError(ValueError):
 
 
 def write_json_atomic(path: str, data: Any, *, indent: int = 2) -> None:
-    """tmp 작성 후 replace로 원자적 저장 (OneDrive 등 클라우드 폴더 친화)."""
+    """tmp 작성 후 replace로 원자적 저장 (OneDrive 등 클라우드 폴더 친화).
+
+    tmp 경로는 호출마다 고유(pid·thread·uuid)하므로 다중 프로세스·스레드가
+    같은 공유 파일을 동시에 써도 서로의 tmp를 밟지 않는다 (ISSUE-003).
+    """
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
-    tmp_path = f"{path}.tmp"
+    tmp_path = (
+        f"{path}.{os.getpid()}.{threading.get_ident()}.{uuid.uuid4().hex}.tmp"
+    )
     try:
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=indent)

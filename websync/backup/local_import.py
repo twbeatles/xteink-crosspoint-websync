@@ -168,9 +168,23 @@ def import_local_sidecars(
         try:
             config_manager.update_config(_apply)
         except Exception:
-            config["sites"] = merged
-            apply_portable_cfg(config, {"deleted_sites": deleted_sites})
-            config_manager.save_config(config)
+            # 폴백도 CAS를 준수한다: 디스크 최신본을 다시 읽어 같은 _apply로
+            # 재병합한 뒤 해당 revision으로 저장한다. 그래도 실패하면
+            # 옛 스냅샷으로 덮어쓰지 않고 저장하지 않는다.
+            try:
+                fresh = config_manager.load_config()
+                _apply(fresh)
+                config_manager.save_config(
+                    fresh,
+                    expected_revision=fresh.get("_config_revision"),
+                )
+            except Exception as fallback_error:
+                msg = t(
+                    "local_import.sites_save_failed", error=fallback_error
+                )
+                result["messages"].append(msg)
+                log.warning(msg)
+                return result
         result["sites_changed"] = True
         result["sites_added"] = len(after_urls - before_urls)
         log.info(

@@ -146,3 +146,49 @@ def test_needs_sync_single_device_legacy_host():
             os.remove(path)
         except OSError:
             pass
+
+
+def test_import_sidecars_fallback_preserves_concurrent_changes(tmp_path, monkeypatch):
+    """update_config 실패 시 폴백 저장도 디스크 최신본과 재병합해야 한다.
+
+    구 폴백(save_config 무조건 덮어쓰기)은 그 사이 다른 writer가 남긴
+    변경을 옛 스냅샷으로 회귀시킨다."""
+    from websync.config.exceptions import ConfigConflictError
+
+    root = tmp_path
+    _write_json(root / "260720 설정백업.json", SAMPLE_SITES_BACKUP)
+
+    cm = ConfigManager(str(root / "config.json"))
+    cfg = cm.load_config()
+    cfg["sites"] = []
+    cm.save_config(cfg)
+    db = SyncHistoryDb(str(root / "history.db"))
+
+    def boom(mutator):
+        # import가 스냅샷을 읽은 뒤 다른 writer가 먼저 저장한 상황을 재현한다.
+        # 실제 update_config라면 ConfigConflictError로 실패하는 지점이다.
+        other_cm = ConfigManager(str(root / "config.json"))
+        other = other_cm.load_config()
+        other["sites"].append(
+            {
+                "name": "동시 작성",
+                "type": "rss",
+                "url": "https://concurrent.example/feed",
+                "limit": 5,
+                "enabled": True,
+            }
+        )
+        other_cm.save_config(other)
+        raise ConfigConflictError("conflict")
+
+    monkeypatch.setattr(cm, "update_config", boom)
+
+    result = import_local_sidecars(cm, db, root=str(root))
+    assert result["sites_changed"] is True
+    urls = {
+        (s.get("url") or "").strip().lower()
+        for s in cm.load_config().get("sites", [])
+        if isinstance(s, dict)
+    }
+    assert "https://concurrent.example/feed" in urls
+    assert "https://blog.example/feed" in urls
