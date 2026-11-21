@@ -105,6 +105,25 @@ def test_PIPE_06_site_exception_does_not_taint_other_site(tmp_path):
         srv.stop()
 
 
+def test_PIPE_xx_failed_sites_listed_in_result(tmp_path):
+    """사이트 예외가 발생하면 결과에 실패 사이트명이 기록된다 (안내·재전송용)."""
+    srv = FakeCrosspointServer().start()
+    try:
+        svc, db = _make_service(str(tmp_path), srv.host)
+        arts = [{"title": "g", "url": "https://x.example/g", "content": "<p>g</p>"}]
+        scraper = _good_bad_scraper(arts, bad_exc=RuntimeError("boom"))
+        with (
+            patch.object(ScraperFactory, "get_scraper", return_value=scraper),
+            patch("websync.integrations.notifier.ToastNotifier.show_toast"),
+        ):
+            assert svc.run_sync_pipeline(log_callback=lambda _m: None) is False
+        result = svc.get_last_pipeline_result()
+        assert result["failed_sites"] == ["Bad"]
+        assert result["site_errors"] == 1
+    finally:
+        srv.stop()
+
+
 def test_PIPE_07_all_empty_no_epub_no_upload(tmp_path):
     srv = FakeCrosspointServer().start()
     try:

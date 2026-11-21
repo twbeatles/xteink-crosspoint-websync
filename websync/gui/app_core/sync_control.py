@@ -200,6 +200,35 @@ class AppSyncControlMixin:
             return t("gui.bottom.result_error", time=stamp), "error"
         return t("gui.bottom.result_done", time=stamp), "ok"
 
+    def _failed_sync_dialog_text(self, result: dict) -> str | None:
+        """실패 안내 대화상자 본문. 안내가 필요 없으면 None (Tk 없이 테스트 가능)."""
+        result = result or {}
+        failed = [s for s in (result.get("failed_sites") or []) if str(s).strip()]
+        status = result.get("status") or ""
+        site_errors = 0
+        try:
+            site_errors = int(result.get("site_errors") or 0)
+        except (TypeError, ValueError):
+            site_errors = 0
+        needs_dialog = bool(failed) or status in (
+            "errors",
+            "db_error",
+            "failed",
+        )
+        if not needs_dialog and not (
+            status == "completed"
+            and result.get("success") is False
+            and site_errors > 0
+        ):
+            return None
+        parts = []
+        if failed:
+            sites = "\n".join(f"• {s}" for s in failed)
+            parts.append(t("gui.sync.failed_list", sites=sites))
+        parts.append(t("gui.sync.failed_hint"))
+        parts.append(t("gui.sync.failed_retry"))
+        return "\n\n".join(parts)
+
     def _sync_finished_ui(self):
         try:
             if not self.root.winfo_exists():
@@ -210,6 +239,15 @@ class AppSyncControlMixin:
             text, kind = self._describe_last_result()
             self._set_status(text, kind)
             self.tab_history._refresh_history()
+            try:
+                result = self.service.get_last_pipeline_result() or {}
+            except Exception:
+                result = {}
+            dialog_text = self._failed_sites_dialog_text(result)
+            if dialog_text and messagebox.askyesno(
+                t("gui.sync.failed_title"), dialog_text, parent=self.root
+            ):
+                self._run_immediate_sync()
         except tk.TclError:
             return
 

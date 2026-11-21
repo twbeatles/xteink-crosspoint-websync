@@ -124,6 +124,62 @@ def test_upload_to_targets_no_devices():
     assert results == {}
 
 
+def test_upload_to_ip_retries_transient_connection_error():
+    """일시적 ConnectionError 1회 후 성공하면 재시도해서 True를 반환한다."""
+    import requests
+
+    u = X3Uploader("10.0.0.1")
+    u.retry_backoff = 0
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as f:
+        f.write(b"data")
+        path = f.name
+    try:
+        mock_resp = type("R", (), {"status_code": 200, "text": "ok"})()
+        with patch(
+            "websync.upload.uploader.requests.post",
+            side_effect=[requests.ConnectionError("boom"), mock_resp],
+        ) as mpost:
+            assert u._upload_to_ip(path, "10.0.0.1", "book.epub", 30) is True
+        assert mpost.call_count == 2
+    finally:
+        os.remove(path)
+
+
+def test_upload_to_ip_no_retry_on_client_error():
+    """4xx는 일시 오류가 아니므로 재시도 없이 1회로 끝난다."""
+    u = X3Uploader("10.0.0.1")
+    u.retry_backoff = 0
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as f:
+        f.write(b"data")
+        path = f.name
+    try:
+        mock_resp = type("R", (), {"status_code": 400, "text": "bad"})()
+        with patch(
+            "websync.upload.uploader.requests.post", return_value=mock_resp
+        ) as mpost:
+            assert u._upload_to_ip(path, "10.0.0.1", "book.epub", 30) is False
+        assert mpost.call_count == 1
+    finally:
+        os.remove(path)
+
+
+def test_upload_to_targets_cancel_skips_pending_devices():
+    """취소 상태에서는 전송을 시작하지 않고 전부 False로 기록한다."""
+    u = X3Uploader("10.0.0.1", devices=[{"name": "B", "ip": "10.0.0.2"}])
+    u.cancel_requested = lambda: True
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as f:
+        f.write(b"data")
+        path = f.name
+    try:
+        with patch.object(u, "_upload_to_ip") as mock_up:
+            results = u.upload_to_targets(path)
+        assert results == {"10.0.0.1": False, "10.0.0.2": False}
+        mock_up.assert_not_called()
+        assert "10.0.0.1" in u.last_errors
+    finally:
+        os.remove(path)
+
+
 def test_normalize_upload_remote_dir():
     assert normalize_upload_remote_dir("") == "/"
     assert normalize_upload_remote_dir("/Books/") == "/Books"

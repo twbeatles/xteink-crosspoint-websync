@@ -605,7 +605,11 @@
       "ip_tip": "The address shown on the reader when File Transfer mode is on. Usually crosspoint.local or 192.168.x.x",
       "conn_fail_hint": "💡 Make sure the reader is on, in File Transfer mode and on the same Wi-Fi as this PC. If crosspoint.local fails, try the IP address shown on the reader.",
       "device_name_placeholder": "e.g. Bedroom",
-      "device_add_hint": "Add readers that should receive books along with the primary one. Sync sends to all of them."
+      "device_add_hint": "Add readers that should receive books along with the primary one. Sync sends to all of them.",
+      "failed_title": "Sync failures",
+      "failed_list": "These sites failed:\n{sites}",
+      "failed_hint": "Failed articles were not recorded, so the next sync retries them automatically. For a broken book that was already sent, delete its entry in the History tab and sync again.",
+      "failed_retry": "Retry now?"
     },
     "schedule": {
       "card_title": "⏰ Daily auto schedule",
@@ -1081,7 +1085,9 @@
     "no_devices": "⚠️ No devices are registered.",
     "no_targets": "⚠️ No upload targets.",
     "upload_exc": "❌ [{name}] Upload exception: {error}",
-    "batch_collision": "Upload cancelled: {first} and {second} have the same device filename ({name}). Rename one local file and try again."
+    "batch_collision": "Upload cancelled: {first} and {second} have the same device filename ({name}). Rename one local file and try again.",
+    "cancelled": "Not sent (cancelled).",
+    "retrying": "↻ [{host}] retry {attempt}/{total} ({msg})"
   },
   "device": {
     "default_name": "Primary device",

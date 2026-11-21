@@ -45,9 +45,21 @@ def run_sync_pipeline_locked(
     def cancel_requested() -> bool:
         return getattr(service, "is_cancel_requested", lambda: False)()
 
+    # 실패한 사이트명 (GUI 실패 안내·재전송용). 예외가 난 사이트를 기록한다.
+    failed_sites: list[str] = []
+
+    def note_failed(name: object) -> None:
+        label = str(name or "").strip()
+        if label and label not in failed_sites:
+            failed_sites.append(label)
+
     def stop_cancelled() -> bool:
         log(t("pipeline.cancelled"))
-        service._last_pipeline_result = {"status": "cancelled", "success": False}
+        service._last_pipeline_result = {
+            "status": "cancelled",
+            "success": False,
+            "failed_sites": list(failed_sites),
+        }
         ToastNotifier.show_toast(
             t("toast.cancel_title"), t("toast.cancelled"), is_error=True
         )
@@ -65,6 +77,16 @@ def run_sync_pipeline_locked(
     summarizer = Summarizer(config, logger=service.logger)
     translator = Translator(config, logger=service.logger)
     translator.cancel_requested = lambda: getattr(
+        service, "is_cancel_requested", lambda: False
+    )()
+    # 업로더에도 같은 취소 콜백을 전파한다 (대기 중 전송 스킵·재시도 중단용).
+    # 진행 중 POST는 강제 종료하지 않는다.
+    uploader.cancel_requested = lambda: getattr(
+        service, "is_cancel_requested", lambda: False
+    )()
+    # 요약기에도 번역기와 같은 취소·예산을 배선한다 (ISSUE-005).
+    # 진행 중 HTTP는 타임아웃까지 대기한다.
+    summarizer.cancel_requested = lambda: getattr(
         service, "is_cancel_requested", lambda: False
     )()
 
@@ -242,6 +264,7 @@ def run_sync_pipeline_locked(
                         service._last_pipeline_result = {
                             "status": "cancelled",
                             "success": False,
+                            "failed_sites": list(failed_sites),
                         }
                         ToastNotifier.show_toast(
                             t("toast.cancel_title"), t("toast.cancelled"), is_error=True
@@ -311,15 +334,18 @@ def run_sync_pipeline_locked(
         except SyncHistoryDbError as e:
             service.logger.error(str(e))
             log(t("pipeline.db_error", site=name, error=e))
+            note_failed(name)
             service._last_pipeline_result = {
                 "status": "db_error",
                 "success": False,
                 "message": str(e),
+                "failed_sites": list(failed_sites),
             }
             ToastNotifier.show_toast(t("toast.db_error_title"), str(e), is_error=True)
             return False
         except Exception as e:
             site_errors += 1
+            note_failed(name)
             service.logger.exception(t("pipeline.site_error_log", site=name, error=e))
             log(t("pipeline.site_error", site=name, error=e))
 
@@ -366,6 +392,7 @@ def run_sync_pipeline_locked(
                         service._last_pipeline_result = {
                             "status": "cancelled",
                             "success": False,
+                            "failed_sites": list(failed_sites),
                         }
                         ToastNotifier.show_toast(
                             t("toast.cancel_title"), t("toast.cancelled"), is_error=True
@@ -444,6 +471,8 @@ def run_sync_pipeline_locked(
             service.logger.exception(t("pipeline.digest.error_log", error=e))
             log(t("pipeline.digest.error", error=e))
             site_errors += 1
+            for digest_site in digest_articles:
+                note_failed(digest_site)
 
     if progress_callback:
         progress_callback(total_sites, total_sites)
@@ -459,6 +488,7 @@ def run_sync_pipeline_locked(
             "digest_partial": digest_partial,
             "site_count": len(digest_articles),
             "site_errors": site_errors,
+            "failed_sites": list(failed_sites),
         }
         if overall_ok:
             ToastNotifier.show_toast(
@@ -491,6 +521,7 @@ def run_sync_pipeline_locked(
                 "status": "errors",
                 "success": False,
                 "site_errors": site_errors,
+                "failed_sites": list(failed_sites),
             }
             return False
         if empty_fetch_sites == total_sites:
@@ -532,6 +563,7 @@ def run_sync_pipeline_locked(
         "partial_count": partial_count,
         "actual_work_sites": actual_work_sites,
         "site_errors": site_errors,
+        "failed_sites": list(failed_sites),
     }
 
     if success_count > 0 and overall_ok:

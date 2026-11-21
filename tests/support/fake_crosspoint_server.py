@@ -29,6 +29,8 @@ class FakeCrosspointState:
         self.upload_body = "OK"
         self.store_upload = True
         self.drop_upload_connection = False
+        # ISSUE-006: 파일은 저장하되 200 응답 전에 연결을 끊는다 (응답 유실 재현).
+        self.store_then_drop_upload = False
         self.status_code = 200
         self.status_payload: dict = {
             "device": "X3-Fake",
@@ -276,6 +278,12 @@ class _Handler(BaseHTTPRequestHandler):
                         "dest": dest,
                     }
                 )
+            if st.store_then_drop_upload:
+                try:
+                    self.connection.shutdown(1)
+                except OSError:
+                    pass
+                return
             # HTTP/1.1 needs Content-Length so requests doesn't hang
             self._send_text(200, st.upload_body)
             return

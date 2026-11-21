@@ -80,6 +80,27 @@ def test_dropped_upload_connection_is_failure(server, tmp_path):
     assert server.host in up.last_errors
 
 
+def test_stored_but_response_lost_is_failure_then_retry_succeeds(server, tmp_path):
+    """ISSUE-006: 기기가 저장한 뒤 응답이 유실되면 클라이언트는 실패로 본다.
+
+    현 계약에서는 다음 실행이 다시 보내고(중복 1회 허용), 재전송은 성공한다.
+    receipt 설계 전까지 2회 이상 중복은 실패로 본다.
+    """
+    server.state.store_then_drop_upload = True
+    up = X3Uploader(server.host, remote_dir="/Books")
+    up.retry_backoff = 0
+    path = _local_epub(tmp_path)
+    assert up._upload_to_ip(path, server.host, "b.epub", 30, max_retries=0) is False
+    assert server.host in up.last_errors
+    with server.state.lock:
+        assert len(server.state.files) == 1  # 기기에는 저장돼 있다
+        first_count = len(server.state.uploads)
+    server.state.store_then_drop_upload = False
+    assert up._upload_to_ip(path, server.host, "b.epub", 30, max_retries=0) is True
+    with server.state.lock:
+        assert len(server.state.uploads) == first_count + 1
+
+
 def test_zero_byte_and_large_upload_roundtrip(server, tmp_path):
     up = X3Uploader(server.host, remote_dir="/Books")
     for body in (b"", b"L" * (512 * 1024)):

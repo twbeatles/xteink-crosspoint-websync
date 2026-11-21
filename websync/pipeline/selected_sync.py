@@ -151,6 +151,14 @@ def _sync_selected_locked(
     translator.cancel_requested = lambda: getattr(
         service, "is_cancel_requested", lambda: False
     )()
+    # 업로더에도 같은 취소 콜백을 전파한다 (대기 중 전송 스킵·재시도 중단용).
+    uploader.cancel_requested = lambda: getattr(
+        service, "is_cancel_requested", lambda: False
+    )()
+    # 요약기에도 번역기와 같은 취소·예산을 배선한다 (ISSUE-005).
+    summarizer.cancel_requested = lambda: getattr(
+        service, "is_cancel_requested", lambda: False
+    )()
 
     articles_by_site, source_options = selected_source_groups(
         selected_articles, config.get("sites", []), t("pipeline.selected.other_site")

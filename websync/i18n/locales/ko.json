@@ -605,7 +605,11 @@
       "ip_tip": "리더기에서 File Transfer 모드를 켜면 화면에 표시되는 주소입니다. 보통 crosspoint.local 또는 192.168.x.x",
       "conn_fail_hint": "💡 기기가 켜져 있고 File Transfer 모드인지, PC와 같은 Wi-Fi에 있는지 확인하세요. crosspoint.local이 안 되면 기기 화면의 IP 주소를 입력해 보세요.",
       "device_name_placeholder": "예: 침실",
-      "device_add_hint": "기본 기기 외에 함께 받을 리더기를 추가합니다. 동기화 때 모든 기기로 동시에 보냅니다."
+      "device_add_hint": "기본 기기 외에 함께 받을 리더기를 추가합니다. 동기화 때 모든 기기로 동시에 보냅니다.",
+      "failed_title": "동기화 실패 안내",
+      "failed_list": "다음 사이트에서 실패했습니다:\n{sites}",
+      "failed_hint": "실패한 글은 이력에 기록되지 않아 다음 동기화 때 자동으로 다시 시도합니다. 이미 전송된 깨진 책은 '동기화 이력' 탭에서 해당 항목을 삭제한 뒤 다시 동기화하세요.",
+      "failed_retry": "지금 바로 다시 시도할까요?"
     },
     "schedule": {
       "card_title": "⏰ 매일 자동 스케줄 설정",
@@ -1081,7 +1085,9 @@
     "no_devices": "⚠️ 등록된 기기가 없습니다.",
     "no_targets": "⚠️ 전송 대상 기기가 없습니다.",
     "upload_exc": "❌ [{name}] 전송 예외: {error}",
-    "batch_collision": "전송 취소: {first}와 {second}의 기기 파일명({name})이 같습니다. 로컬 파일 하나의 이름을 바꾼 뒤 다시 시도하세요."
+    "batch_collision": "전송 취소: {first}와 {second}의 기기 파일명({name})이 같습니다. 로컬 파일 하나의 이름을 바꾼 뒤 다시 시도하세요.",
+    "cancelled": "취소되어 전송하지 않았습니다.",
+    "retrying": "↻ [{host}] 재시도 {attempt}/{total} ({msg})"
   },
   "device": {
     "default_name": "기본 기기",

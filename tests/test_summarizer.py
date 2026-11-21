@@ -16,6 +16,33 @@ def test_summarizer_unavailable_when_disabled():
     assert s.summarize("t", "<p>x</p>") == ""
 
 
+def test_summarize_cancelled_before_http_does_no_request():
+    """취소가 요청된 상태에서는 HTTP 호출 없이 빈 요약을 반환한다."""
+    from unittest.mock import patch as _patch
+
+    s = Summarizer(_config())
+    s.cancel_requested = lambda: True
+    with _patch("urllib.request.urlopen") as mock_open:
+        assert s.summarize("제목", "<p>본문</p>") == ""
+    mock_open.assert_not_called()
+
+
+def test_summarize_check_budget_cancel_and_deadline():
+    """취소·예산 초과는 예산 검사에서 즉시 예외로 보고된다."""
+    import time as _time
+
+    import pytest as _pytest
+
+    s = Summarizer(_config())
+    s.cancel_requested = lambda: True
+    with _pytest.raises(RuntimeError):
+        s._check_budget()
+    s.cancel_requested = lambda: False
+    s._deadline = _time.monotonic() - 1.0
+    with _pytest.raises(TimeoutError):
+        s._check_budget()
+
+
 def test_call_openai_malformed_no_choices():
     s = Summarizer(_config())
     fake_resp = BytesIO(json.dumps({"id": "x"}).encode())
