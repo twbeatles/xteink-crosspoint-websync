@@ -38,6 +38,39 @@ def test_mark_and_is_synced():
         _cleanup_db(db, path)
 
 
+def test_get_history_shows_latest_row_per_url():
+    """같은 URL의 다기기 행은 최신 synced_at 행의 사이트명·제목으로 표시한다.
+
+    GROUP BY url의 bare 컬럼은 임의 행을 보여줄 수 있어 표시가 흔들린다.
+    """
+    db, path = _make_db()
+    try:
+        url = "https://example.com/multi"
+        with closing(sqlite3.connect(path, timeout=10.0)) as conn:
+            conn.executemany(
+                "INSERT INTO synced_posts"
+                " (url, device_ip, site_name, title, synced_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                [
+                    # 현실적인 기록 순서: 옛 기록 먼저, 새 기록 나중에
+                    (url, "10.0.0.1", "옛 사이트", "옛 제목", "2026-01-01T00:00:00Z"),
+                    (url, "10.0.0.2", "새 사이트", "새 제목", "2026-01-02T00:00:00Z"),
+                ],
+            )
+            conn.commit()
+        rows = db.get_history(limit=10)
+        assert len(rows) == 1
+        row = rows[0]
+        assert row[0] == url
+        assert row[1] == "새 사이트"
+        assert row[2] == "새 제목"
+        assert row[3] == "2026-01-02T00:00:00Z"
+        assert set(row[4].split(",")) == {"10.0.0.1", "10.0.0.2"}
+        assert db.get_history(limit=10) == rows
+    finally:
+        _cleanup_db(db, path)
+
+
 def test_needs_sync_per_device():
     db, path = _make_db()
     try:

@@ -44,8 +44,9 @@ class ToastNotifier:
 
     @staticmethod
     def _show_macos(title: str, text: str):
-        safe_title = title.replace('"', '\\"')
-        safe_text = text.replace('"', '\\"')
+        # 역슬래시를 먼저 이스케이프해야 osascript 문자열이 깨지지 않는다.
+        safe_title = title.replace("\\", "\\\\").replace('"', '\\"')
+        safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
         script = f'display notification "{safe_text}" with title "{safe_title}"'
         try:
             subprocess.Popen(

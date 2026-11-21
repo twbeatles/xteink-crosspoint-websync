@@ -6,6 +6,7 @@ import http.cookies
 import json
 import os
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from websync.i18n import t
 from websync.servers.dashboard.session import (
@@ -23,10 +24,16 @@ if TYPE_CHECKING:
 
 
 class DashboardHandler(GracefulHTTPHandler):
-    protocol_version = "HTTP/1.0"
     timeout = 2
     protocol_version = "HTTP/1.1"
     MAX_POST_BYTES = 64 * 1024
+
+    def _route(self) -> str:
+        """쿼리스트링을 제외한 요청 경로 (OPDS와 대칭)."""
+        try:
+            return urlsplit(self.path).path or "/"
+        except Exception:
+            return self.path
 
     @property
     def _ctx(self) -> "DashboardHTTPServer":
@@ -80,13 +87,14 @@ class DashboardHandler(GracefulHTTPHandler):
         self.wfile.flush()
 
     def do_GET(self):
-        if self.path in ("/", "/login"):
+        route = self._route()
+        if route in ("/", "/login"):
             self._send_html(login_html())
-        elif self.path in ("/dashboard",):
+        elif route in ("/dashboard",):
             if not self._require_auth():
                 return
             self._send_html(dashboard_html())
-        elif self.path == "/api/log":
+        elif route == "/api/log":
             if not self._require_auth():
                 return
             log_text = ""
@@ -122,7 +130,7 @@ class DashboardHandler(GracefulHTTPHandler):
                         except Exception:
                             pass
             self._send_json(200, {"log": log_text})
-        elif self.path == "/api/status":
+        elif route == "/api/status":
             if not self._require_auth():
                 return
             status = {"running": False, "last_result": {}}
@@ -150,7 +158,8 @@ class DashboardHandler(GracefulHTTPHandler):
             self.close_connection = True
             self._send_json(400, {"error": str(error)})
             return
-        if self.path == "/api/login":
+        route = self._route()
+        if route == "/api/login":
             token = self._ctx.api_token
             if not token:
                 self._send_json(503, {"error": t("dashboard.no_token")})
@@ -190,7 +199,7 @@ class DashboardHandler(GracefulHTTPHandler):
             self.end_headers()
             self.wfile.write(body)
             self.wfile.flush()
-        elif self.path == "/api/sync":
+        elif route == "/api/sync":
             if not self._require_auth():
                 return
             busy_cb = self._ctx.pipeline_busy_callback
@@ -246,7 +255,7 @@ class DashboardHandler(GracefulHTTPHandler):
                     "message": t("dashboard.started"),
                 },
             )
-        elif self.path == "/api/cancel":
+        elif route == "/api/cancel":
             if not self._require_auth():
                 return
             cancel_cb = self._ctx.cancel_callback

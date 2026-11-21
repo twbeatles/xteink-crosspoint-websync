@@ -55,6 +55,29 @@ def test_single_shot_post_framing_auth_and_cancel():
         server.stop()
 
 
+def test_get_routes_ignore_query_string():
+    """OPDS와 대칭되게 대시보드 GET 라우팅은 쿼리스트링을 무시한다."""
+    server = WebDashboard(port=0, api_token="test-token")
+    assert server.start()
+    try:
+        with requests.Session() as session:
+            session.trust_env = False
+            base = f"http://127.0.0.1:{server.port}"
+            headers = {"Authorization": "Bearer test-token"}
+            assert (
+                session.get(
+                    base + "/api/status?x=1", headers=headers, timeout=5
+                ).status_code
+                == 200
+            )
+            assert (
+                session.get(base + "/api/log?x=1", headers=headers, timeout=5).status_code
+                == 200
+            )
+    finally:
+        server.stop()
+
+
 @pytest.mark.parametrize("length", ["-1", "invalid", "65537"])
 def test_invalid_post_size_rejected_before_callback(length):
     import http.client

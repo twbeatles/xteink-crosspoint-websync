@@ -348,10 +348,18 @@ class SyncHistoryDb:
                     cursor = conn.cursor()
                     cursor.execute(
                         """
-                        SELECT url, site_name, title, MAX(synced_at), GROUP_CONCAT(device_ip)
-                        FROM synced_posts
-                        GROUP BY url
-                        ORDER BY MAX(synced_at) DESC
+                        SELECT p.url,
+                               (SELECT site_name FROM synced_posts
+                                WHERE url = p.url
+                                ORDER BY synced_at DESC, device_ip LIMIT 1),
+                               (SELECT title FROM synced_posts
+                                WHERE url = p.url
+                                ORDER BY synced_at DESC, device_ip LIMIT 1),
+                               MAX(p.synced_at),
+                               GROUP_CONCAT(p.device_ip)
+                        FROM synced_posts p
+                        GROUP BY p.url
+                        ORDER BY MAX(p.synced_at) DESC
                         LIMIT ?
                         """,
                         (limit,),
