@@ -1,223 +1,277 @@
 # Project Audit
 
-> 후속 개선: 2026-11-05 감사의 ISSUE-001~003 및 로컬에서 구현 가능한 안정성·CI·문서 권고를 반영했다. 아래 본문은 감사 당시 기록이다. 원격 receipt와 실제 외부 환경 검증은 완료 구현과 구분하며 [구현 대조표](docs/AUDIT_IMPLEMENTATION.md)에 근거와 남은 범위를 기록한다.
-
-> 감사일: 2026-11-05 (Asia/Seoul) · 기준: `main`, `32eb535`
+> 후속 개선: 2026-11-21 감사에서 ISSUE-001~006 및 안정성 보완점을 도출했다. 이전 감사(2026-11-05) 기록은 [구현 기록](docs/AUDIT_IMPLEMENTATION.md)에 남아 있다.
 >
-> 기능 구현·런타임 안정성 감사. 애플리케이션·테스트·설정 코드는 수정하지 않았으며 이 보고서만 작성했다. 이전 감사는 Git 이력과 [구현 기록](docs/AUDIT_IMPLEMENTATION.md)에 남아 있다. 이슈 번호는 이번 감사에만 해당한다.
+> 감사일: 2026-11-21 (Asia/Seoul) · 기준: `main`, `faf9f26` (clean, `git status` 무변경)
+>
+> 기능 구현·런타임 안정성 관점의 one-shot 감사. 애플리케이션·테스트·설정 코드는 수정하지 않았으며 이 보고서만 작성한다. 기존 `PROJECT_AUDIT.md`(2026-11-05 기록)는 이번 감사로 대체된다. 이전 감사·구현 대조는 [구현 기록](docs/AUDIT_IMPLEMENTATION.md)에 남아 있다.
 
 ## 1. Executive Summary
 
-**전체 상태: Acceptable. 전체 위험도: Medium.** 핵심 수집·기기별 중복 제거·EPUB·전송 흐름은 잘 구현되어 있다. 설정 검증·revision CAS·원자적 저장, DB 트랜잭션, 프로세스 락, 취소·종료 drain, 업데이트 검증·롤백도 확인했다. 전체 테스트는 **737 passed, 28 skipped**다.
+**전체 상태: Acceptable. 전체 위험도: Low-Medium.**
 
-반증 후 남긴 문제는 아래 세 가지다. Critical·High는 확인하지 못했다. §4 제목은 요청된 형식이며 그 안의 이슈가 High 심각도라는 뜻은 아니다.
+핵심 흐름(수집 → 기기별 중복 제거 → EPUB 빌드 → Wi-Fi 전송 → 성공분만 이력 기록 → 공유 폴더 push)은 견고하다. 설정 revision CAS·원자 저장·`.bak`·rejected 보존, DB 복합 PK·트랜잭션, 스레드+프로세스 파이프라인 락, 배치 경계 취소, 종료 drain, Windows 스케줄러 261자 방어·OEM 디코딩, crontab 읽기 실패 시 비파괴, macOS unload 검증, OPDS·대시보드 인증·경로 차단, 업데이터 move-swap·smoke·rollback도 코드로 확인했다.
 
-| 이슈 | 심각도 / 신뢰도 | 영향 |
-|---|---|---|
-| ISSUE-001: 다운로드 경로 계획 이후의 파일 충돌 | Medium / Confirmed | 덮어쓰기 미승인 상태에서도 다른 작업이 생성한 로컬 파일을 교체함 |
-| ISSUE-002: macOS 스케줄 해제 실패의 성공 반환 | Medium / Confirmed | 실패를 알리지 않고 plist·설정 상태를 변경함 |
-| ISSUE-003: Linux cron 경로의 `%` 처리 누락 | Medium / Confirmed | 해당 문자가 포함된 경로에서 예약 실행이 실패함 |
+반증(상위 caller 검증·예외 처리·락·제약·도달 가능성·dead code 여부)을 거친 뒤 남긴 문제는 아래 6건이다. **Confirmed High/Critical 데이터 파괴 결함은 확인하지 못했다.**
 
-**데이터 손상·유실:** DB·설정·공유 JSON의 광범위한 손상 경로는 확인하지 못했다. ISSUE-001은 선택한 다운로드 대상의 로컬 파일 내용이 유실되는 경로로, 임시 파일로 재현했다. 기존 파일에 대한 사전 확인은 구현되어 있으나 확인 이후의 경쟁 조건은 남아 있다.
+| # | 이슈 | 심각도 / 신뢰도 | 한 줄 영향 |
+|---|---|---|---|
+| ISSUE-001 | 업로드 단일 시도·재시도 없음 + 전송 중 취소 불가 | Medium / Confirmed | 일시적 네트워크 흔들림에 부분 실패, 대용량 전송 중 취소가 다음 배치까지 지연 |
+| ISSUE-002 | `local_import` 폴백 저장의 무조건 덮어쓰기 | Medium / Confirmed(코드 사실)·발동은 Likely | 동시 쓰기 경합 시 최신 설정이 옛 스냅샷으로 회귀 가능 |
+| ISSUE-003 | 공유 JSON 고정 `.tmp` 충돌 | Medium / Confirmed(코드 사실)·발동은 Likely-low | 다중 프로세스 동시 쓰기 시 tmp 경합 가능 (폴더 락이 1차 방어) |
+| ISSUE-004 | NaverCafe 본문 중첩 `<body>`로 잘못된 XHTML | Medium / Confirmed | 특정 카페 글에서 챕터 XHTML 무결성 훼손, 리더별 본문 누락 가능 |
+| ISSUE-005 | 요약 단계 취소 미배선 (번역만 배선) | Medium / Confirmed | AI 요약 HTTP(20~30s) 중 취소가 기사 경계까지 지연 |
+| ISSUE-006 | 응답 유실 시 재전송 (receipt 없음, 설계상 한계) | Medium / Likely(근거 강함) | 기기 저장 후 응답 유실 시 다음 실행에 중복 전송 가능 |
 
-**가장 먼저 수정할 영역:** 다운로드 완료 시점의 덮어쓰기 정책 강제. 다음은 macOS 해제 결과 검증과 Linux cron 전용 경로 처리다.
+**데이터 손상/유실 가능성:** DB·설정·공유 JSON의 광범위한 손상 경로는 확인하지 못했다. `publish_local_download` 배타 게시, DB PK·트랜잭션, 설정 원자 저장·`.bak`·`.corrupt` 격리는 확인했다. 남은 쓰기 경합(ISSUE-002/003)은 좁은 경쟁창이며, ISSUE-006은 중복 전송(가용성)이지 기존 데이터 파괴가 아니다.
+
+**가장 먼저 수정해야 할 영역:** (1) 업로드 재시도·취소 전파(ISSUE-001, 체감 실패율과 직접 연결), (2) `local_import` 폴백 CAS 준수(ISSUE-002, 설정 회귀 방지), (3) NaverCafe `<body>` 정규화(ISSUE-004, EPUB 무결성).
 
 ## 2. Project Understanding
 
-### 목적·개발 규칙
+### 목적
 
-CrossPoint 펌웨어 기반 Xteink X3/X4용 데스크톱 콘텐츠 수집·EPUB 생성·Wi-Fi 전송 도구다. RSS/Atom, CSS 선택자, 블로그·뉴스레터·YouTube 자막, Calibre/로컬 도서, 기기 파일 관리, Watch, 예약 실행, OPDS, 웹 대시보드, 서명 업데이트를 제공한다.
+CrossPoint 펌웨어 기반 Xteink X3/X4용 데스크톱 콘텐츠 파이프라인이다. RSS/Atom·CSS 선택자·Velog·Naver 블로그/카페·Tistory·Brunch·Newneek·YouTube 자막·Substack·뉴스레터를 수집해 e-ink 최적화 EPUB으로 빌드하고 Wi-Fi로 전송한다. SQLite 기기별 이력으로 증분 동기화하고, Calibre 서재·로컬 파일·기기 파일 관리·Watch·예약 실행·OPDS·웹 대시보드·Ed25519 서명 업데이트를 제공한다.
 
-README, CLAUDE, AGENTS, CONTRIBUTING, 개발자 가이드 일부와 의존성·빌드·CI 설정을 확인했다. main 기본, Spec Kit opt-in 규칙을 따랐다. CLAUDE/AGENTS의 본문 차이는 제목과 AGENTS의 정본 안내뿐이다. 이번에는 커밋·push·릴리즈를 수행하지 않았다.
+### 주요 entrypoint
 
-### 주요 entrypoint와 실행 흐름
+`x3_websync.py:main` → 분기: `--smoke`(모듈·카탈로그 검증) / `--apply-update`(헬퍼) / `--recover-config`(검증 후 복원, 전송 없음) / `--sync`(백그라운드 파이프라인) / GUI(`SyncAppGui`). GUI만 instance lock을 사용하고, CLI/GUI 직렬화는 `SyncService`의 스레드+프로세스 파이프라인 락에 위임한다.
 
-| 기능 | 입력 → 검증/핸들러 → 핵심 로직 → 저장/API → 결과 |
-|---|---|
-| 전체 동기화 | `x3_websync.py:main` → GUI 또는 `--sync` → ConfigManager → `SyncService.run_sync_pipeline` → 공통 락·backup pull → scraper → DB 중복 판정 → 번역/요약 → 기기별 배치 EPUB → `/upload` → 성공 대상 `mark_synced_many` → backup push → bool·상태·알림 |
-| 웹 동기화 | 인증된 `/api/sync` → `DashboardHandler.do_POST` → 서비스 수락·락 → 비동기 파이프라인 → 202/409·`/api/status` |
-| 선택 전송 | `preview_articles` → source 메타데이터·신규 기사 → GUI 선택 → `sync_selected_articles` → 락·pull·build/upload/mark → 완료 또는 기록한 이력이 있으면 push |
-| EPUB 전용 | 선택 → `build_selected_epubs` → 공통 락·최신 설정 → builder → 파일 경로; 전송·완료 이력 기록 없음 |
-| 다운로드 | `_download_selected` → 파일명 정리·충돌 안내·경로 계획 → 워커 → `X3DeviceClient.download` → `.part`·fsync·replace → 결과 안내 |
-| Watch | 이벤트/복구 큐 → `WatchRetryQueue` → fingerprint·안정성 확인·영속 저장 → 미완료 대상 업로드 → 완료 저장 또는 backoff |
-| 예약 실행 | GUI 시간 → `SchedulerManager` → 범위 검사 → schtasks/launchd/crontab → `--sync` |
-| OPDS | 인증·경로 → 카탈로그 또는 realpath 범위 검사 → EPUB 스트림 → HTTP 응답 |
-| 종료·업데이트 | `_on_close` → 신규 작업 거부·취소 → 서버/Watch 정지·작업 drain·backup flush → 헬퍼 → exe 이동 교체 → smoke → 실패 시 rollback |
+### 핵심 모듈
 
-### 모듈·상태·저장·외부 의존성
+- `websync/pipeline/service.py`: 작업 수락·취소 이벤트·스레드/프로세스 락·마지막 결과·backup 훅. 기사 흐름은 `sync_pipeline.py`(전체), `selected_sync.py`(선택), `preview.py`(미리보기), `epub_only.py`(EPUB 전용)에 분리.
+- `websync/config/manager.py` + `validator.py`: `config.json`, 구조 검증·결손 키 보강, 프로세스 파일 락, RMW·revision CAS(`save_config(expected_revision)`/`update_config`), pid·thread·uuid tmp→fsync→replace, `.bak`, 복구 시 `.rejected.<uuid>.json` 보존.
+- `websync/db/history.py`: `sync_history.db`, `(url, device_ip)` 복합 PK, 기기별 이력·`deleted_posts` tombstone, `_connect` commit/rollback/close + `timeout=10.0`, WAL 시도 후 폴백.
+- `websync/upload/uploader.py` + `device_ids.py`: 안정 기기 ID·alias 조회, 배치 전송(`ThreadPoolExecutor`, 최대 4), `only_ips` 부분 재시도, 결과 키는 IP/호스트.
+- `websync/backup/service.py` + `atomic_io.py` + `format.py` + `local_import.py`: 공유 `sites.json`·`synced_posts.json`·replica 병합, 폴더 락(비차단·busy 스킵), pull 실패 시 전송 중단·push 스킵.
+- `websync/epub/builder.py` + `sanitize.py` + `filenames.py` + `images.py`: 기사 집합 hash 파일명, 본문 정화·이미지 내장(PNG/JPEG/GIF, 4MB/장·24MB/권·32장·30s 예산).
+- `websync/watch/retry.py` + `watch/calibre.py`: 단일 워커·경로별 due·지수 backoff(2.0, 최대 300s), fingerprint·안정성 재확인, durable 저장 후 완료 제거.
+- `websync/scheduler/manager.py`: schtasks/launchd/crontab, `WINDOWS_TR_MAX_LENGTH=261` 사전 거부, OEM 코드페이지 디코딩, cron 실패 읽기 시 비파괴.
+- `websync/servers/opds.py` + `servers/dashboard/`: 토큰 인증·HMAC 세션 쿠키·POST 64KB 제한·경로 차단(basename+realpath+normcase).
+- `websync/integrations/notifier.py`·`calibre.py`: 플랫폼별 토스트·`calibredb` argv 실행(로컬 설정 신뢰 경계).
 
-- `pipeline/service.py`: 작업 수락·취소 이벤트, 스레드/프로세스 락, 마지막 결과, backup 훅. 기사 흐름은 `sync_pipeline.py`, `selected_sync.py`, `preview.py`, `epub_only.py`에 분리된다.
-- `config/manager.py`, `validator.py`: `config.json`, 구조 검증·결손 키 보강, 프로세스 파일 락, RMW·revision CAS, tmp→replace, `.bak`, 복구 시 rejected 사본.
-- `db/history.py`: `sync_history.db`, `(url, device_ip)` 복합 PK, 기기별 이력·삭제 tombstone, commit/rollback·timeout 10초. WAL 설정을 시도한다.
-- `upload/device_ids.py`, `upload_results.py`: 안정 기기 ID·alias 조회, 기기별 미전송 기사 배치, 성공 대상만 이력 기록.
-- `backup/service.py`: 공유 `sites.json`, `synced_posts.json`, `.websync-replicas/` 병합. 로컬 폴더 락은 여러 PC의 독립적인 클라우드 사본까지 잠그는 전역 락이 아니다.
-- `epub/builder.py`, `filenames.py`, `images.py`: 기사 집합 hash가 포함된 파일명, 본문 정화·테마·이미지 내장. `output/`, `logs/`도 실행 데이터다.
-- `watch/retry.py`: `calibre_watch.pending_jobs`의 fingerprint/targets/completed, 단일 워커·최대 300초 backoff.
-- 필수 의존성: requests, BeautifulSoup/lxml, ebooklib, customtkinter, cryptography, Python tkinter/SQLite. 선택: Pillow, googletrans, youtube-transcript-api, watchdog, Calibre CLI. OS 스케줄 도구와 CrossPoint HTTP API에도 의존한다.
-- PyInstaller spec은 선택 기능 패키지를 제외하는 경량 Windows 빌드다. README도 이를 설명한다. 릴리즈 workflow는 테스트 → 빌드 → frozen smoke → 서명 manifest → Release·main manifest 게시 순서다. 이번 감사에서는 실행하지 않았다.
+### 데이터 저장 방식
+
+`config.json`(revision CAS·원자 저장·`.bak`·`.corrupt`/`.rejected` 격리), `sync_history.db`(복합 PK·삭제 tombstone·LWW 병합), 공유 폴더 JSON(검증-선행-쓰기·tombstone LWW), `output/` EPUB, `logs/` 날짜별 로그.
+
+### 외부 의존성
+
+필수: `requests`, `beautifulsoup4`/`lxml`, `ebooklib`, `customtkinter`, `cryptography`, 표준 `tkinter`/`sqlite3`. 선택: `Pillow`, `googletrans>=4.0.2,<5`, `youtube-transcript-api`, `watchdog`, Calibre CLI. OS 스케줄 도구·CrossPoint HTTP API·Ollama/OpenAI·LibreTranslate에도 의존한다.
+
+### 핵심 실행 흐름
+
+`Entry(x3_websync.py) → Handler(SyncService 락 수락) → Core(backup pull → Scraper → needs_sync/pending → 번역/요약 → 기기별 배치 EPUB) → DB/File/API(mark_synced_many / output/*.epub / http://{ip}/upload) → Result(bool·상태·토스트·backup push)`.
 
 ## 3. Audit Coverage & Limitations
 
-### 구조·소스 확인
+### 실제 확인한 주요 모듈 (직접 열람)
 
-`.codegraph/` 존재를 확인하고 **실제 CodeGraph MCP `codegraph_explore`를 우선 사용했다.** 다음 소스와 caller/callee·영향 범위를 확인했다.
+- 진입·락·취소: `x3_websync.py`, `websync/pipeline/service.py`(`_try_acquire`/`_release`/`run_sync_pipeline`/`_run_pipeline_body`), `websync/pipeline/sync_pipeline.py`(1~170행대 취소·레거시 이관·배치 경계), `websync/core/process_lock.py`·`instance_lock.py` 개념 대조.
+- 설정·DB·백업: `websync/config/manager.py`(404~480행 CAS·원자 저장), `websync/db/history.py`(42~116행 connect·WAL·마이그레이션, 239~361행 mark·get_history), `websync/backup/atomic_io.py`(15~33행 고정 tmp), `websync/backup/local_import.py`(145~174행 폴백 저장).
+- 전송·EPUB: `websync/upload/uploader.py`(42~140행 파일명·timeout·단일 POST, 175~226행 병렬 전송), `websync/epub/builder.py`(124~155행·234~266행 chapter 조립), `websync/epub/sanitize.py`(29~58행), `websync/pipeline/summarizer.py`(40~57행 escape·fail-open), `websync/pipeline/translator.py`(15~34행 예산·취소).
+- 스크래퍼: `websync/scrapers/naver_cafe.py`(150~206행 API·폴백·`str(container)` 반환).
+- 서버·스케줄러·알림: `websync/servers/dashboard/handler.py`(26~28행·83~249행 라우팅), `websync/scheduler/manager.py`(40·113·212·322·352행대), `websync/integrations/notifier.py`(46~57행 macOS).
+- 문서·설정: `README.md`, `CLAUDE.md`·`AGENTS.md` 본문 대조, `pyrightconfig.json`(전면 `none`), `pytest.ini`, `websync/__init__.py` 버전.
 
-- `main` → SyncService 전체·비동기 실행·락·종료.
-- 전체/선택 동기화 → `group_articles_by_pending_targets` → `upload_to_targets` → `collect_mark_entries` → `mark_synced_many`.
-- ConfigManager load/normalize/save/RMW/restore, SQLite 초기화·이관·조회·기록·삭제, backup pull/push의 검증·병합 경계.
-- GUI 다운로드 → 경로 계획 → 클라이언트 저장, GUI 예약 등록/해제 → SchedulerManager.
-- Watch fingerprint·영속 상태·재시도, Calibre CLI·YouTube 자막 어댑터, 공통 HTTP helper, EPUB builder·이미지·번역, OPDS·대시보드 handler, updater 검증·교체·롤백.
+### CodeGraph 분석 호출 관계
 
-CodeGraph 크기 제한으로 생략된 `sync_pipeline.py` 후반부와 `service.py` 락/실행 본문은 직접 열람으로 보완했다. 문서·설정·테스트 fixture와 관련 테스트도 열람했다. 모든 파일 전수 정독이나 GUI 직접 조작 감사는 아니다. 정적 caller 연결만으로 결함을 확정하지 않고 실제 caller와 보호 장치도 확인했다.
+- CodeGraph MCP `codegraph_explore`를 본 세션에서 직접 1회 사용했다. 쿼리: `run_sync_pipeline SyncService upload_to_targets mark_synced pipeline locks cancellation`.
+- 확인된 blast radius: `mark_synced` 28 caller·DB 테스트군, `SyncService` 55 caller(GUI·portable wizard·파이프라인), `run_sync_pipeline_locked` 2 caller(service 경유), `upload_to_targets` 10 caller(파이프라인·Calibre 탭·Watch), `run_sync_pipeline` 37 caller(`x3_websync.py`·GUI sync_control).
+- 워크플로 백그라운드 자식들의 구조 탐색 결과(락·CAS·트랜잭션·서버·업데이터)는 위 직접 열람으로 교차 검증한 것만 최종 근거로 사용했다. 자식 주장 중 `summary_html` 미정화·`device_client` finally 등은 직접 열람으로 반증/완화했다.
 
-### 실제 실행한 검증
+### 실행한 테스트 (본 세션 직접 실행)
 
-환경: Windows 호스트 / Python **3.15.2**. `tests/conftest.py`의 임시 저장소·자식 프로세스 복사본·storage guard를 확인한 후 실행했다.
+- `python -m pytest tests/test_uploader.py tests/test_epub_filenames.py tests/test_epub_sanitize.py -q` → **24 passed**.
+- `python -m pytest tests/test_config_validator.py tests/test_db.py tests/test_backup_atomic_io.py -q` → **36 passed**.
+- 합계 **60 passed**. 전체 스위트·frozen 빌드·실기기는 실행하지 않았다.
 
-```text
-python -m pytest -q -p no:cacheprovider --tb=short -ra -W error::RuntimeWarning
-737 passed, 28 skipped, 13 warnings in 101.02s
-```
+### 확인하지 못한 환경/외부 서비스
 
-27 skip은 `test_preset_epub_pipeline.py:185`의 라이브 네트워크 계약, 1 skip은 `test_storage_isolation.py:121`의 POSIX directory descriptors다. 13 warning은 외부 langsmith의 asyncio DeprecationWarning이다. 시작 시 pytest-asyncio fixture loop scope 설정 경고도 표시됐다. 테스트 실패로 집계되지 않았다.
+실 X3/X4 기기(한글 표시·원격 덮어쓰기 의미·응답/영속 일치), 실 macOS launchd·Linux cron 데몬 E2E, 실 클라우드 폴더 동기화 지연, 라이브 피드·AI/번역·YouTube·Calibre 실서비스, 원격 CI 매트릭스·서명키·신규 frozen 빌드, GUI 직접 조작. `replicas.py` 내부 LWW·`selector_assistant` 분석·점수 모듈·번역 30초 예산의 코드 직접 열람도 범위 밖으로 남겼다.
 
-전체 실행에는 기존 pipeline HTTP integration·다중 프로세스 락·백업/DB/설정·종료 수명주기·업데이트 rollback·다운로드 충돌 테스트가 포함된다. 통과가 아래 신규 조건까지 보장하지는 않는다.
+### 분석 한계
 
-추가 일회성 Python 재현은 저장소 밖 임시 디렉터리에서 실행했다. import 전 `X3_WEBSYNC_STORAGE_ROOT`를 지정했고 실제 기기에 접속하지 않았다.
-
-| 재현 | 입력/주입 | 결과 |
-|---|---|---|
-| R1 | overwrite=False로 경로 계획; fake HTTP 스트림 도중 같은 경로에 경쟁 파일 생성 | `planned_conflict=false`, True 반환, 최종 내용 `DEVICE-CONTENT`; 경쟁 파일 교체 |
-| R2 | darwin 분기, unload exit 5·오류 stderr를 mock | True 반환, 빈 last_error, plist 삭제 호출 |
-| R3 | `/home/reader/100%news/...`, `/usr/bin/python3`, POSIX join으로 실제 명령 생성 함수 호출 | cd/script/log 경로에 보호되지 않은 `%` 출력 |
-
-첫 재현은 결과 출력 후 열린 임시 로그 핸들러 때문에 폴더 정리에서 실패했다. `logging.shutdown()`을 추가한 재실행은 동일 결과로 exit 0 종료했다. 감사 스크립트의 정리 문제이며 앱 결함으로 분류하지 않았다.
-
-### 한계·미확인 환경
-
-- 실제 X3/X4: 한글 이름 표시, 동일 원격 경로 덮어쓰기, 응답과 영속 저장의 일치, 전원 단절 복구.
-- 실제 macOS launchd·Linux cron 데몬. 해당 분기는 mock/명령 생성·코드로 확인했다. cron의 `%` 해석은 [Cronie 원본 crontab(5)](https://github.com/cronie-crond/cronie/blob/master/man/crontab.5)로 교차 확인했다.
-- 실제 클라우드 클라이언트, 라이브 사이트 27건, AI/번역/YouTube/Calibre 실서비스.
-- 현재 원격 CI 결과, 서명키 운영, 신규 frozen 빌드/실행. workflow 열람을 배포 검증으로 대체하지 않았다.
-- dependency 설치, 앱 GUI 실행, 실제 예약 등록/해제, 사용자 config/DB/도서 변경은 하지 않았다. 타입 검사·coverage 측정도 실행하지 않았다.
+- CodeGraph 1회 + grep·직접 열람 중심이므로 전수 호출 그래프가 아니다.
+- 동시성·타이밍 이슈는 코드·락·테스트로 추론했으며 실환경 재현은 하지 않았다.
+- `Likely`는 코드 근거가 강하나 런타임 재현까지 못한 항목에만 부여했고, `Speculative`는 High-Risk에 넣지 않았다.
+- 기존 `docs/AUDIT_IMPLEMENTATION.md`의 "전체 700+ passed·basedpyright clean"은 기록 인용이며 본 세션 실행 결과로 주장하지 않는다.
 
 ## 4. High-Risk Issues
 
-### [ISSUE-001] 다운로드 검사 이후 생성된 로컬 파일을 승인 없이 덮어씀
+### [ISSUE-001] 업로드 단일 시도·재시도 없음 + 전송 중 취소 불가
 
-- **위치:** `websync/gui/device_files/actions.py:227` `_download_selected`; `websync/upload/local_path.py:29` `plan_local_downloads`; `websync/upload/device_client.py:261` `download` (교체: 305행).
+- **위치:** `websync/upload/uploader.py:80-140, 175-226`(`_calc_timeout`·`_upload_to_ip`·`upload_to_targets`), `websync/pipeline/sync_pipeline.py:134-140, 240-259` 배치 경계 취소
 - **우선순위:** Medium
 - **신뢰도:** Confirmed
-- **문제:** GUI는 작업 전 존재 여부로 이름을 정하지만 저장 API에는 overwrite 정책을 전달하지 않는다. 완료 시 `os.replace(temp_path, local_path)`는 그 사이 생긴 파일도 교체한다.
-- **발생 조건:** 계획 당시 대상 이름이 비어 있거나 새 번호 이름이 선택되었지만 워커 시작·다운로드·앞선 배치 처리 동안 다른 앱/클라우드 클라이언트가 같은 파일을 만든다. 덮어쓰기를 선택하지 않은 경우에도 적용된다.
-- **영향:** 해당 로컬 파일 내용 유실. 선택한 경로 밖 탈출이나 DB 파괴는 아니다. 단독 다운로드에서는 발생하지 않으므로 Medium으로 한정한다.
-- **근거:** R1에서 conflict=False·overwrite 미승인 상태로 스트림 중 `CONCURRENT-LOCAL-FILE`을 생성했다. True 반환 후 내용은 `DEVICE-CONTENT`였다.
-- **반증 확인:** 기존 충돌 안내·기본 새 이름 저장·배치 내 casefold 중복 방지·basename 정리·UUID `.part`의 xb/fsync를 확인했다. 이들은 계획과 임시 파일을 보호하지만 최종 경로의 배타적 게시를 보장하지 않는다. GUI busy는 외부 writer를 잠그지 않는다. GUI도 같은 download API를 그대로 호출한다.
-- **호출/영향 범위:** CodeGraph 확인: `_download_selected` → `plan_local_downloads` → worker → `X3DeviceClient.download` → replace. 기기→PC 다운로드에 한정된다.
-- **권장 수정 방향:** overwrite 정책을 저장 계층까지 전달한다. 미승인 모드의 최종 게시에는 기존 대상을 교체하지 않는 배타적 연산을 사용하고 충돌 시 새 이름 또는 명확한 실패를 반환한다. 직전 exists 재검사만 추가하면 race가 남는다. 승인 모드만 replace를 허용한다.
-- **필요한 회귀 테스트:** 계획 후·스트림 중·최종 게시 직전에 각각 파일을 생성한다. 미승인 모드는 경쟁 바이트 보존과 새 이름/충돌 오류를, 승인 모드만 교체를 기대한다.
+- **문제:** `_upload_to_ip`는 `requests.post(..., timeout=25+5s/MB)` 단일 블로킹 호출이며 cancel 파라미터·취소 체크·재시도 루프가 없다. `Timeout`·예외는 `False`+`last_errors` 기록 후 반환하고 호출당 POST 1회로 끝난다. `upload_to_targets`는 `ThreadPoolExecutor`+`as_completed` 블로킹 대기이며 취소 전달이 없다. 파이프라인 취소 검사는 사이트·배치 경계에서만 수행되므로 진행 중 POST는 timeout까지 대기한다.
+- **발생 조건:** 일시적 Wi-Fi 흔들림·기기 절전·대용량 EPUB(수십 MB) 전송 중 사용자가 취소를 누른 경우.
+- **영향:** 일시 오류가 곧바로 부분 실패가 되어 다음 실행까지 미뤄진다. 취소 체감이 나쁘다(대용량 1건이면 수십 초~수 분 대기). 데이터 파괴는 아니다. 성공 IP만 `mark_synced_many`하므로 중복 기록은 없다.
+- **근거:** `uploader.py:113-140` 직접 열람(단일 POST·재시도 없음), `uploader.py:204-226` 직접 열람(병렬 제출 후 결과 수집만), `sync_pipeline.py:134-140` 직접 열람(배치 경계 취소). 본 세션 실행 `test_uploader.py` 24 passed 중 재시도 계약이 없음을 확인.
+- **반증 확인:** 부분 성공만 이력 기록·`only_ips` 부분 재시도·`mark` 전 `is_synced` 재확인은 확인했다. 그러나 이들은 실패 후 복구가 아니라 다음 실행으로 미루는 구조라 단일 시도 문제를 해소하지 못한다. 스레드·프로세스 락·`shutdown_pipeline` 협력 취소는 전송 스레드 자체를 강제 중단하지 못한다.
+- **호출/영향 범위:** CodeGraph 기준 `upload_to_targets` 10 caller(전체·선택 파이프라인·Calibre 탭·Watch), `run_sync_pipeline` 37 caller. 영향 모듈: 전체·선택·합본 파이프라인, Calibre 직접 전송, Watch 업로드.
+- **권장 수정 방향:** 일시 오류(Timeout·ConnectionError·5xx)에 한해 1~2회 제한 재시도 + 지수 백오프를 `uploader` 내부에 추가한다. 취소는 `threading.Event`를 `upload_to_targets`까지 전파하되 진행 중 POST 강제 종료는 하지 않고 다음 IP·다음 배치에서 중단하는 협력 취소를 문서화한다. 타임아웃 상한도 함께 명시한다.
+- **필요한 회귀 테스트:** 일시적 `ConnectionError` 1회 주입 후 동일 파일 전송 → 2번째 시도에서 성공하고 이력 1건. 대용량 흉내(작은 timeout 주입) 전송 중 취소 → 다음 배치 경계에서 `cancelled`로 끝나고 진행 중 스레드는 timeout 내 정리.
 
-### [ISSUE-002] macOS 스케줄 해제 실패를 성공으로 처리하고 plist를 삭제함
+### [ISSUE-002] `local_import` 폴백 저장의 무조건 덮어쓰기
 
-- **위치:** `websync/scheduler/manager.py:336–345` `unregister_task`; `websync/gui/sync_tab/schedule.py:35` `_unregister_schedule`.
+- **위치:** `websync/backup/local_import.py:168-173`, 대비 `websync/config/manager.py:404-429`
 - **우선순위:** Medium
-- **신뢰도:** Confirmed (실패 무시·성공 반환·삭제 호출을 mock 재현; 실제 launchd 잔존 실행은 미재현)
-- **문제:** darwin 분기는 unload의 returncode를 확인하지 않는다. 비정상 종료해도 plist를 삭제하고 True를 반환하며 `_fail`을 호출하지 않는다.
-- **발생 조건:** unload가 프로세스 생성 예외 대신 nonzero로 실패한다. 이미 로드된 job을 내리지 못하는 권한·launchd 상태/도메인 문제 등이 해당한다.
-- **영향:** GUI는 성공 안내 후 schedule.enabled=False를 저장한다. 실제 job이 남았다면 자동 전송이 계속될 수 있다. plist 삭제 후 파일 존재 기반 상태 조회도 미등록으로 보일 수 있다. job 잔존 여부는 실패 원인에 따라 다르다.
-- **근거:** R2에서 exit 5·stderr 오류에도 True, last_error 빈 문자열, plist 삭제 호출을 확인했다. GUI는 True만으로 성공 분기에 진입한다.
-- **반증 확인:** `_fail`·GUI 오류 표시는 존재하고 Windows/Linux 해제는 종료 코드를 확인한다. macOS 해제는 이를 우회한다. except는 예외만 처리하므로 반환된 실패 코드를 막지 못한다. 이미 미등록인 상태와 실제 unload 실패를 구분하는 후속 조회도 없다.
-- **호출/영향 범위:** CodeGraph 확인: GUI `_unregister_schedule` → `SchedulerManager.unregister_task` → launchctl unload → plist 삭제 → GUI 설정 저장·get_task_status.
-- **권장 수정 방향:** 결과를 판정하고 실패는 `_fail`로 전달한다. 실패 시 plist·enabled 상태를 보존한다. 이미 job이 없는 상태를 멱등 성공으로 취급하려면 명시적인 조회로 구분한다. 상태 표시에 로드된 job 확인도 검토한다.
-- **필요한 회귀 테스트:** 활성 job의 unload exit 5는 False·오류 내용·plist 보존·성공 안내 미발생을 기대한다. exit 0과 이미 미등록인 경우도 별도 검증한다.
+- **신뢰도:** Confirmed(코드 사실), 발동 조건은 Likely
+- **문제:** 사이드카 병합 저장은 1차로 `config_manager.update_config(_apply)`(RMW·CAS)를 시도하지만, 예외 시 폴백으로 `config["sites"]=merged; save_config(config)`(revision 검사 없음)를 호출한다. `_apply` 내부에서 디스크 최신과 재병합하므로 1차 경로는 안전하나, 폴백 경로는 병합 전 스냅샷을 그대로 덮어쓴다.
+- **발생 조건:** 폴백이 발동하는 예외(`update_config` 중 충돌·IO 오류)와 동시에 다른 writer(GUI 편집·백업 pull·다른 프로세스)가 설정을 바꾼 경우.
+- **영향:** 동시 변경분이 옛 스냅샷으로 회귀한다(사이트 추가·토큰·기기 ID 유실 가능). `.bak`은 남으므로 완전 손실은 아니나 자동 복구는 아니다.
+- **근거:** `local_import.py:152-173` 직접 열람(폴백에 `expected_revision` 없음), `manager.py:404-429` 직접 열람(정상 경로는 CAS·RMW). `test_backup_atomic_io.py` 통과는 원자 replace만 보장하고 CAS 우회는 다루지 않는다.
+- **반증 확인:** 정상 경로 RMW·`read_json_safe`·tombstone LWW·pull 실패 시 push 스킵은 확인했다. 그러나 폴백 분기는 그 보호를 우회하므로 반증되지 않는다. 도달 가능성은 낮으나(예외+동시 쓰기 결합) GUI·백업·Watch가 모두 writer인 구조에서 현실적이다. dead code가 아니다.
+- **호출/영향 범위:** 시작 시 자동 이어받기·수동 가져오기 → `ConfigManager` → `config.json`. 영향: 사이트 목록·삭제 tombstone·기기·토큰.
+- **권장 수정 방향:** 폴백을 삭제하거나, 폴백에서도 디스크 revision을 다시 읽어 `_apply`를 재실행한 뒤 `save_config(expected_revision=disk_rev)`로 저장한다. 실패하면 저장하지 말고 `sites_changed=False`+경고로 반환한다.
+- **필요한 회귀 테스트:** `update_config` 1회 실패 주입 + 병행 writer가 revision을 올린 상태 → 폴백 후에도 병행 writer 변경이 보존되고 병합분만 추가됨. 폴백 2회 연속 실패 → 파일 미변경·에러 반환.
 
-### [ISSUE-003] Linux 예약 경로의 `%`가 cron 구문으로 해석됨
+### [ISSUE-003] 공유 JSON 고정 `.tmp` 충돌
 
-- **위치:** `websync/scheduler/manager.py:212–223` `_build_cron_line`; `_register_linux:273`.
+- **위치:** `websync/backup/atomic_io.py:15-33`, 대비 `websync/config/manager.py:446-449`(pid·thread·uuid tmp)
 - **우선순위:** Medium
-- **신뢰도:** Confirmed (생성 문자열과 cron 규칙으로 확인; 실제 Linux 데몬 E2E 미실행)
-- **문제:** 경로에 shlex.quote만 적용한다. cron은 shell 실행 전에 보호되지 않은 `%`에서 명령을 나누고 뒤를 표준입력으로 처리하므로 shell 인용만으로는 보호되지 않는다. [Cronie 원본 매뉴얼](https://github.com/cronie-crond/cronie/blob/master/man/crontab.5)
-- **발생 조건:** 프로젝트·스크립트·Python 경로에 `%`가 포함된다. 예: `/home/reader/100%news/x3_websync.py`.
-- **영향:** 등록은 성공해도 예약 시 잘린 명령이 실행되어 sync에 도달하지 못한다. 정상 경로 이동으로 우회 가능하며 일반 경로에는 영향이 없다.
-- **근거:** R3은 `30 7 * * * cd /home/reader/100%news && /usr/bin/python3 /home/reader/100%news/x3_websync.py --sync >> /home/reader/100%news/logs/cron.log 2>&1`을 생성했다. 세 경로 모두 `%`가 보호되지 않는다.
-- **반증 확인:** 시간 검증·shell quoting·기존 crontab 보존·읽기 실패 시 쓰기 중단은 존재한다. cron 전처리는 보호하지 않는다. 상위 GUI도 해당 경로를 거부하지 않고 등록 함수는 문자열을 그대로 설치한다. 기존 테스트는 공백 인용·마커 보존을 검사하지만 cron 해석을 검증하지 않는다.
-- **호출/영향 범위:** CodeGraph 확인: GUI `_register_schedule` → register_daily_task → _register_linux → _build_cron_line → crontab 설치 → 예약 실행 실패. Linux 예약에 한정된다.
-- **권장 수정 방향:** shell 인용과 cron 명령 필드 escaping을 별도로 적용하거나 안전한 고정 경로 launcher를 사용한다. Python·프로젝트·로그 경로를 모두 처리하고 줄바꿈 포함 경로도 거부/처리한다.
-- **필요한 회귀 테스트:** `%`·공백·여러 `%` 조합에서 cron 전처리 후 원래 argv가 유지되는지 검사한다. 격리된 Linux 환경에서 동일 명령 해석을 검증한다.
+- **신뢰도:** Confirmed(코드 사실), 발동 확률은 Likely-low
+- **문제:** `write_json_atomic`의 tmp 경로가 `{path}.tmp` 고정이라 같은 공유 파일을 두 프로세스가 동시에 쓰면 tmp를 밟는다. `os.replace` 자체는 원자적이나 tmp 경합 시 한쪽 내용이 잘리거나 섞일 수 있다.
+- **발생 조건:** 두 PC·두 프로세스가 같은 클라우드 사본에 거의 동시에 push하거나, 폴더 락이 없거나 우회된 경로로 쓸 때.
+- **영향:** 공유 `sites.json`·`synced_posts.json` 일시 손상 가능. `read_json_checked`가 손상본을 `JsonReadError`로 거부하고 원본 보존 루틴이 있어 영구 손실 가능성은 낮으나 push 실패·재시도 부담이 생긴다.
+- **근거:** `atomic_io.py:19` 직접 열람(고정 tmp), `manager.py:446-449` 직접 열람(uuid tmp과 대조). 폴더 락(비차단·busy 스킵)은 1차 방어이나 전역 분산 락이 아님을 AGENTS가 명시한다.
+- **반증 확인:** 폴더 락·검증-선행-쓰기·손상본 거부·원자 replace는 확인했다. 그러나 락 획득 실패 시 스킵이 아니라 락 없이 쓰는 호출자가 있으면 보호가 안 된다. `ConfigManager`가 이미 쓰는 uuid tmp 패턴이 있어 수정 비용이 낮다.
+- **호출/영향 범위:** `BackupSyncService.push`·replica 게시·공유 JSON 쓰기 전반. 영향: 다중 PC 공유 폴더.
+- **권장 수정 방향:** `write_json_atomic`의 tmp를 `{path}.{pid}.{thread}.{uuid}.tmp`로 교체하고, 성공·실패 시 자기 tmp만 정리한다. 기존 고정 tmp 잔재는 시작 시 무시한다.
+- **필요한 회귀 테스트:** 동일 경로에 2 스레드 동시 `write_json_atomic` 200회 → 최종본이 두 입력 중 하나와 정확히 일치하고 tmp 잔재 없음. 중간 판독은 완전한 구버전 또는 완전한 신버전 중 하나.
+
+### [ISSUE-004] NaverCafe 본문 중첩 `<body>`로 잘못된 XHTML
+
+- **위치:** `websync/scrapers/naver_cafe.py:159-173, 198-200`, `websync/epub/builder.py:127-150, 238-266`, `websync/epub/sanitize.py:29-58`
+- **우선순위:** Medium
+- **신뢰도:** Confirmed
+- **문제:** API 경로에서 `container = soup.body or soup` 뒤 `str(container)`를 반환하므로 `<body>...</body>` 래퍼가 그대로 기사 HTML이 된다. 모바일 폴백도 `div` 컨테이너라 정상이나 API 경로가 우선이다. `sanitize_body_html`은 `<body>`를 제거·해체하지 않고, 빌더는 챕터 `<body>` 안에 그대로 삽입하므로 중첩 `<body>`의 잘못된 XHTML이 된다.
+- **발생 조건:** 카페 API(`contentHtml`)가 있는 공개 글을 수집하고 해당 글이 EPUB에 들어갈 때. 항상 발동하는 구조적 문제다.
+- **영향:** EPUB 검사기·일부 e-ink 리더에서 챕터 검증 실패·본문 누락·스타일 깨짐 가능. 수집 자체는 성공하므로 사용자는 나중에야 발견한다.
+- **근거:** `naver_cafe.py:159-173` 직접 열람(API 우선·`str(container)` 반환), `builder.py:127-150` 직접 열람(살균된 본문을 챕터 `<body>`에 삽입), `sanitize.py:29-58` 직접 열람(`body` 처리 없음). 요약 HTML 무정화 의혹은 반증됐다(생산자가 `Summarizer._format_summary`에서 escape하므로 현 producers 한정 안전, §5 참조).
+- **반증 확인:** 이미지 제거·짧은 본문 스킵·폴백 컨테이너·`sanitize`의 script/on*·`javascript:` 차단은 확인했다. 그러나 `<body>` 래퍼는 어느 단계에서도 정규화되지 않는다. 프레임워크(ebooklib·BeautifulSoup)가 자동 교정한다는 보장도 없다.
+- **호출/영향 범위:** `NaverCafeScraper.fetch_articles` → 파이프라인 기사 배치 → `EpubBuilder.build`·`build_digest` → 전 기기 전송본. 영향: 카페 소스 사용자 전체.
+- **권장 수정 방향:** 스크래퍼 반환 직전에 `container`가 `<body>`이면 자식 노드만 반환(unwrap)하거나, `sanitize_body_html`에 `<body>`·`<html>` 해체 규칙을 추가한다. 두 곳 중 한 곳에만 둔다.
+- **필요한 회귀 테스트:** `<body><p>hi</p></body>` 입력 스크래퍼 후처리 → 출력에 `<body` 없음·`<p>hi</p>` 보존. 빌드된 챕터 XHTML을 XML 파서로 파싱 → 중첩 body 0건·`lxml.etree` 오류 0건.
+
+### [ISSUE-005] 요약 단계 취소 미배선 (번역만 배선)
+
+- **위치:** `websync/pipeline/sync_pipeline.py:65-69`(번역에만 `cancel_requested` 배선), `websync/pipeline/summarizer.py:59-105`(OpenAI·Ollama HTTP 20~30s 블로킹), `websync/pipeline/translator.py:15-34`(30초 예산·취소 체크)
+- **우선순위:** Medium
+- **신뢰도:** Confirmed
+- **문제:** 파이프라인이 `translator.cancel_requested`만 설정하고 `Summarizer`에는 취소 콜백·데드라인을 전달하지 않는다. 요약 HTTP 중 취소는 다음 기사 경계까지 반영되지 않는다.
+- **발생 조건:** AI 요약 enabled + OpenAI/Ollama가 느리거나 멈춘 상태에서 사용자가 취소·종료를 누른 경우.
+- **영향:** 취소·종료 drain이 요약 timeout(20~30s)×기사 수만큼 지연된다. 업로드·이력은 아직 없으므로 데이터 오염은 없으나 체감이 나쁘다.
+- **근거:** `sync_pipeline.py:65-69` 직접 열람(번역 배선만 존재), `summarizer.py:44-57` 직접 열람(fail-open이나 취소 없음), `translator.py:30-34` 직접 열람(취소·예산 있음)과 대조.
+- **반증 확인:** 요약 실패 시 `""` 반환 후 계속되는 fail-open, 기사 경계 취소, 종료 drain 루프는 확인했다. 그러나 진행 중 요약 HTTP 자체를 깨우지는 못하므로 반증되지 않는다. dead code가 아니다.
+- **호출/영향 범위:** 전체·선택 파이프라인의 기사 루프 → `Summarizer.summarize` → OpenAI/Ollama HTTP. 영향: AI 요약 사용자.
+- **권장 수정 방향:** `Summarizer`에도 `cancel_requested`·기사당 데드라인을 전달하고, HTTP 호출 전후·재시도 사이에 체크한다. 진행 중 소켓 강제 종료는 하지 않는다.
+- **필요한 회귀 테스트:** 요약 HTTP를 25초 지연시킨 mock + 시작 1초 후 취소 → 2초 이내에 기사 루프가 `cancelled`로 탈출하고 후속 업로드·이력 0건.
+
+### [ISSUE-006] 응답 유실 시 재전송 (receipt 없음, 설계상 한계)
+
+- **위치:** `websync/upload/uploader.py:117-119`(HTTP 200만 성공), `websync/db/history.py:252-302` 성공분만 기록, `websync/pipeline/sync_pipeline.py` 성공 IP만 mark
+- **우선순위:** Medium
+- **신뢰도:** Likely(코드 근거 강함, 실기기 재현 없음)
+- **문제:** 기기가 파일을 저장한 뒤 응답이 유실되면(타임아웃·연결 끊김·프로세스 종료) 클라이언트는 실패로 기록하고 이력도 남기지 않는다. 다음 실행은 같은 기사를 신규로 보고 다시 보낸다. 기사 집합 hash 파일명이라 배치 구성이 같으면 같은 이름, 다르면 다른 이름의 중복본이 기기에 남을 수 있다.
+- **발생 조건:** 저장 후 응답 전 네트워크 단절·기기 재시작·클라이언트 종료가 겹친 좁은 창.
+- **영향:** 중복 전송(가용성·용량)이며 기존 파일 파괴가 아니다. 빈도는 낮으나 무선 환경에서 0은 아니다.
+- **근거:** `uploader.py:117-119` 직접 열람(200 이외 전부 실패), CodeGraph 확인 `mark_synced_many` 성공 경로 전용 호출. `README`의 응답 유실 한계 서술과 일치하는 방향이다.
+- **반증 확인:** 부분 성공 재시도(`only_ips`), 성공분만 기록, 파일명 hash, `check_batch_filenames` 배치 내 중복 거부는 확인했다. 그러나 기기 측 영속과 클라이언트 기록을 묶는 receipt·멱등 커밋이 없으므로 응답 유실 창은 남는다. 프레임워크가 보장하지 않는다.
+- **호출/영향 범위:** 전 파이프라인 업로드 → 기기 `/upload` → DB 이력. 영향: 무선 전송 전체.
+- **권장 수정 방향:** 단기에는 사용자 문서에 "응답 유실 시 1회 중복 가능"을 유지하고, 중기에는 기기 지원 전제로 idempotent receipt(기기 측 파일 ID·바이트 확인 후 mark) 설계 트랙을 별도 승인받아 진행한다. lease만으로 exactly-once를 주장하지 않는다.
+- **필요한 회귀 테스트:** 저장 후 소켓 절단 주입(mock 서버가 저장하고 응답을 끊음) → 재실행 시 중복본 0건·이력 1건(설계 후). 현 계약에서는 중복 1회를 허용하고 2회 이상을 실패로 판정.
 
 ## 5. Potential Functional Gaps
 
-| 구분 | 보완점 | 현재 한계 |
-|---|---|---|
-| Confirmed Gap | 원격 receipt·재조정 | 기기 저장 후 응답 유실/로컬 기록 전 종료는 재전송을 유발할 수 있다. Watch도 이를 명시한다. exactly-once는 현재 계약이 아니므로 새 버그로 계산하지 않는다 |
-| Confirmed Gap | 현재 CI의 macOS 런타임 | test.yml은 Linux 전체/Python 3.15와 Windows 일부/Python 3.10이다. 실제 macOS 예약을 확인하지 않는다 |
-| Likely Gap | 전체 deadline·취소 지연 상한 | 개별 HTTP timeout·retry·크기 제한은 있지만 전체 경과시간 상한은 별도다. 번역은 텍스트 조각마다 요청하고 종료 drain은 완료를 기다린다. 느린 네트워크 종료 지연 가능성이 있으나 무한 hang은 재현하지 않았다 |
-| 추정 | 장기 보존·자원 기준 | Watch `_finished`, 출력 EPUB·replica/tombstone에 장기 부하 기준이 있으면 좋다. 실제 자원 고갈 증거는 없다 |
-
-이미 구현된 이미지 내장·YouTube 신구 API 호환·EPUB-only·선택 전송·부분 성공 이력·replica·취소·업데이트 rollback을 미구현으로 분류하지 않았다. 경량 EXE의 optional 제외도 문서화된 정책이다.
+- **[Likely Gap] 파이프라인 전체 데드라인 없음.** 기사·이미지·번역·요약·업로드 개별 timeout은 있으나 전체 경과 상한이 없다. 무한 hang 재현은 없으나 장시간 작업에서 종료 예측이 어렵다.
+- **[Confirmed Gap] `get_history` 다기기 표시 임의성.** `websync/db/history.py:343-361`이 `GROUP BY url`에 bare `site_name`·`title`을 선택하므로 다기기 행 중 임의 행이 표시된다. 이력 조회 탭 표시 전용이며 재전송 판단에는 쓰이지 않는다.
+- **[Confirmed Gap] 대시보드 쿼리스트링 404 비대칭.** `websync/servers/dashboard/handler.py:89-125`가 `self.path` 정확 일치라 `/api/log?x=1`·`/api/status?x=1`은 404다. OPDS는 쿼리를 분리한다. 기능 파손이 아니라 클라이언트 호환성 gap이다.
+- **[Confirmed Gap] 정적 분석 게이트 무력화.** `pyrightconfig.json`이 모든 `report*`를 `none`·`basic`으로 끈다. "basedpyright 0 errors" 통과 주장은 vacuous하다. 타입 보장이 아니라 테스트·리뷰 의존 상태다.
+- **[Likely Gap] macOS 실런타임·네이티브 CI 미확인.** launchd 등록·해제·plist 보존 로직은 코드로 확인(§3)했으나 실 macOS 데몬 E2E·네이티브 CI 결과는 본 세션에서 확인하지 못했다.
+- **[추정] 장기 보존 정책 없음.** `scripts/storage_report.py`·`watch get_stats`는 관측 수단만 있고 임계치·자동 정리 정책은 없다. 의도적 보존 정책일 수 있어 버그로 단정하지 않는다.
+- **[추정] 요약 HTML 이중 `<blockquote>` 미관.** 합본 경로(`builder.py:241-246`)가 이미 `<blockquote>`인 요약에 한 번 더 감싸는 구조다. 현 producers는 escape되므로 XSS가 아니라 미관·파서 관대성 영역이다.
+- **반증되어 제외한 것:** `summary_html` 미정화(XSS) 의혹 — 현 생산자(`Summarizer._format_summary`, `summarizer.py:40-42`)가 escape하므로 live 결함이 아니다. 방어적 정화로만 권고한다. `device_client` finally 미바인딩 의혹 — 2차 try 구조상 항상 바인딩되어 성립하지 않는다. shell(`shell=True` 0건)·SQL(플레이스홀더 전용)·주요 경로 traversal(basename+realpath+normcase+테스트)은 코드·테스트 대조로 반증됐다.
 
 ## 6. Documentation Mismatches
 
-1. CLAUDE/AGENTS의 2026-11-02 후속 요약은 예약 등록·해제 실패가 `_fail` → last_error → GUI로 전달된다고 설명한다. macOS 해제의 nonzero 종료는 이 경로를 거치지 않는다(ISSUE-002).
-2. 같은 요약의 다운로드 사전 충돌 확인·기본 새 이름 저장은 구현되어 있다. 계획 후 생성된 파일까지 보호하는 보장은 아니므로 절대적인 무덮어쓰기 보장으로 확대해서는 안 된다(ISSUE-001).
-3. README의 “Zero Duplicate Delivery”는 개요 표현이며 후반 Reliability 절은 단일 PC 자동 전송·cross-PC 락 한계를 명시한다. 전체 문맥상 새 문서 오류로 계산하지 않았지만 요약에도 조건을 붙이면 좋다.
+중대 불일치는 확인하지 못했다. 아래는 경미한 사항이다.
 
-그 밖에 확인한 핵심 기능·경량 빌드 설명의 새로운 중대한 불일치는 찾지 못했다. 역사적 로드맵은 완료 안내가 있으므로 현재 미구현 주장으로 읽지 않았다.
+- `websync/__init__.py:3`은 `1.4.1`이나 `README.md:71` 다운로드 예시는 구버전 파일명을 예시로 든다. 다운로드 링크가 `/releases/latest`라 실질 영향은 없다.
+- `CLAUDE.md`·`AGENTS.md`는 제목·정본 안내 2줄을 제외하고 본문이 일치한다.
+- `USER_GUIDE.md` 다운로드 충돌 서술(거부 시 보존·실패)은 `publish_local_download` 기본 정책과 일치한다.
+- `docs/AUDIT_IMPLEMENTATION.md`의 "basedpyright 0 errors" 서술과 `pyrightconfig.json`(전면 `none`)의 조합은 게이트 유효성 측면에서 오해를 부른다. 타입 검사가 통과했다는 서술 자체는 거짓이 아닐 수 있으나, 검사 강도가 사실상 꺼져 있어 보증으로 읽기 어렵다. 문서·게이트 중 하나를 고쳐야 한다.
+- `README`·`CLAUDE`·`AGENTS` 전문 대조는 하지 않았으므로 "불일치 없음"을 전수로 주장하지 않는다.
 
 ## 7. Recommended Fix Plan
 
-### Phase 1 — Immediate
+### Phase 1 — Immediate (데이터·주요 실패, 코드 변경 필요)
 
-- **ISSUE-001:** 최종 파일 게시에 overwrite 정책을 반영하고 경쟁 파일 보존 테스트를 먼저 추가한다. 제한적이나 데이터 유실 가능성이 있으므로 우선한다.
-- 추가 Critical/High 이슈는 없다. 실사용자 데이터로 재현할 필요도 없다.
-
-### Phase 2 — Stability
-
-- **ISSUE-002:** unload 결과·실제 상태를 판정하고 실패 시 plist/config를 유지한다.
-- **ISSUE-003:** cron 전용 escaping·제어문자 정책과 최종 해석 결과 검증을 추가한다.
-- macOS CI·optional 계약 범위를 명확히 하고 느린 응답·취소·종료 시간 기준을 마련한다.
-
-### Phase 3 — Structural
-
-- 다운로드 경로 선정·게시를 명시적인 저장 정책으로 묶어 호출자가 미승인 overwrite를 빠뜨리지 못하게 한다.
-- OS 예약 작업 결과와 설정 저장 결과를 구분하는 상태 계약을 둔다.
-- 원격 receipt는 기기 지원·재시도 정책을 정한 별도 설계로 진행한다. 클라우드 로컬 락으로 전역 exactly-once를 약속하지 않는다.
+1. ISSUE-001: 일시 오류 제한 재시도(1~2회·백오프) + 취소 이벤트 전파(다음 IP·다음 배치 중단). 진행 중 POST 강제 종료는 하지 않는다.
+2. ISSUE-002: `local_import` 폴백을 CAS 준수로 교체(재독·재병합 후 `expected_revision` 저장, 실패 시 미저장·경고).
+3. ISSUE-004: NaverCafe `<body>` 정규화(스크래퍼 또는 `sanitize` 중 한 곳).
 
 실제 코드는 수정하지 않았다.
 
+### Phase 2 — Stability (예외·검증·재시도·상태·호환성)
+
+4. ISSUE-005: 요약 취소·데드라인 배선(번역과 대칭).
+5. ISSUE-003: 공유 쓰기 uuid tmp 교체.
+6. `get_history` 표시 확정성(`MAX(synced_at)` 행의 `site_name`·`title`을 서브쿼리로 고정) 또는 표시 전용임을 주석화.
+7. 대시보드 쿼리 분리(OPDS와 대칭) 또는 쿼리 포함 경로를 404가 아니라 정상 처리.
+8. `pyrightconfig.json` 규칙 상향 또는 "타입 게이트는 형식적"임을 문서에 명시.
+9. macOS 토스트 이스케이프를 백슬래시까지 처리(영향은 self-exec Low이나 수정 비용이 낮음).
+
+### Phase 3 — Structural (구조·테스트 가능성·책임 분리)
+
+10. ISSUE-006: 기기 지원 전제로 idempotent receipt 설계(별도 승인 필요). lease만으로 exactly-once를 주장하지 않는다.
+11. 파이프라인 전체 데드라인·진행 상태 계약(개별 timeout과 별개 상한, 취소 지연 SLO 문서화).
+12. 보존 정책 결정(임계치·자동 정리 vs 관측만 유지).
+13. 문서 문자열 고정 테스트(`test_documentation_encoding.py`)의 과민 고정 완화(핵심 문구만 pin).
+
 ## 8. Test Recommendations
 
-| 종류 | 입력·장애 조건 | 기대 결과 |
-|---|---|---|
-| Unit / Regression: ISSUE-001 | overwrite=False 계획 뒤·스트림 중 파일 생성 | 경쟁 바이트 보존; 새 이름 또는 충돌 오류. 승인 모드만 교체 |
-| Concurrency: ISSUE-001 | barrier로 최종 게시 직전 외부 프로세스가 같은 경로 생성 | no-overwrite 계약 유지·부분 파일 정리 |
-| Unit / GUI: ISSUE-002 | unload exit 5·stderr, 활성 job 가정 | False·last_error·plist 보존; 성공 안내·enabled=False 저장 없음 |
-| Platform-specific: macOS | 임시 label 등록·시간 변경·해제·실패 주입 | launchd 실제 상태·plist·UI 일치; 사용자 job 불변 |
-| Unit / Regression: ISSUE-003 | `%`, 공백, 작은따옴표, 백슬래시 조합 | cron 전처리 후 원래 argv·로그 경로 유지; 줄바꿈 정책 검증 |
-| Platform-specific: Linux | 임시 launcher·fake sync target으로 명령 해석 | fake target 정확히 1회·원래 cwd/argv; 사용자 crontab 미변경 |
-| End-to-End: 전체/선택/합본 | A에 글1, B에 글2 이력; 두 글 수집; B 전송 실패 후 재시도 | 각 기기에 미전송 글만 포함·성공 대상만 기록·미완료만 재시도 |
-| Integration: 공유 폴더 | 잘린/구조 오류 JSON·동시 writer·push 실패 | pull 실패는 전송 전 중단·원본 보존·실패 노출·정상 재시도 합집합 |
-| Concurrency: 종료 | 업로드/DB commit/Watch backoff 중 close | 신규 작업 거부·이력/pending 보존·drain 후 종료·지연 관찰 가능 |
-| Integration: 복구 | 구조 오류 원본·정상 전체 백업·오래된 revision writer | 실패 시 bytes/revision/bak 불변·성공 시 rejected 보존·동시 writer 정책 검증 |
-| End-to-End: HTTP | 잘못된 토큰·과대 body·탈출 경로·동시 sync 요청 | 인증/400/403/409, 외부 파일 미노출, 단일 작업·상태 조회 |
-| Regression: 업데이트 | staged hash/size 불일치·이동 사이 실패·smoke 실패 | 기존 exe 보존/복구·사용자 데이터 불변·다음 시작 실패 결과 표시 |
-| External contract | 기기 저장 뒤 응답 유실·앱 재시작 | 현재 재전송 불확실성 표시; receipt 도입 시 조정 기대값 별도 정의 |
+단순 "테스트 추가"가 아니라 입력 조건과 기대 결과를 명시한다.
 
-기존 테스트와 겹치는 행은 무조건 증설하라는 뜻이 아니다. 이번 세 누락 조건과 실제 플랫폼 경계를 우선 보강한다.
+- **Unit — 업로드 재시도:** `requests.post`가 `ConnectionError` 1회 후 200을 반환하도록 주입하고 `upload_to_targets` 호출 → 결과 `{ip: True}`, POST 2회, `last_errors` 비어 있음.
+- **Unit — NaverCafe body:** `contentHtml="<body><p>hi</p></body>"` mock API → 스크래퍼 출력에 `<body` 없음·`<p>hi</p>` 있음. 빌드 챕터를 `lxml.etree`로 파싱 → 오류 0건.
+- **Unit — 요약 escape 유지:** `Summarizer._format_summary('<script>x</script>\nA&B')` → 출력에 `<script` 없음·`&lt;script` 있음·`<br/>` 있음.
+- **Unit — get_history 확정성:** 동일 URL에 기기 A·B 다른 제목으로 기록 후 `get_history` 반복 호출 → 동일 행 반환(또는 최신 행 반환으로 명세 고정).
+- **Integration — 설정 경합:** `update_config` 1회 실패 주입 + 병행 writer revision 상승 상태에서 `local_import` 실행 → 병행 변경 보존·병합분 추가·revision 단조 증가.
+- **Integration — 공유 쓰기 경합:** 2 스레드 동시 `write_json_atomic` 200회 → 최종본이 입력 중 하나와 완전 일치·tmp 잔재 0건.
+- **Integration — E2E 소스→기기:** A글 1·B글 2 이력 사전 기록, B 전송 1회 실패 주입 후 재시도 → 2차 실행은 미전송분만 포함·성공분만 기록·부분 실패 상태 `False`.
+- **Concurrency — 취소:** 요약 25초 지연 mock + 1초 후 취소 → 2초 내 `cancelled`·업로드·이력 0건. 대용량 업로드 timeout 축소 mock + 전송 중 취소 → 다음 배치 경계에서 종료·진행 스레드 정리.
+- **Concurrency — 종료 drain:** 파이프라인 실행 중 `_on_close` → 신규 작업 거부·진행분 commit·pending 보존·backup flush 후 종료.
+- **Regression — 공유 손상:** 손상 JSON·0바이트·미완성 파일 입력 → `JsonReadError`·원본 보존·전송 중단. push 실패 → 전송 전 중단·원본 보존.
+- **Regression — 응답 유실:** 저장 후 응답 절단 mock → 현 계약에서는 중복 1회 허용·2회 이상 실패, 설계 후에는 중복 0건·이력 1건.
+- **Platform-specific — Windows:** 261자 초과 경로 등록 거부·`last_error` 표시, OEM 출력 디코딩 깨짐 없음. **macOS:** unload 실패+job 잔존 → `False`·plist 보존. **Linux:** `%`·공백·작은따옴표·백슬래시 포함 경로의 shlex 왕복 + 가짜 sync 1회 실행.
+- **Security — 서버:** 토큰 없음·과대 body·탈출 경로·동시 sync → 401·400·403·409. **업데이터:** hash·크기 불일치·교체 중단·smoke 실패 → 기존 exe 보존·rollback.
 
 ## 9. Final Assessment
 
-| 영역 | 평가 | 근거 |
-|---|---|---|
-| Functional Correctness | Acceptable | 핵심 흐름·전체 테스트 정상. 플랫폼 예약 조건 수정 필요 |
-| Runtime Stability | Acceptable | 공통 락·취소·drain·오류 결과 존재. 느린 외부 호출·실플랫폼 장기 실행 미검증 |
-| Data Integrity | Needs Work | DB·설정 보호는 양호하지만 다운로드의 제한적 파일 유실 재현 |
-| Error Resilience | Acceptable | 사이트/backup/부분 전송·rollback 처리. macOS false success 잔존 |
-| Cross-platform Robustness | Needs Work | Windows 전체 suite 통과. macOS 해제·Linux cron 결함과 실환경 검증 공백 |
-| Test Confidence | Acceptable | 737 통과. 28 skip·실기기/서비스·frozen·실 OS 예약은 별도 검증 필요 |
+- **Functional Correctness: Acceptable.** 핵심 수집·중복 제거·EPUB·전송·부분 실패 처리는 확인했다. 잔여는 예약·실환경 조건부(ISSUE-001/004/005)다.
+- **Runtime Stability: Acceptable.** 공통 락·취소·drain·개별 timeout은 확인했다. 전체 상한·실플랫폼 장시간 검증은 남았다.
+- **Data Integrity: Acceptable.** DB PK·트랜잭션·설정 원자 저장·다운로드 배타 게시는 확인했다. ISSUE-002/003은 좁은 경합창이며 ISSUE-006은 중복 전송이지 파괴가 아니다.
+- **Error Resilience: Acceptable.** 사이트별 계속·backup pull/push 실패 중단·부분 전송·업데이터 rollback은 확인했다. 재시도 부재(ISSUE-001)가 체감 복원력을 낮춘다.
+- **Cross-platform Robustness: Needs Work.** Windows·Linux 스위트는 본 세션 60 passed로 확인했으나 macOS 실데몬·Linux 실데몬·실기기 검증은 하지 못했다.
+- **Test Confidence: Acceptable.** 본 세션 60 passed + 격리·보안·회귀 테스트 존재를 확인했다. 전체 스위트·frozen·optional 의존성 런타임은 미실행이므로 상한을 두지 않는다.
 
 **실제로 먼저 수정할 문제 3개:**
 
-1. **ISSUE-001:** 다운로드 완료 시 미승인 로컬 파일 교체를 막는다.
-2. **ISSUE-002:** macOS 스케줄 해제 실패를 전파하고 plist·설정을 보존한다.
-3. **ISSUE-003:** Linux cron의 `%` 포함 경로 해석을 바로잡는다.
+1. ISSUE-001 업로드 재시도·취소 전파 — 체감 실패율과 직결된다.
+2. ISSUE-002 `local_import` 폴백 CAS 준수 — 설정 회귀를 막는다.
+3. ISSUE-004 NaverCafe 중첩 `<body>` — EPUB 무결성을 해친다.
+
+## 10. 후속 조치 (2026-11-21 구현 기록)
+
+위 진단은 수정 전 상태를 기록한 것이다. 같은 날 아래를 구현하고 회귀 테스트로 고정했다.
+
+- EPUB 무결성(실기기 "잘못된 책" 원인): `sanitize_body_html`이 HTML 주석을 제거한다(네이버 `SE-TEXT` 주석이 ebooklib 0.21 nav 생성을 터뜨려 `nav.xhtml` 없는 부분 zip이 남던 문제). `EpubBuilder.build`·`build_digest`는 `write_epub` 실패 시 예외를 발생시켜 깨진 책이 전송·기록되지 않는다. 오늘 생성분 중 깨진 네이버 3권의 실제 챕터로 재빌드해 `nav.xhtml` 복구를 확인했다.
+- ISSUE-001: 일시 오류(Timeout·연결 끊김·429·5xx) 제한 재시도 + 취소 전파(대기 전송 스킵·재시도 중단, 진행 중 POST는 강제 종료하지 않음). 파이프라인·선택 전송에 취소 콜백을 배선했다.
+- ISSUE-002: `local_import` 폴백도 디스크 재독·재병합 후 CAS 저장, 실패 시 미저장으로 변경했다.
+- ISSUE-003: 공유 JSON tmp를 호출별 고유 경로로 변경했다.
+- ISSUE-005: 요약기에 번역기와 같은 취소·기사당 예산을 배선했다.
+- ISSUE-006: 응답 유실 계약을 사용자 문서에 명시하고 fake 서버 저장-후-절단 모드로 회귀 테스트를 고정했다.
+- Gaps: 대시보드 쿼리스트링 라우팅, `get_history` 최신행 확정, macOS 토스트 이스케이프, 실패 사이트 안내 대화상자·재시도(`failed_sites` 결과 포함).
+- 검증: 영향 범위 239 passed, pyright 0 errors, ruff clean.
+- 남은 범위: 원격 receipt 설계(별도 승인 필요), 실기기·실스케줄러 E2E, 전체 스위트·frozen 검사는 릴리즈 CI에서 수행한다.
